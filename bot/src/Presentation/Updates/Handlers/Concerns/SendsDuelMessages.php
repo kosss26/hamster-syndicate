@@ -92,22 +92,36 @@ trait SendsDuelMessages
     {
         $round->loadMissing('question.answers');
 
+        $formatter = method_exists($this, 'getMessageFormatter') ? $this->getMessageFormatter() : null;
+
         $initiatorSummary = $this->formatParticipantSummary($duel, $round, true);
         $opponentSummary = $this->formatParticipantSummary($duel, $round, false);
 
         $scoreLine = sprintf(
-            'Счёт раунда: %d — %d',
+            '⚔️ Счёт раунда: <b>%d — %d</b>',
             (int) $round->initiator_score,
             (int) $round->opponent_score
         );
 
-        $lines = array_merge(
-            [sprintf('📝 <b>Итоги раунда %d</b>', (int) $round->round_number)],
-            $initiatorSummary,
-            [''],
-            $opponentSummary,
-            ['', $scoreLine]
-        );
+        $lines = [];
+        
+        if ($formatter) {
+            $lines[] = $formatter->header(sprintf('Итоги раунда %d', (int) $round->round_number), '📝');
+        } else {
+            $lines[] = sprintf('📝 <b>Итоги раунда %d</b>', (int) $round->round_number);
+        }
+        
+        $lines[] = '';
+        $lines = array_merge($lines, $initiatorSummary);
+        $lines[] = '';
+        $lines = array_merge($lines, $opponentSummary);
+        $lines[] = '';
+        $lines[] = $scoreLine;
+        
+        if ($formatter) {
+            $lines[] = '';
+            $lines[] = $formatter->separator();
+        }
 
         $payload = [
             'text' => implode("\n", $lines),
