@@ -9,7 +9,12 @@ cd /var/www/quiz-bot
 
 # 1. Обновляем код
 echo "📥 Обновление кода с GitHub..."
-git pull origin main
+# Сохраняем или отменяем локальные изменения
+git stash || true
+# Удаляем конфликтующие файлы, если они есть
+rm -f FINAL_FIX.sh SETUP_SERVER.sh CREATE_DB.sh 2>/dev/null || true
+# Обновляем код
+git pull origin main || git reset --hard origin/main
 
 cd bot
 
