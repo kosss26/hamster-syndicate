@@ -148,15 +148,30 @@ trait SendsDuelMessages
             );
         }
 
-        $lines = [
-            '🏁 <b>Дуэль завершена!</b>',
-            sprintf('Итог: %d — %d', $initiatorScore, $opponentScore),
-        ];
+        $formatter = method_exists($this, 'getMessageFormatter') ? $this->getMessageFormatter() : null;
+
+        $lines = [];
+        
+        if ($formatter) {
+            $lines[] = $formatter->header('Дуэль завершена!', '🏁');
+        } else {
+            $lines[] = '🏁 <b>Дуэль завершена!</b>';
+        }
+        
+        $lines[] = '';
+        $lines[] = sprintf('⚔️ Итоговый счёт: <b>%d — %d</b>', $initiatorScore, $opponentScore);
+        $lines[] = '';
 
         if ($result->winner_user_id === null) {
-            $lines[] = '🤝 Дуэль закончилась вничью.';
+            $lines[] = '🤝 <b>Ничья!</b> Оба игрока показали отличный результат!';
         } else {
-            $lines[] = sprintf('🏆 Победитель: %s', $winnerName);
+            $lines[] = sprintf('🏆 <b>Победитель: %s</b>', $winnerName);
+            $lines[] = '🎉 Поздравляем с победой!';
+        }
+        
+        if ($formatter) {
+            $lines[] = '';
+            $lines[] = $formatter->separator();
         }
 
         $payload = [
