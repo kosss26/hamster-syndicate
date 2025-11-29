@@ -80,16 +80,38 @@ final class AppBootstrap
                 $config = $c->get(Config::class);
 
                 $capsule = new Capsule();
-                $capsule->addConnection([
-                    'driver' => $config->get('DB_CONNECTION', 'mysql'),
-                    'host' => $config->get('DB_HOST', '127.0.0.1'),
-                    'port' => (int) $config->get('DB_PORT', 3306),
-                    'database' => $config->get('DB_DATABASE', 'quiz_bot'),
-                    'username' => $config->get('DB_USERNAME', 'root'),
-                    'password' => $config->get('DB_PASSWORD', ''),
-                    'charset' => 'utf8mb4',
-                    'collation' => 'utf8mb4_unicode_ci',
-                ]);
+                $driver = $config->get('DB_CONNECTION', 'mysql');
+                
+                if ($driver === 'sqlite') {
+                    $database = $config->get('DB_DATABASE', 'database.sqlite');
+                    // Если путь относительный, делаем его абсолютным относительно basePath
+                    if (substr($database, 0, 1) !== '/') {
+                        $database = $this->basePath . '/storage/database/' . $database;
+                    }
+                    // Создаём директорию, если её нет
+                    $dbDir = dirname($database);
+                    if (!is_dir($dbDir)) {
+                        mkdir($dbDir, 0755, true);
+                    }
+                    
+                    $capsule->addConnection([
+                        'driver' => 'sqlite',
+                        'database' => $database,
+                        'prefix' => '',
+                        'foreign_key_constraints' => true,
+                    ]);
+                } else {
+                    $capsule->addConnection([
+                        'driver' => $driver,
+                        'host' => $config->get('DB_HOST', '127.0.0.1'),
+                        'port' => (int) $config->get('DB_PORT', 3306),
+                        'database' => $config->get('DB_DATABASE', 'quiz_bot'),
+                        'username' => $config->get('DB_USERNAME', 'root'),
+                        'password' => $config->get('DB_PASSWORD', ''),
+                        'charset' => 'utf8mb4',
+                        'collation' => 'utf8mb4_unicode_ci',
+                    ]);
+                }
 
                 $capsule->setAsGlobal();
                 $capsule->bootEloquent();
