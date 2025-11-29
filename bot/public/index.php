@@ -18,8 +18,8 @@ $app->addRoutingMiddleware();
 $app->post('/webhook', function (Request $request, Response $response) use ($bootstrap) {
     $bootstrap->getWebhookHandler()->handle($request);
 
-    return $response->withStatus(200)->withHeader('Content-Type', 'application/json')
-        ->withBody(Slim\Psr7\Stream::create(json_encode(['status' => 'ok'])));
+    $response->getBody()->write(json_encode(['status' => 'ok']));
+    return $response->withStatus(200)->withHeader('Content-Type', 'application/json');
 });
 
 $app->get('/health', function (Request $request, Response $response) {
