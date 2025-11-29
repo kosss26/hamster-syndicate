@@ -721,8 +721,11 @@ final class CallbackQueryHandler
         $keyboard = [];
 
         if ($question instanceof Question) {
-            $lines[] = '';
-            $lines[] = '❓ ' . htmlspecialchars($question->question_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            $lines[] = $this->messageFormatter->box(
+                'Вопрос',
+                htmlspecialchars($question->question_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                '❓'
+            );
 
             $answerButtons = [];
             $row = [];
