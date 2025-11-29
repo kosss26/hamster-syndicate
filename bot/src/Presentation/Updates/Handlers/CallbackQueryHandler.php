@@ -1,0 +1,1170 @@
+<?php
+
+declare(strict_types=1);
+
+namespace QuizBot\Presentation\Updates\Handlers;
+
+use GuzzleHttp\ClientInterface;
+use Monolog\Logger;
+use Symfony\Contracts\Cache\CacheInterface;
+use QuizBot\Application\Services\UserService;
+use QuizBot\Application\Services\DuelService;
+use QuizBot\Application\Services\GameSessionService;
+use QuizBot\Application\Services\StoryService;
+use QuizBot\Domain\Model\User;
+use QuizBot\Domain\Model\Question;
+use QuizBot\Domain\Model\GameSession;
+use QuizBot\Domain\Model\StoryStep;
+use QuizBot\Domain\Model\StoryChapter;
+use QuizBot\Domain\Model\StoryProgress;
+use QuizBot\Domain\Model\Duel;
+use QuizBot\Domain\Model\DuelRound;
+use QuizBot\Presentation\Updates\Handlers\Concerns\SendsDuelMessages;
+
+final class CallbackQueryHandler
+{
+    use SendsDuelMessages;
+
+    private ClientInterface $telegramClient;
+
+    private Logger $logger;
+
+    private CacheInterface $cache;
+
+    private UserService $userService;
+
+    private DuelService $duelService;
+
+    private GameSessionService $gameSessionService;
+
+    private StoryService $storyService;
+
+    private string $basePath;
+
+    public function __construct(
+        ClientInterface $telegramClient,
+        Logger $logger,
+        CacheInterface $cache,
+        UserService $userService,
+        DuelService $duelService,
+        GameSessionService $gameSessionService,
+        StoryService $storyService
+    ) {
+        $this->telegramClient = $telegramClient;
+        $this->logger = $logger;
+        $this->cache = $cache;
+        $this->userService = $userService;
+        $this->duelService = $duelService;
+        $this->gameSessionService = $gameSessionService;
+        $this->storyService = $storyService;
+        $this->basePath = dirname(__DIR__, 4);
+    }
+
+    private function handleMatchmakingSearch($chatId, ?User $user): void
+    {
+        if ($user === null) {
+            $this->sendText($chatId, 'Не удалось определить профиль. Нажми /start, чтобы искать соперников.');
+
+            return;
+        }
+
+        try {
+            $existingTicket = $this->duelService->findUserMatchmakingTicket($user);
+        } catch (\Throwable $exception) {
+            $this->logger->error('Ошибка поиска существующего тикета матчмейкинга', [
+                'error' => $exception->getMessage(),
+                'user_id' => $user->getKey(),
+            ]);
+            $existingTicket = null;
+        }
+
+        if ($existingTicket !== null) {
+            $this->sendText($chatId, '🎲 Поиск соперника уже идёт. Подождём до 30 секунд.');
+
+            return;
+        }
+
+        try {
+            $opponentTicket = $this->duelService->findAvailableMatchmakingTicket($user);
+        } catch (\Throwable $exception) {
+            $this->logger->error('Ошибка выбора тикета соперника', [
+                'error' => $exception->getMessage(),
+                'user_id' => $user->getKey(),
+            ]);
+            $opponentTicket = null;
+        }
+
+        if ($opponentTicket instanceof Duel) {
+            try {
+                $duel = $this->duelService->acceptDuel($opponentTicket, $user);
+                $duel = $this->duelService->startDuel($duel);
+
+                $this->broadcastDuelText($duel, '⚔️ Случайный соперник найден! Раунд начинается.');
+
+                if ($currentRound = $this->duelService->getCurrentRound($duel)) {
+                    $this->sendDuelQuestion($duel, $currentRound);
+                }
+            } catch (\Throwable $exception) {
+                $this->logger->error('Не удалось запустить дуэль матчмейкинга', [
+                    'error' => $exception->getMessage(),
+                    'user_id' => $user->getKey(),
+                    'duel_id' => $opponentTicket->getKey(),
+                ]);
+
+                $this->sendText($chatId, '⚠️ Не удалось стартовать дуэль. Попробуй поиск ещё раз чуть позже.');
+            }
+
+            return;
+        }
+
+        try {
+            $ticket = $this->duelService->createMatchmakingTicket($user);
+        } catch (\Throwable $exception) {
+            $this->logger->error('Ошибка создания матчмейкинга', [
+                'error' => $exception->getMessage(),
+                'user_id' => $user->getKey(),
+            ]);
+            $this->sendText($chatId, '⚠️ Не удалось запустить поиск. Попробуй позже.');
+
+            return;
+        }
+
+        $messageId = $this->sendMatchmakingMessage($chatId, 30);
+
+        if ($messageId === null) {
+            $this->logger->warning('Не удалось получить message_id для матчмейкинга', [
+                'chat_id' => $chatId,
+            ]);
+        }
+
+        $this->scheduleMatchmakingTimeout($ticket, 30, (int) $chatId, $messageId);
+    }
+
+    private function sendMatchmakingMessage($chatId, int $seconds): ?int
+    {
+        $text = sprintf("🎲 Ищу случайного соперника...\n⏱ Осталось: %d с", $seconds);
+
+        try {
+            $response = $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => $text,
+                    'parse_mode' => 'HTML',
+                ],
+            ]);
+
+            $body = (string) $response->getBody();
+            $payload = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
+
+            return $payload['result']['message_id'] ?? null;
+        } catch (\Throwable $exception) {
+            $this->logger->error('Не удалось отправить сообщение матчмейкинга', [
+                'error' => $exception->getMessage(),
+                'chat_id' => $chatId,
+            ]);
+        }
+
+        return null;
+    }
+
+    private function scheduleMatchmakingTimeout(Duel $duel, int $seconds, int $chatId, ?int $messageId): void
+    {
+        $script = $this->basePath . '/bin/matchmaking_timeout.php';
+
+        if (!is_file($script)) {
+            $this->logger->warning('Скрипт контроля матчмейкинга не найден', [
+                'path' => $script,
+            ]);
+
+            return;
+        }
+
+        $command = sprintf(
+            '%s %s %d %d %d %d > /dev/null 2>&1 &',
+            escapeshellarg(PHP_BINARY),
+            escapeshellarg($script),
+            $duel->getKey(),
+            $seconds,
+            $chatId,
+            $messageId ?? 0
+        );
+
+        $descriptorSpec = [
+            0 => ['file', '/dev/null', 'r'],
+            1 => ['file', '/dev/null', 'w'],
+            2 => ['file', '/dev/null', 'w'],
+        ];
+
+        $process = @proc_open($command, $descriptorSpec, $pipes);
+
+        if (is_resource($process)) {
+            proc_close($process);
+        } else {
+            // fallback to exec
+            @exec($command);
+        }
+    }
+
+    protected function getTelegramClient(): ClientInterface
+    {
+        return $this->telegramClient;
+    }
+
+    protected function getLogger(): Logger
+    {
+        return $this->logger;
+    }
+
+    protected function getDuelService(): DuelService
+    {
+        return $this->duelService;
+    }
+
+    /**
+     * @param array<string, mixed> $callback
+     */
+    public function handle(array $callback): void
+    {
+        $callbackId = $callback['id'] ?? null;
+        $data = $callback['data'] ?? null;
+        $message = $callback['message'] ?? null;
+
+        if ($callbackId === null || $data === null || $message === null) {
+            $this->logger->warning('Некорректный callback_query', $callback);
+
+            return;
+        }
+
+        $this->telegramClient->request('POST', 'answerCallbackQuery', [
+            'json' => [
+                'callback_query_id' => $callbackId,
+            ],
+        ]);
+
+        $chatId = $message['chat']['id'] ?? null;
+
+        if ($chatId === null) {
+            $this->logger->warning('Callback без chat_id', $callback);
+
+            return;
+        }
+
+        $from = $callback['from'] ?? null;
+        $user = $this->resolveUser($from);
+
+        if ($this->startsWith($data, 'story-locked:')) {
+            $chapterCode = substr($data, strlen('story-locked:'));
+            $this->sendText($chatId, sprintf('🔒 Глава <b>%s</b> будет доступна после завершения предыдущей.', htmlspecialchars($chapterCode, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')));
+
+            return;
+        }
+
+        if ($this->startsWith($data, 'story:')) {
+            $chapterCode = substr($data, strlen('story:'));
+            $this->handleStoryOpen($chatId, $chapterCode, $user);
+
+            return;
+        }
+
+        if ($this->startsWith($data, 'story-continue:')) {
+            $this->handleStoryContinue($chatId, $data, $user);
+
+            return;
+        }
+
+        if ($this->startsWith($data, 'story-answer:')) {
+            $this->handleStoryAnswer($chatId, $data, $user);
+
+            return;
+        }
+
+        if ($this->startsWith($data, 'duel-accept:')) {
+            $duelId = (int) substr($data, strlen('duel-accept:'));
+            $this->handleDuelAccept($chatId, $duelId, $user);
+
+            return;
+        }
+
+        if ($this->startsWith($data, 'duel-reject:')) {
+            $duelId = (int) substr($data, strlen('duel-reject:'));
+            $this->handleDuelReject($chatId, $duelId, $user);
+
+            return;
+        }
+
+        if ($this->startsWith($data, 'duel-answer:')) {
+            $this->handleDuelAnswer($chatId, $data, $user);
+
+            return;
+        }
+
+        if ($this->startsWith($data, 'duel:')) {
+            $duelAction = substr($data, strlen('duel:'));
+
+            $this->handleDuelAction($chatId, $duelAction, $user);
+
+            return;
+        }
+
+        if ($this->startsWith($data, 'play:')) {
+            $categoryCode = substr($data, strlen('play:'));
+            $this->startCategoryRound($chatId, $categoryCode, $user);
+
+            return;
+        }
+
+        if ($this->startsWith($data, 'answer:')) {
+            $payload = explode(':', $data);
+
+            if (count($payload) === 3) {
+                $sessionId = (int) $payload[1];
+                $answerId = (int) $payload[2];
+                $this->handleAnswerAction($chatId, $sessionId, $answerId, $user);
+            } else {
+                $this->sendText($chatId, 'Не удалось обработать ответ. Попробуйте снова.');
+            }
+        }
+    }
+
+    private function handleDuelAccept($chatId, int $duelId, ?User $user): void
+    {
+        if ($user === null) {
+            $this->sendText($chatId, 'Не удалось определить профиль. Нажми /start, чтобы участвовать в дуэлях.');
+
+            return;
+        }
+
+        $duel = $this->duelService->findById($duelId);
+
+        if (!$duel instanceof Duel) {
+            $this->sendText($chatId, '⚠️ Дуэль не найдена или уже завершена.');
+
+            return;
+        }
+
+        if ($duel->initiator_user_id === $user->getKey()) {
+            $this->sendText($chatId, '👀 Это твоё приглашение. Отправь ник соперника, чтобы он принял дуэль.');
+
+            return;
+        }
+
+        if ($duel->status !== 'waiting') {
+            $this->sendText($chatId, '⚠️ Дуэль уже началась или завершена.');
+
+            return;
+        }
+
+        $settings = $duel->settings ?? [];
+        $expectedId = isset($settings['target_user_id']) ? (int) $settings['target_user_id'] : null;
+        $expectedUsername = isset($settings['target_username']) ? strtolower((string) $settings['target_username']) : null;
+
+        if ($expectedId !== null && $expectedId !== $user->getKey()) {
+            $this->sendText($chatId, 'Это приглашение предназначено для другого игрока.');
+
+            return;
+        }
+
+        if ($expectedId === null && $expectedUsername !== null) {
+            $actualUsername = $user->username !== null ? strtolower($user->username) : null;
+
+            if ($actualUsername === null || $actualUsername !== $expectedUsername) {
+                $this->sendText($chatId, sprintf(
+                    'Это приглашение предназначено для @%s.',
+                    htmlspecialchars((string) $settings['target_username'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
+                ));
+
+                return;
+            }
+        }
+
+        try {
+            $duel = $this->duelService->acceptDuel($duel, $user);
+            $duel = $this->duelService->startDuel($duel);
+            $duel->loadMissing('initiator', 'opponent');
+        } catch (\Throwable $exception) {
+            $this->logger->error('Ошибка принятия дуэли', [
+                'error' => $exception->getMessage(),
+                'duel_id' => $duelId,
+                'user_id' => $user->getKey(),
+            ]);
+            $this->sendText($chatId, '⚠️ Не получилось присоединиться. Попробуй позже.');
+
+            return;
+        }
+
+        $this->sendText($chatId, '⚔️ Дуэль принята! Готовься к вопросам.', true);
+
+        $this->broadcastDuelText($duel, sprintf(
+            '⚔️ Дуэль <b>%s</b> началась! Отвечайте на вопросы максимально быстро.',
+            htmlspecialchars($duel->code, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
+        ));
+
+        if ($currentRound = $this->duelService->getCurrentRound($duel)) {
+            $this->sendDuelQuestion($duel, $currentRound);
+        }
+    }
+
+    private function handleDuelReject($chatId, int $duelId, ?User $user): void
+    {
+        if ($user === null) {
+            $this->sendText($chatId, 'Не удалось определить профиль. Нажми /start, чтобы участвовать в дуэлях.');
+
+            return;
+        }
+
+        $duel = $this->duelService->findById($duelId);
+
+        if (!$duel instanceof Duel) {
+            $this->sendText($chatId, 'Дуэль не найдена. Возможно, она уже завершена.');
+
+            return;
+        }
+
+        if ($duel->status !== 'waiting') {
+            $this->sendText($chatId, '⚠️ Дуэль уже в процессе. Отказаться поздно.');
+
+            return;
+        }
+
+        $settings = $duel->settings ?? [];
+        $expectedId = isset($settings['target_user_id']) ? (int) $settings['target_user_id'] : null;
+        $expectedUsername = isset($settings['target_username']) ? strtolower((string) $settings['target_username']) : null;
+
+        if ($expectedId !== null && $expectedId !== $user->getKey()) {
+            $this->sendText($chatId, 'Отказаться может только приглашённый игрок.');
+
+            return;
+        }
+
+        if ($expectedId === null && $expectedUsername !== null) {
+            $actualUsername = $user->username !== null ? strtolower($user->username) : null;
+
+            if ($actualUsername === null || $actualUsername !== $expectedUsername) {
+                $this->sendText($chatId, sprintf(
+                    'Отказаться может только @%s.',
+                    htmlspecialchars((string) $settings['target_username'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
+                ));
+
+                return;
+            }
+        }
+
+        $duel = $this->duelService->cancelWaitingDuel($duel, $user);
+
+        $this->sendText($chatId, '❌ Ты отказался от дуэли.', true);
+
+        $this->broadcastDuelText($duel, sprintf(
+            '❌ Дуэль отменена. %s отказался от участия.',
+            $this->formatUserName($user)
+        ));
+    }
+
+    private function handleStoryOpen($chatId, string $chapterCode, ?User $user): void
+    {
+        if ($user === null) {
+            $this->sendText($chatId, 'Не удалось определить профиль. Нажми /start, чтобы продолжить сюжет.');
+
+            return;
+        }
+
+        try {
+            $state = $this->storyService->openChapter($user, $chapterCode);
+        } catch (\DomainException $exception) {
+            $this->sendText($chatId, '🔒 Эта глава ещё закрыта. Заверши предыдущую, чтобы продолжить.');
+
+            return;
+        } catch (\Throwable $exception) {
+            $this->logger->error('Ошибка при открытии сюжетной главы', [
+                'error' => $exception->getMessage(),
+                'chapter_code' => $chapterCode,
+                'user_id' => $user->getKey(),
+            ]);
+            $this->sendText($chatId, '⚠️ Глава временно недоступна. Попробуй позже.');
+
+            return;
+        }
+
+        $this->presentStoryState($chatId, $state);
+    }
+
+    private function handleStoryContinue($chatId, string $data, ?User $user): void
+    {
+        if ($user === null) {
+            $this->sendText($chatId, 'Не удалось определить профиль. Нажми /start, чтобы продолжить сюжет.');
+
+            return;
+        }
+
+        $parts = explode(':', $data);
+
+        if (count($parts) !== 3) {
+            $this->sendText($chatId, 'Не удалось продолжить главу. Попробуй ещё раз через /story.');
+
+            return;
+        }
+
+        [$prefix, $chapterCode, $stepCode] = $parts;
+
+        try {
+            $state = $this->storyService->continueStep($user, $chapterCode, $stepCode);
+        } catch (\Throwable $exception) {
+            $this->logger->error('Ошибка продолжения сюжетного шага', [
+                'error' => $exception->getMessage(),
+                'chapter_code' => $chapterCode,
+                'step_code' => $stepCode,
+                'user_id' => $user->getKey(),
+            ]);
+            $this->sendText($chatId, '⚠️ Не удалось продолжить главу. Попробуй ещё раз через /story.');
+
+            return;
+        }
+
+        $this->presentStoryState($chatId, $state);
+    }
+
+    private function handleStoryAnswer($chatId, string $data, ?User $user): void
+    {
+        if ($user === null) {
+            $this->sendText($chatId, 'Не удалось определить профиль. Нажми /start, чтобы продолжить сюжет.');
+
+            return;
+        }
+
+        $parts = explode(':', $data);
+
+        if (count($parts) !== 4) {
+            $this->sendText($chatId, 'Не удалось обработать ответ. Попробуй ещё раз через /story.');
+
+            return;
+        }
+
+        [, $chapterCode, $stepCode, $answerIdRaw] = $parts;
+        $answerId = (int) $answerIdRaw;
+
+        try {
+            $state = $this->storyService->submitAnswer($user, $chapterCode, $stepCode, $answerId);
+        } catch (\Throwable $exception) {
+            $this->logger->error('Ошибка ответа на сюжетный вопрос', [
+                'error' => $exception->getMessage(),
+                'chapter_code' => $chapterCode,
+                'step_code' => $stepCode,
+                'answer_id' => $answerId,
+                'user_id' => $user->getKey(),
+            ]);
+            $this->sendText($chatId, '⚠️ Не удалось обработать ответ. Попробуй ещё раз через /story.');
+
+            return;
+        }
+
+        if (isset($state['answer_feedback'])) {
+            $this->sendStoryAnswerFeedback($chatId, $state['answer_feedback']);
+            unset($state['answer_feedback']);
+        }
+
+        $this->presentStoryState($chatId, $state);
+    }
+
+    private function handleDuelAnswer($chatId, string $data, ?User $user): void
+    {
+        if ($user === null) {
+            $this->sendText($chatId, 'Не удалось определить профиль. Попробуйте /start.');
+
+            return;
+        }
+
+        if (!preg_match('/^duel-answer:(\d+):(\d+):(\d+)$/', $data, $matches)) {
+            $this->sendText($chatId, 'Не удалось обработать ответ дуэли. Попробуйте снова.');
+
+            return;
+        }
+
+        [, $duelIdRaw, $roundIdRaw, $answerIdRaw] = $matches;
+        $duelId = (int) $duelIdRaw;
+        $roundId = (int) $roundIdRaw;
+        $answerId = (int) $answerIdRaw;
+
+        $duel = $this->duelService->findById($duelId);
+
+        if (!$duel instanceof Duel) {
+            $this->sendText($chatId, 'Дуэль не найдена. Возможно, она уже завершена.');
+
+            return;
+        }
+
+        if ($duel->initiator_user_id !== $user->getKey() && $duel->opponent_user_id !== $user->getKey()) {
+            $this->sendText($chatId, 'Ты не участвуешь в этой дуэли.');
+
+            return;
+        }
+
+        $round = $duel->rounds()->where('id', $roundId)->first();
+
+        if (!$round instanceof DuelRound) {
+            $this->sendText($chatId, 'Раунд не найден. Попробуй снова.');
+
+            return;
+        }
+
+        try {
+            $round = $this->duelService->submitAnswer($round, $user, $answerId);
+        } catch (\Throwable $exception) {
+            $this->logger->error('Ошибка обработки ответа дуэли', [
+                'error' => $exception->getMessage(),
+                'duel_id' => $duelId,
+                'round_id' => $roundId,
+                'answer_id' => $answerId,
+                'user_id' => $user->getKey(),
+            ]);
+            $this->sendText($chatId, '⚠️ Не удалось засчитать ответ. Попробуй ещё раз.');
+
+            return;
+        }
+
+        $payload = $duel->initiator_user_id === $user->getKey() ? ($round->initiator_payload ?? []) : ($round->opponent_payload ?? []);
+
+        $ack = 'Ответ засчитан.';
+
+        if (($payload['reason'] ?? null) === 'timeout') {
+            $ack = '⏰ Время истекло. Ответ не засчитан.';
+        } elseif (($payload['is_correct'] ?? false) === true) {
+            $ack = '✅ Верно! +1 очко.';
+        } else {
+            $ack = '❌ Неверно. 0 очков.';
+        }
+
+        $this->sendText($chatId, $ack, true);
+
+        $duel = $duel->refresh(['rounds.question.answers', 'initiator', 'opponent', 'result']);
+        $round = $duel->rounds->firstWhere('id', $roundId);
+
+        if ($round instanceof DuelRound && $round->closed_at !== null) {
+            $this->sendDuelRoundResult($duel, $round);
+
+            if ($duel->status === 'finished' && $duel->result !== null) {
+                $this->sendDuelFinalResult($duel, $duel->result);
+
+                return;
+            }
+
+            $nextRound = $this->duelService->getCurrentRound($duel);
+
+            if ($nextRound instanceof DuelRound) {
+                $this->sendDuelQuestion($duel, $nextRound);
+            }
+        }
+    }
+
+    private function presentStoryState($chatId, array $state): void
+    {
+        /** @var StoryChapter $chapter */
+        $chapter = $state['chapter'];
+        /** @var StoryProgress $progress */
+        $progress = $state['progress'];
+
+        if ($state['completed'] === true || $state['step'] === null) {
+            $lines = [
+                '🏁 <b>Глава завершена!</b>',
+                htmlspecialchars($chapter->title, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                '',
+                sprintf('🏆 Очки главы: %d', (int) $progress->score),
+                sprintf('❌ Ошибок: %d', (int) $progress->mistakes),
+                '',
+                'Следующая глава разблокирована — открой /story, чтобы продолжить!',
+            ];
+
+            $this->sendText($chatId, implode("\n", $lines));
+
+            return;
+        }
+
+        /** @var StoryStep $step */
+        $step = $state['step'];
+        /** @var Question|null $question */
+        $question = $state['question'];
+
+        $lines = [
+            sprintf('📖 <b>%s</b>', htmlspecialchars($chapter->title, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')),
+        ];
+
+        if (!empty($chapter->description)) {
+            $lines[] = htmlspecialchars($chapter->description, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        }
+
+        if (!empty($step->narrative_text)) {
+            $lines[] = '';
+            $lines[] = htmlspecialchars($step->narrative_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        }
+
+        $keyboard = [];
+
+        if ($question instanceof Question) {
+            $lines[] = '';
+            $lines[] = '❓ ' . htmlspecialchars($question->question_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
+            $answerButtons = [];
+            $row = [];
+
+            foreach ($question->answers as $index => $answer) {
+                $row[] = [
+                    'text' => htmlspecialchars($answer->answer_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                    'callback_data' => sprintf('story-answer:%s:%s:%d', $chapter->code, $step->code, $answer->getKey()),
+                ];
+
+                if (count($row) === 2 || $index === count($question->answers) - 1) {
+                    $answerButtons[] = $row;
+                    $row = [];
+                }
+            }
+
+            $keyboard = $answerButtons;
+        } else {
+            $nextCode = $state['continue_code'] ?? null;
+
+            if ($nextCode !== null) {
+                $keyboard[] = [
+                    [
+                        'text' => '➡️ Продолжить',
+                        'callback_data' => sprintf('story-continue:%s:%s', $chapter->code, $step->code),
+                    ],
+                ];
+            }
+        }
+
+        $payload = [
+            'chat_id' => $chatId,
+            'text' => implode("\n", $lines),
+            'parse_mode' => 'HTML',
+        ];
+
+        if (!empty($keyboard)) {
+            $payload['reply_markup'] = [
+                'inline_keyboard' => $keyboard,
+            ];
+        }
+
+        $this->telegramClient->request('POST', 'sendMessage', [
+            'json' => $payload,
+        ]);
+    }
+
+    private function sendStoryAnswerFeedback($chatId, array $feedback): void
+    {
+        /** @var Question $question */
+        $question = $feedback['question'];
+        $isCorrect = (bool) $feedback['is_correct'];
+
+        $lines = [];
+
+        if ($isCorrect) {
+            $lines[] = '✅ <b>Верно!</b>';
+        } else {
+            $lines[] = '❌ <b>Неверно.</b>';
+        }
+
+        $lines[] = htmlspecialchars($question->question_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
+        if (!$isCorrect) {
+            $correctAnswers = $feedback['correct_answers'] ?? [];
+
+            if (!empty($correctAnswers)) {
+                $lines[] = '';
+                $lines[] = 'Правильный ответ:';
+
+                foreach ($correctAnswers as $answer) {
+                    $lines[] = '• ' . htmlspecialchars($answer->answer_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+                }
+            }
+        }
+
+        $this->sendText($chatId, implode("\n", $lines));
+    }
+
+    /**
+     * @param int|string $chatId
+     */
+    private function startCategoryRound($chatId, string $categoryCode, ?User $user): void
+    {
+        if (in_array($categoryCode, ['science', 'tech', 'myth'], true)) {
+            $categoryCode = 'science_tech';
+        }
+
+        if ($user === null) {
+            $this->sendText($chatId, 'Не удалось определить пользователя. Попробуйте команду /play.');
+
+            return;
+        }
+
+        try {
+            $result = $this->gameSessionService->startCategoryRound($user, $categoryCode);
+            $this->sendQuestion($chatId, $result['session'], $result['question']);
+        } catch (\Throwable $exception) {
+            $this->logger->error('Ошибка запуска раунда', [
+                'error' => $exception->getMessage(),
+                'category' => $categoryCode,
+                'user_id' => $user->getKey(),
+            ]);
+
+            $this->sendText($chatId, '⚠️ Не удалось начать раунд. Попробуйте другую категорию или позже.');
+        }
+    }
+
+    /**
+     * @param int|string $chatId
+     */
+    /**
+     * @param int|string $chatId
+     */
+    private function handleDuelAction($chatId, string $action, ?User $user): void
+    {
+        if ($user === null) {
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => 'Не удалось обработать действие дуэли. Попробуйте /duel.',
+                ],
+            ]);
+
+            return;
+        }
+
+        $currentDuel = $this->duelService->findActiveDuelForUser($user);
+
+        if ($action === 'invite') {
+            if ($currentDuel !== null && $currentDuel->status !== 'waiting') {
+                $this->sendText($chatId, '⚠️ Дуэль уже в процессе. Заверши текущую или дождись результата.');
+
+                return;
+            }
+
+            if ($currentDuel === null) {
+                $currentDuel = $this->duelService->createDuel($user);
+            }
+
+            $currentDuel = $this->duelService->markAwaitingTarget($currentDuel);
+
+            $textLines = [
+                '👥 Приглашение почти готово!',
+                'Отправь мне ник соперника в формате <b>@username</b> — я отправлю ему запрос на дуэль.',
+            ];
+
+            $this->sendText($chatId, implode("\n", $textLines));
+
+            return;
+        }
+
+        if ($action === 'matchmaking') {
+            $this->handleMatchmakingSearch($chatId, $user);
+
+            return;
+        }
+
+        if ($action === 'history') {
+            $this->sendDuelHistory($chatId, $user);
+
+            return;
+        }
+
+        $this->sendText($chatId, '⚔️ Неизвестное действие. Попробуйте /duel для синхронизации.');
+    }
+
+    private function sendDuelHistory($chatId, User $user): void
+    {
+        try {
+            $duels = $this->duelService->getRecentDuels($user, 5);
+        } catch (\Throwable $exception) {
+            $this->logger->error('Не удалось получить историю дуэлей', [
+                'error' => $exception->getMessage(),
+                'user_id' => $user->getKey(),
+            ]);
+
+            $this->sendText($chatId, '⚠️ История дуэлей временно недоступна. Попробуйте позже.');
+
+            return;
+        }
+
+        if ($duels->isEmpty()) {
+            $this->sendText($chatId, "📜 Ещё нет сыгранных дуэлей.\nНажми «👥 Пригласить друга» или «🎲 Случайный соперник», чтобы начать.");
+
+            return;
+        }
+
+        $lines = [
+            '📜 <b>Последние дуэли</b>',
+            sprintf('Показаны %d матча(ей).', $duels->count()),
+            '',
+        ];
+
+        foreach ($duels as $index => $duel) {
+            $lines[] = sprintf('%d) %s', $index + 1, $this->formatDuelHistoryEntry($duel, $user));
+        }
+
+        $lines[] = '';
+        $lines[] = 'Создай новую дуэль через «👥 Пригласить друга» или найди противника случайным поиском.';
+
+        $this->sendText($chatId, implode("\n", $lines));
+    }
+
+    private function formatDuelHistoryEntry(Duel $duel, User $user): string
+    {
+        $timestamp = $duel->finished_at ?? $duel->updated_at ?? $duel->created_at;
+        $whenText = $timestamp instanceof \DateTimeInterface ? $timestamp->format('d.m H:i') : '—';
+
+        $opponent = $duel->initiator_user_id === $user->getKey() ? $duel->opponent : $duel->initiator;
+        $opponentName = $this->formatUserName($opponent);
+        $status = $this->formatDuelHistoryStatus($duel, $user);
+
+        return sprintf(
+            '%s • против %s • %s',
+            htmlspecialchars($whenText, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+            $opponentName,
+            $status
+        );
+    }
+
+    private function formatDuelHistoryStatus(Duel $duel, User $user): string
+    {
+        if ($duel->status === 'finished' && $duel->result !== null) {
+            $result = $duel->result;
+            $isInitiator = $duel->initiator_user_id === $user->getKey();
+            $userScore = $isInitiator ? (int) $result->initiator_total_score : (int) $result->opponent_total_score;
+            $opponentScore = $isInitiator ? (int) $result->opponent_total_score : (int) $result->initiator_total_score;
+            $scoreText = sprintf('%d:%d', $userScore, $opponentScore);
+
+            if ($result->winner_user_id === null) {
+                return sprintf('🤝 Ничья (%s)', $scoreText);
+            }
+
+            if ($result->winner_user_id === $user->getKey()) {
+                return sprintf('🏆 Победа (%s)', $scoreText);
+            }
+
+            return sprintf('💔 Поражение (%s)', $scoreText);
+        }
+
+        switch ($duel->status) {
+            case 'waiting':
+                return '⏳ Ждёт соперника';
+            case 'matched':
+                return '⏳ Соперник найден, стартуем';
+            case 'in_progress':
+                return '⚔️ Дуэль в процессе';
+            case 'cancelled':
+                return '❌ Дуэль отменена';
+            default:
+                return sprintf(
+                    'Статус: %s',
+                    htmlspecialchars((string) $duel->status, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
+                );
+        }
+    }
+
+    private function startsWith(string $haystack, string $needle): bool
+    {
+        return $needle === '' || strncmp($haystack, $needle, strlen($needle)) === 0;
+    }
+
+    private function resolveUser($from): ?User
+    {
+        if (!is_array($from)) {
+            return null;
+        }
+
+        try {
+            return $this->userService->syncFromTelegram($from);
+        } catch (\Throwable $exception) {
+            $this->logger->error('Не удалось синхронизировать пользователя по callback', [
+                'error' => $exception->getMessage(),
+                'from' => $from,
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * @param int|string $chatId
+     */
+    private function sendText($chatId, string $text, bool $disablePreview = false): void
+    {
+        $payload = [
+            'chat_id' => $chatId,
+            'text' => $text,
+            'parse_mode' => 'HTML',
+        ];
+
+        if ($disablePreview) {
+            $payload['disable_web_page_preview'] = true;
+        }
+
+        $this->telegramClient->request('POST', 'sendMessage', [
+            'json' => $payload,
+        ]);
+    }
+
+    private function sendQuestion($chatId, GameSession $session, Question $question): void
+    {
+        $answers = $question->answers;
+
+        $categoryTitle = 'Категория';
+
+        if ($question->relationLoaded('category') && $question->category !== null) {
+            $categoryTitle = $question->category->title;
+        } elseif (method_exists($question, 'category')) {
+            $category = $question->category()->first();
+            if ($category !== null) {
+                $categoryTitle = $category->title;
+            }
+        }
+
+        $textLines = [
+            sprintf("🎯 <b>%s</b>\n", htmlspecialchars((string) $categoryTitle, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')),
+            htmlspecialchars((string) $question->question_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+        ];
+
+        if (!empty($question->explanation)) {
+            $textLines[] = '';
+            $textLines[] = '<i>Подсказка появится после ответа.</i>';
+        }
+
+        $buttons = [];
+        $row = [];
+
+        foreach ($answers as $index => $answer) {
+            $row[] = [
+                'text' => htmlspecialchars((string) ($answer->answer_text), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                'callback_data' => sprintf('answer:%d:%d', $session->getKey(), $answer->getKey()),
+            ];
+
+            if (count($row) === 2 || $index === count($answers) - 1) {
+                $buttons[] = $row;
+                $row = [];
+            }
+        }
+
+        $this->telegramClient->request('POST', 'sendMessage', [
+            'json' => [
+                'chat_id' => $chatId,
+                'text' => implode("\n", $textLines),
+                'parse_mode' => 'HTML',
+                'reply_markup' => [
+                    'inline_keyboard' => $buttons,
+                ],
+            ],
+        ]);
+    }
+
+    private function handleAnswerAction($chatId, int $sessionId, int $answerId, ?User $user): void
+    {
+        if ($user === null) {
+            $this->sendText($chatId, 'Не удалось определить профиль для проверки ответа.');
+
+            return;
+        }
+
+        $session = $this->gameSessionService->findSessionForUser($user, $sessionId);
+
+        if ($session === null) {
+            $this->sendText($chatId, 'Сессия не найдена. Запустите новый раунд /play.');
+
+            return;
+        }
+
+        try {
+            $result = $this->gameSessionService->submitAnswer($session, $answerId);
+        } catch (\Throwable $exception) {
+            $this->logger->error('Ошибка обработки ответа', [
+                'error' => $exception->getMessage(),
+                'session_id' => $sessionId,
+                'user_id' => $user->getKey(),
+            ]);
+
+            $this->sendText($chatId, '⚠️ Ответ не обработан. Попробуйте начать новую игру.');
+
+            return;
+        }
+
+        $session = $result['session'];
+        $isCorrect = $result['is_correct'];
+        $question = $session->currentQuestion;
+        $correctAnswers = $result['correct_answers'];
+        $isLastQuestion = $result['is_last_question'];
+        $rewards = $result['rewards'] ?? null;
+        $payload = $session->payload ?? [];
+        $totalQuestions = (int) ($payload['total'] ?? 1);
+        $answeredCount = count($payload['answers'] ?? []);
+
+        $textLines = [];
+
+        if ($isCorrect) {
+            $textLines[] = '✅ <b>Верно!</b>';
+            $textLines[] = '🟢 +10 очков за ответ.';
+        } else {
+            $textLines[] = '❌ <b>Неверно.</b>';
+            $textLines[] = '🔴 0 очков за этот вопрос.';
+        }
+
+        $textLines[] = '';
+        $textLines[] = htmlspecialchars($question->question_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
+        if (!$isCorrect) {
+            $correctTexts = array_map(
+                fn ($answer) => '• ' . htmlspecialchars($answer->answer_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                $correctAnswers
+            );
+
+            if ($correctTexts) {
+                $textLines[] = '';
+                $textLines[] = 'Правильные ответы:';
+                $textLines = array_merge($textLines, $correctTexts);
+            }
+        }
+
+        if (!empty($question->explanation)) {
+            $textLines[] = '';
+            $textLines[] = '💡 ' . htmlspecialchars($question->explanation, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        }
+
+        $textLines[] = '';
+        $textLines[] = sprintf('📊 Прогресс: %d из %d вопросов.', $answeredCount, $totalQuestions);
+
+        $textLines[] = '';
+        $textLines[] = $isLastQuestion
+            ? 'Раунд завершён! Нажми /play, чтобы начать новый.'
+            : 'Готов? Следующий вопрос уже ждёт!';
+
+        $this->sendText($chatId, implode("\n", $textLines));
+
+        if ($isLastQuestion) {
+            $summaryLines = [
+                '🏁 <b>Итоги раунда</b>',
+                sprintf('🟢 Очки: +%d', $session->score),
+                sprintf('🟢 Правильных ответов: %d', $session->correct_count),
+                sprintf('🔴 Ошибок: %d', $session->incorrect_count),
+                sprintf('🟢 Макс. серия: %d', $session->streak),
+            ];
+
+            if ($rewards !== null) {
+                $summaryLines[] = sprintf('🟢 Опыт: +%d', $rewards['experience']);
+                $summaryLines[] = sprintf('🟢 Монеты: +%d', $rewards['coins']);
+            }
+
+            $summaryLines[] = '';
+            $summaryLines[] = 'Спасибо за игру! Попробуй другую категорию через /play.';
+
+            $this->sendText($chatId, implode("\n", $summaryLines));
+
+            return;
+        }
+
+        $nextQuestion = $this->gameSessionService->advanceSession($session);
+
+        if ($nextQuestion !== null) {
+            $this->sendQuestion($chatId, $session, $nextQuestion);
+
+            return;
+        }
+
+        $this->sendText($chatId, 'Следующий вопрос пока недоступен. Попробуй начать новый раунд /play.');
+    }
+}
+

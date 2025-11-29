@@ -1,0 +1,52 @@
+{
+  "name": "social/quiz-bot",
+  "description": "Telegram-викторина «Путешествие знаний» на PHP.",
+  "type": "project",
+  "require": {
+    "php": "^7.4 || ^8.0",
+    "slim/slim": "^4.13",
+    "slim/psr7": "^1.7",
+    "php-di/php-di": "^6.4",
+    "guzzlehttp/guzzle": "^7.8",
+    "symfony/cache": "^5.4",
+    "monolog/monolog": "^2.9",
+    "illuminate/database": "^8.83",
+    "vlucas/phpdotenv": "^5.6"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^9.6",
+    "friendsofphp/php-cs-fixer": "^3.58"
+  },
+  "autoload": {
+    "psr-4": {
+      "QuizBot\\": "src/",
+      "QuizBot\\Database\\": "database/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "QuizBot\\Tests\\": "tests/"
+    }
+  },
+  "scripts": {
+    "start": [
+      "@php -S localhost:8080 -t public public/index.php"
+    ],
+    "test": [
+      "phpunit --testdox"
+    ],
+    "fix": [
+      "php-cs-fixer fix"
+    ],
+    "migrate": [
+      "php bin/migrate.php"
+    ],
+    "seed": [
+      "php bin/seed.php"
+    ]
+  },
+  "config": {
+    "process-timeout": 0,
+    "sort-packages": true
+  }
+}
