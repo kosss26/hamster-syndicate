@@ -39,6 +39,8 @@ final class CallbackQueryHandler
 
     private StoryService $storyService;
 
+    private \QuizBot\Application\Services\MessageFormatter $messageFormatter;
+
     private string $basePath;
 
     public function __construct(
@@ -48,7 +50,8 @@ final class CallbackQueryHandler
         UserService $userService,
         DuelService $duelService,
         GameSessionService $gameSessionService,
-        StoryService $storyService
+        StoryService $storyService,
+        \QuizBot\Application\Services\MessageFormatter $messageFormatter
     ) {
         $this->telegramClient = $telegramClient;
         $this->logger = $logger;
@@ -57,7 +60,13 @@ final class CallbackQueryHandler
         $this->duelService = $duelService;
         $this->gameSessionService = $gameSessionService;
         $this->storyService = $storyService;
+        $this->messageFormatter = $messageFormatter;
         $this->basePath = dirname(__DIR__, 4);
+    }
+
+    protected function getMessageFormatter(): \QuizBot\Application\Services\MessageFormatter
+    {
+        return $this->messageFormatter;
     }
 
     private function handleMatchmakingSearch($chatId, ?User $user): void
@@ -627,9 +636,12 @@ final class CallbackQueryHandler
         if (($payload['reason'] ?? null) === 'timeout') {
             $ack = '⏰ Время истекло. Ответ не засчитан.';
         } elseif (($payload['is_correct'] ?? false) === true) {
-            $ack = '✅ Верно! +1 очко.';
+            $ack = $this->messageFormatter->correctAnswer('Верно!');
         } else {
-            $ack = '❌ Неверно. 0 очков.';
+            $round->loadMissing('question.answers');
+            $correctAnswer = $round->question?->answers->firstWhere('is_correct', true);
+            $correctText = $correctAnswer ? htmlspecialchars($correctAnswer->answer_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') : 'Правильный ответ';
+            $ack = $this->messageFormatter->incorrectAnswer($correctText);
         }
 
         $this->sendText($chatId, $ack, true);
@@ -682,17 +694,28 @@ final class CallbackQueryHandler
         /** @var Question|null $question */
         $question = $state['question'];
 
+        // Визуализация здоровья
+        $healthBar = $this->messageFormatter->formatHealth((int) $progress->lives_remaining);
+        
         $lines = [
-            sprintf('📖 <b>%s</b>', htmlspecialchars($chapter->title, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')),
+            $this->messageFormatter->header($chapter->title, '📖'),
+            '',
         ];
 
         if (!empty($chapter->description)) {
             $lines[] = htmlspecialchars($chapter->description, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            $lines[] = '';
         }
 
+        // Статистика главы
+        $lines[] = sprintf('💎 Очки: <b>%d</b>', (int) $progress->score);
+        $lines[] = $healthBar;
+        $lines[] = $this->messageFormatter->separator();
+        $lines[] = '';
+
         if (!empty($step->narrative_text)) {
-            $lines[] = '';
             $lines[] = htmlspecialchars($step->narrative_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            $lines[] = '';
         }
 
         $keyboard = [];
@@ -756,25 +779,18 @@ final class CallbackQueryHandler
         $lines = [];
 
         if ($isCorrect) {
-            $lines[] = '✅ <b>Верно!</b>';
+            $lines[] = $this->messageFormatter->correctAnswer('Верно!');
         } else {
-            $lines[] = '❌ <b>Неверно.</b>';
-        }
-
-        $lines[] = htmlspecialchars($question->question_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-
-        if (!$isCorrect) {
             $correctAnswers = $feedback['correct_answers'] ?? [];
-
-            if (!empty($correctAnswers)) {
-                $lines[] = '';
-                $lines[] = 'Правильный ответ:';
-
-                foreach ($correctAnswers as $answer) {
-                    $lines[] = '• ' . htmlspecialchars($answer->answer_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-                }
-            }
+            $correctText = !empty($correctAnswers) 
+                ? htmlspecialchars($correctAnswers[0]->answer_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
+                : 'Правильный ответ';
+            $lines[] = $this->messageFormatter->incorrectAnswer($correctText);
         }
+
+        $lines[] = '';
+        $lines[] = $this->messageFormatter->separator();
+        $lines[] = sprintf('📝 <i>%s</i>', htmlspecialchars($question->question_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
 
         $this->sendText($chatId, implode("\n", $lines));
     }

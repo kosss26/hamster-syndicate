@@ -154,8 +154,14 @@ final class AppBootstrap
                     $c->get(Logger::class)
                 );
             },
+            MessageFormatter::class => function (Container $c) {
+                return new \QuizBot\Application\Services\MessageFormatter();
+            },
             ProfileFormatter::class => function (Container $c) {
-                return new ProfileFormatter($c->get(UserService::class));
+                return new ProfileFormatter(
+                    $c->get(UserService::class),
+                    $c->get(\QuizBot\Application\Services\MessageFormatter::class)
+                );
             },
             SampleDataSeeder::class => function (Container $c) {
                 return new SampleDataSeeder();
@@ -170,7 +176,8 @@ final class AppBootstrap
                     $c->get(DuelService::class),
                     $c->get(GameSessionService::class),
                     $c->get(StoryService::class),
-                    $c->get(ProfileFormatter::class)
+                    $c->get(ProfileFormatter::class),
+                    $c->get(MessageFormatter::class)
                 );
             },
             MigrationRunner::class => function (Container $c) {

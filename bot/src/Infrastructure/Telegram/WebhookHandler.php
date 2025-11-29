@@ -15,6 +15,7 @@ use QuizBot\Application\Services\DuelService;
 use QuizBot\Application\Services\GameSessionService;
 use QuizBot\Application\Services\ProfileFormatter;
 use QuizBot\Application\Services\StoryService;
+use QuizBot\Application\Services\MessageFormatter;
 
 final class WebhookHandler
 {
@@ -36,6 +37,8 @@ final class WebhookHandler
 
     private StoryService $storyService;
 
+    private MessageFormatter $messageFormatter;
+
     public function __construct(
         Config $config,
         Logger $logger,
@@ -45,7 +48,8 @@ final class WebhookHandler
         DuelService $duelService,
         GameSessionService $gameSessionService,
         StoryService $storyService,
-        ProfileFormatter $profileFormatter
+        ProfileFormatter $profileFormatter,
+        MessageFormatter $messageFormatter
     ) {
         $this->config = $config;
         $this->logger = $logger;
@@ -56,6 +60,7 @@ final class WebhookHandler
         $this->gameSessionService = $gameSessionService;
         $this->storyService = $storyService;
         $this->profileFormatter = $profileFormatter;
+        $this->messageFormatter = $messageFormatter;
     }
 
     public function handle(ServerRequestInterface $request): void
@@ -85,7 +90,8 @@ final class WebhookHandler
             $this->duelService,
             $this->gameSessionService,
             $this->storyService,
-            $this->profileFormatter
+            $this->profileFormatter,
+            $this->messageFormatter
         );
 
         $updateRouter->route($payload);

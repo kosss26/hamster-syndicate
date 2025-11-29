@@ -40,13 +40,27 @@ trait SendsDuelMessages
         }
 
         $timeLimit = $round->time_limit ?? 30;
+        $totalRounds = $duel->rounds_to_win * 2 - 1;
+        $currentRound = (int) $round->round_number;
 
-        $lines = [
-            sprintf('⚔️ <b>Раунд %d</b>', (int) $round->round_number),
-            sprintf('Время на ответ: %d сек.', $timeLimit),
-            '',
-            htmlspecialchars($question->question_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
-        ];
+        // Используем MessageFormatter если доступен
+        $formatter = method_exists($this, 'getMessageFormatter') ? $this->getMessageFormatter() : null;
+
+        $lines = [];
+        
+        if ($formatter) {
+            $progressBar = $formatter->formatDuelProgress($currentRound, $totalRounds);
+            $lines[] = $progressBar;
+            $lines[] = '';
+        } else {
+            $lines[] = sprintf('⚔️ <b>Раунд %d/%d</b>', $currentRound, $totalRounds);
+        }
+        
+        $lines[] = sprintf('⏱ Время на ответ: <b>%d сек.</b>', $timeLimit);
+        $lines[] = '━━━━━━━━━━━━━━━━━━';
+        $lines[] = '';
+        $lines[] = sprintf('❓ <b>%s</b>', htmlspecialchars($question->question_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
+        $lines[] = '';
 
         $buttons = [];
         $row = [];
