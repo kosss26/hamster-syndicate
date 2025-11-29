@@ -3,7 +3,7 @@
 
 set -e
 
-SERVER="root@tvixx.ru"
+SERVER="root@91.218.115.167"
 DEPLOY_PATH="/var/www/quiz-bot"
 PROJECT_DIR="/Users/evgeny/Desktop/Social"
 
