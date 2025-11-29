@@ -22,14 +22,14 @@ if ! command -v certbot &> /dev/null; then
 fi
 
 # Устанавливаем сертификат
-certbot --nginx -d app.tvix.ru --non-interactive --agree-tos --email admin@tvix.ru || echo "⚠️ Не удалось установить SSL автоматически"
+certbot --nginx -d app.tvixx.ru --non-interactive --agree-tos --email admin@tvix.ru || echo "⚠️ Не удалось установить SSL автоматически"
 
 # 4. Обновляем webhook после установки SSL
 echo "📡 Обновление webhook..."
 BOT_TOKEN="8416923485:AAHcLsagrmSfopY453D9YfbDZ3ihRJ2zE5w"
 curl -X POST "https://api.telegram.org/bot${BOT_TOKEN}/setWebhook" \
   -H "Content-Type: application/json" \
-  -d '{"url": "https://app.tvix.ru/webhook", "secret_token": "QuizBotSecret123"}'
+  -d '{"url": "https://app.tvixx.ru/webhook", "secret_token": "QuizBotSecret123"}'
 
 # 5. Проверяем статус webhook
 echo "📊 Финальный статус webhook:"

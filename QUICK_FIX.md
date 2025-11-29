@@ -49,7 +49,7 @@ curl http://localhost/webhook
 BOT_TOKEN=$(grep TELEGRAM_BOT_TOKEN /var/www/quiz-bot/bot/config/app.env | cut -d '=' -f2 | tr -d ' ')
 curl -X POST "https://api.telegram.org/bot${BOT_TOKEN}/setWebhook" \
   -H "Content-Type: application/json" \
-  -d '{"url": "https://app.tvix.ru/webhook", "secret_token": "QuizBotSecret123"}'
+  -d '{"url": "https://app.tvixx.ru/webhook", "secret_token": "QuizBotSecret123"}'
 
 # 12. Проверка webhook
 curl "https://api.telegram.org/bot${BOT_TOKEN}/getWebhookInfo"

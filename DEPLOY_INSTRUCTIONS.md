@@ -1,7 +1,7 @@
 # Инструкция по развёртыванию на сервере
 
 ## Сервер: 91.218.115.167
-## Домены: app.tvix.ru, api.tvix.ru
+## Домены: app.tvixx.ru, api.tvix.ru
 
 ### Шаг 1: Подключение к серверу
 
@@ -61,7 +61,7 @@ chmod -R 755 /var/www/quiz-bot
 
 ```bash
 apt install certbot python3-certbot-nginx
-certbot --nginx -d app.tvix.ru
+certbot --nginx -d app.tvixx.ru
 ```
 
 ### Шаг 8: Установка webhook
@@ -70,7 +70,7 @@ certbot --nginx -d app.tvix.ru
 curl -X POST "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook" \
   -H "Content-Type: application/json" \
   -d '{
-    "url": "https://app.tvix.ru/webhook",
+    "url": "https://app.tvixx.ru/webhook",
     "secret_token": "QuizBotSecret123"
   }'
 ```

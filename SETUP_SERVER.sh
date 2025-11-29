@@ -49,7 +49,7 @@ echo "⚙️ Настройка конфигурации..."
 cat > config/app.env << 'EOF'
 APP_ENV=production
 APP_DEBUG=false
-APP_URL=https://app.tvix.ru
+APP_URL=https://app.tvixx.ru
 LOG_CHANNEL=stack
 
 TELEGRAM_BOT_TOKEN=8416923485:AAHcLsagrmSfopY453D9YfbDZ3ihRJ2zE5w
@@ -79,7 +79,7 @@ echo "🌐 Обновление конфигурации Nginx..."
 cat > /etc/nginx/sites-available/quiz-bot << 'NGINX_EOF'
 server {
     listen 80;
-    server_name app.tvix.ru;
+    server_name app.tvixx.ru;
     
     root /var/www/quiz-bot/bot/public;
     index index.php;
@@ -151,7 +151,7 @@ echo "📡 Установка webhook..."
 BOT_TOKEN="8416923485:AAHcLsagrmSfopY453D9YfbDZ3ihRJ2zE5w"
 WEBHOOK_RESULT=$(curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/setWebhook" \
   -H "Content-Type: application/json" \
-  -d '{"url": "https://app.tvix.ru/webhook", "secret_token": "QuizBotSecret123"}')
+  -d '{"url": "https://app.tvixx.ru/webhook", "secret_token": "QuizBotSecret123"}')
 
 if echo "$WEBHOOK_RESULT" | grep -q '"ok":true'; then
     echo "✅ Webhook установлен успешно!"
@@ -167,5 +167,5 @@ curl -s "https://api.telegram.org/bot${BOT_TOKEN}/getWebhookInfo" | head -10
 echo ""
 echo "✅ Настройка завершена!"
 echo "📍 Путь к БД: /var/www/quiz-bot/bot/storage/database/database.sqlite"
-echo "🌐 URL: https://app.tvix.ru/webhook"
+echo "🌐 URL: https://app.tvixx.ru/webhook"
 

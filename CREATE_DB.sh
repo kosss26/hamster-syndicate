@@ -27,7 +27,7 @@ echo "⚙️ Настройка конфигурации..."
 cat > config/app.env << 'EOF'
 APP_ENV=production
 APP_DEBUG=false
-APP_URL=https://app.tvix.ru
+APP_URL=https://app.tvixx.ru
 LOG_CHANNEL=stack
 
 TELEGRAM_BOT_TOKEN=8416923485:AAHcLsagrmSfopY453D9YfbDZ3ihRJ2zE5w

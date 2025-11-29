@@ -76,7 +76,7 @@ echo "⚙️ Настройка конфигурации..."
 cat > config/app.env << 'EOF'
 APP_ENV=production
 APP_DEBUG=false
-APP_URL=https://app.tvix.ru
+APP_URL=https://app.tvixx.ru
 LOG_CHANNEL=stack
 
 TELEGRAM_BOT_TOKEN=8416923485:AAHcLsagrmSfopY453D9YfbDZ3ihRJ2zE5w
@@ -106,7 +106,7 @@ echo "🌐 Настройка Nginx..."
 cat > /etc/nginx/sites-available/quiz-bot << 'NGINX_EOF'
 server {
     listen 80;
-    server_name app.tvix.ru;
+    server_name app.tvixx.ru;
     
     root /var/www/quiz-bot/bot/public;
     index index.php;
@@ -192,8 +192,8 @@ fi
 echo ""
 echo "✅ Установка завершена!"
 echo "📍 Путь к БД: /var/www/quiz-bot/bot/storage/database/database.sqlite"
-echo "🌐 URL: http://app.tvix.ru/webhook"
+echo "🌐 URL: http://app.tvixx.ru/webhook"
 echo ""
 echo "📝 Следующий шаг: установите SSL сертификат:"
-echo "   certbot --nginx -d app.tvix.ru"
+echo "   certbot --nginx -d app.tvixx.ru"
 

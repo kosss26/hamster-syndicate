@@ -15,7 +15,7 @@ echo "🌐 Обновление конфигурации Nginx..."
 cat > /etc/nginx/sites-available/quiz-bot << 'NGINX_EOF'
 server {
     listen 80;
-    server_name app.tvix.ru;
+    server_name app.tvixx.ru;
     
     root /var/www/quiz-bot/bot/public;
     index index.php;
@@ -79,25 +79,25 @@ fi
 
 # 6. Пытаемся установить сертификат снова
 echo "🔒 Попытка установки SSL сертификата..."
-certbot --nginx -d app.tvix.ru --non-interactive --agree-tos --email admin@tvix.ru --redirect || {
+certbot --nginx -d app.tvixx.ru --non-interactive --agree-tos --email admin@tvix.ru --redirect || {
     echo "⚠️ Не удалось установить сертификат автоматически"
     echo "Проверьте:"
-    echo "1. Домен app.tvix.ru указывает на IP 91.218.115.167"
+    echo "1. Домен app.tvixx.ru указывает на IP 91.218.115.167"
     echo "2. Порт 80 открыт в firewall"
     echo "3. Nginx доступен из интернета"
 }
 
 # 7. Проверяем наличие сертификата
-if [ -f "/etc/letsencrypt/live/app.tvix.ru/fullchain.pem" ]; then
+if [ -f "/etc/letsencrypt/live/app.tvixx.ru/fullchain.pem" ]; then
     echo "✅ SSL сертификат установлен!"
-    echo "📍 Путь: /etc/letsencrypt/live/app.tvix.ru/"
+    echo "📍 Путь: /etc/letsencrypt/live/app.tvixx.ru/"
     
     # 8. Обновляем webhook
     echo "📡 Обновление webhook..."
     BOT_TOKEN="8416923485:AAHcLsagrmSfopY453D9YfbDZ3ihRJ2zE5w"
     curl -X POST "https://api.telegram.org/bot${BOT_TOKEN}/setWebhook" \
       -H "Content-Type: application/json" \
-      -d '{"url": "https://app.tvix.ru/webhook", "secret_token": "QuizBotSecret123"}'
+      -d '{"url": "https://app.tvixx.ru/webhook", "secret_token": "QuizBotSecret123"}'
     
     # 9. Проверяем статус
     echo "📊 Статус webhook:"
@@ -105,7 +105,7 @@ if [ -f "/etc/letsencrypt/live/app.tvix.ru/fullchain.pem" ]; then
 else
     echo "❌ SSL сертификат не установлен"
     echo "Попробуйте установить вручную:"
-    echo "certbot --nginx -d app.tvix.ru"
+    echo "certbot --nginx -d app.tvixx.ru"
 fi
 
 echo ""
