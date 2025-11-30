@@ -1476,6 +1476,220 @@ final class CallbackQueryHandler
         $this->sendText($chatId, sprintf('⏱ Добавлено %d секунд времени!', $addedSeconds));
     }
 
+    /**
+     * Получает кнопки подсказок для вопроса сюжета
+     */
+    private function getStoryHintButtons(User $user, StoryChapter $chapter, StoryStep $step): array
+    {
+        $user = $this->userService->ensureProfile($user);
+        $profile = $user->profile;
+
+        if (!$profile instanceof \QuizBot\Domain\Model\UserProfile) {
+            return [];
+        }
+
+        // Проверяем, использована ли уже подсказка в этом шаге
+        $cacheKey = sprintf('story_hint_used_%d_%d', $user->getKey(), $step->getKey());
+        try {
+            $hintUsed = $this->cache->get($cacheKey, function () {
+                return false;
+            });
+            if ($hintUsed) {
+                return [];
+            }
+        } catch (\Throwable $e) {
+            // Если не удалось проверить, продолжаем
+        }
+
+        // Проверяем наличие монет
+        $hintCost = HintService::getHintCost();
+        if ($profile->coins < $hintCost) {
+            return [];
+        }
+
+        return [
+            [
+                'text' => sprintf('💡 50/50 (%d💰)', $hintCost),
+                'callback_data' => sprintf('story-hint:%s:%s:fifty_fifty', $chapter->code, $step->code),
+            ],
+            [
+                'text' => sprintf('⏱ +15 сек (%d💰)', $hintCost),
+                'callback_data' => sprintf('story-hint:%s:%s:time_boost', $chapter->code, $step->code),
+            ],
+        ];
+    }
+
+    /**
+     * Обрабатывает использование подсказки в сюжете
+     */
+    private function handleStoryHintAction($chatId, string $data, ?User $user): void
+    {
+        if ($user === null) {
+            $this->sendText($chatId, 'Не удалось определить профиль. Попробуйте /start.');
+
+            return;
+        }
+
+        if (!preg_match('/^story-hint:([^:]+):([^:]+):(\w+)$/', $data, $matches)) {
+            $this->sendText($chatId, 'Не удалось обработать подсказку. Попробуйте снова.');
+
+            return;
+        }
+
+        [, $chapterCode, $stepCode, $hintType] = $matches;
+
+        $chapter = \QuizBot\Domain\Model\StoryChapter::query()->where('code', $chapterCode)->first();
+        $step = $chapter ? \QuizBot\Domain\Model\StoryStep::query()
+            ->where('chapter_id', $chapter->getKey())
+            ->where('code', $stepCode)
+            ->first() : null;
+
+        if ($step === null) {
+            $this->sendText($chatId, 'Шаг сюжета не найден.');
+
+            return;
+        }
+
+        $user = $this->userService->ensureProfile($user);
+        $profile = $user->profile;
+
+        if (!$profile instanceof \QuizBot\Domain\Model\UserProfile) {
+            $this->sendText($chatId, 'Профиль не найден.');
+
+            return;
+        }
+
+        // Проверяем, использована ли уже подсказка
+        $cacheKey = sprintf('story_hint_used_%d_%d', $user->getKey(), $step->getKey());
+        try {
+            $hintUsed = $this->cache->get($cacheKey, function () {
+                return false;
+            });
+            if ($hintUsed) {
+                $this->sendText($chatId, 'Подсказка уже использована в этом вопросе.');
+
+                return;
+            }
+        } catch (\Throwable $e) {
+            // Продолжаем
+        }
+
+        $hintCost = HintService::getHintCost();
+        if ($profile->coins < $hintCost) {
+            $this->sendText($chatId, sprintf('Недостаточно монет. Нужно: %d', $hintCost));
+
+            return;
+        }
+
+        try {
+            switch ($hintType) {
+                case 'fifty_fifty':
+                    $this->handleStoryFiftyFifty($chatId, $user, $chapter, $step, $profile);
+                    break;
+
+                case 'time_boost':
+                    $profile->coins = max(0, $profile->coins - $hintCost);
+                    $profile->save();
+                    $this->cache->set($cacheKey, true, 60);
+                    // Увеличиваем время в кеше
+                    $timeKey = sprintf('story_question_start_%d_%d', $user->getKey(), $step->getKey());
+                    try {
+                        $currentTime = $this->cache->get($timeKey, function () {
+                            return time();
+                        });
+                        $this->cache->set($timeKey, $currentTime - 15, 60); // Вычитаем 15 секунд из начала
+                    } catch (\Throwable $e) {
+                        // Продолжаем
+                    }
+                    $this->sendText($chatId, '⏱ Добавлено 15 секунд времени!');
+                    break;
+
+                default:
+                    $this->sendText($chatId, 'Неизвестный тип подсказки.');
+            }
+        } catch (\Throwable $exception) {
+            $this->logger->error('Ошибка использования подсказки в сюжете', [
+                'error' => $exception->getMessage(),
+                'chapter_code' => $chapterCode,
+                'step_code' => $stepCode,
+                'hint_type' => $hintType,
+                'user_id' => $user->getKey(),
+            ]);
+            $this->sendText($chatId, '⚠️ ' . $exception->getMessage());
+        }
+    }
+
+    /**
+     * Обрабатывает подсказку 50/50 для сюжета
+     */
+    private function handleStoryFiftyFifty($chatId, User $user, StoryChapter $chapter, StoryStep $step, \QuizBot\Domain\Model\UserProfile $profile): void
+    {
+        $step->loadMissing('question.answers');
+        $question = $step->question;
+
+        if ($question === null) {
+            $this->sendText($chatId, 'Вопрос не найден.');
+
+            return;
+        }
+
+        $answers = $question->answers;
+        $correctAnswer = $answers->firstWhere('is_correct', true);
+
+        if ($correctAnswer === null) {
+            $this->sendText($chatId, 'Правильный ответ не найден.');
+
+            return;
+        }
+
+        $incorrectAnswers = $answers->where('is_correct', false)->values();
+        $toRemove = $incorrectAnswers->shuffle()->take(2);
+        $toRemoveIds = $toRemove->pluck('id')->toArray();
+        $remainingAnswers = $answers->reject(function ($answer) use ($toRemoveIds) {
+            return in_array($answer->id, $toRemoveIds, true);
+        });
+
+        // Списываем монеты
+        $hintCost = HintService::getHintCost();
+        $profile->coins = max(0, $profile->coins - $hintCost);
+        $profile->save();
+
+        // Отмечаем подсказку как использованную
+        $cacheKey = sprintf('story_hint_used_%d_%d', $user->getKey(), $step->getKey());
+        $this->cache->set($cacheKey, true, 60);
+
+        // Отправляем обновленное сообщение
+        $textLines = [
+            $this->messageFormatter->questionBox(
+                htmlspecialchars($question->question_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
+            ),
+            '',
+            '💡 <i>Использована подсказка 50/50. Убрано неправильных ответов: 2</i>',
+        ];
+
+        $buttons = [];
+        $row = [];
+
+        foreach ($remainingAnswers as $index => $answer) {
+            $row[] = [
+                'text' => htmlspecialchars($answer->answer_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                'callback_data' => sprintf('story-answer:%s:%s:%d', $chapter->code, $step->code, $answer->getKey()),
+            ];
+
+            if (count($row) === 2 || $index === count($remainingAnswers) - 1) {
+                $buttons[] = $row;
+                $row = [];
+            }
+        }
+
+        $this->sendText($chatId, implode("\n", $textLines));
+        $this->sendText($chatId, 'Выберите ответ:', false, [
+            'reply_markup' => [
+                'inline_keyboard' => $buttons,
+            ],
+        ]);
+    }
+
     private function handleAnswerAction($chatId, int $sessionId, int $answerId, ?User $user): void
     {
         if ($user === null) {
