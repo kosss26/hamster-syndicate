@@ -526,7 +526,7 @@ class DuelService
         }
     }
 
-    private function maybeCompleteDuel(Duel $duel): void
+    public function maybeCompleteDuel(Duel $duel): void
     {
         $duel->loadMissing('rounds');
 
