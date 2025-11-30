@@ -617,6 +617,43 @@ final class CallbackQueryHandler
         $this->presentStoryState($chatId, $state, false);
     }
 
+    private function handleStoryChoice($chatId, string $data, ?User $user): void
+    {
+        if ($user === null) {
+            $this->sendText($chatId, 'Не удалось определить профиль. Нажми /start, чтобы продолжить сюжет.');
+
+            return;
+        }
+
+        $parts = explode(':', $data);
+
+        if (count($parts) !== 4) {
+            $this->sendText($chatId, 'Не удалось обработать выбор. Попробуй ещё раз через /story.');
+
+            return;
+        }
+
+        [, $chapterCode, $stepCode, $choiceKey] = $parts;
+
+        try {
+            $state = $this->storyService->continueStep($user, $chapterCode, $stepCode, $choiceKey);
+        } catch (\Throwable $exception) {
+            $this->logger->error('Ошибка обработки выбора в сюжете', [
+                'error' => $exception->getMessage(),
+                'chapter_code' => $chapterCode,
+                'step_code' => $stepCode,
+                'choice_key' => $choiceKey,
+                'user_id' => $user->getKey(),
+            ]);
+            $this->sendText($chatId, '⚠️ Не удалось обработать выбор. Попробуй ещё раз через /story.');
+
+            return;
+        }
+
+        // Не первое сообщение - не показываем заголовок
+        $this->presentStoryState($chatId, $state, false);
+    }
+
     private function handleDuelAnswer($chatId, string $data, ?User $user): void
     {
         if ($user === null) {
