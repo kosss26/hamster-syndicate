@@ -714,9 +714,9 @@ final class CallbackQueryHandler
         }
 
         $payload = $duel->initiator_user_id === $user->getKey() ? ($round->initiator_payload ?? []) : ($round->opponent_payload ?? []);
-
+        
         $ack = 'Ответ засчитан.';
-
+        
         if (($payload['reason'] ?? null) === 'timeout') {
             $ack = '⏰ Время истекло. Ответ не засчитан.';
         } elseif (($payload['is_correct'] ?? false) === true) {
@@ -727,8 +727,19 @@ final class CallbackQueryHandler
             $correctText = $correctAnswer ? htmlspecialchars($correctAnswer->answer_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') : 'Правильный ответ';
             $ack = $this->messageFormatter->incorrectAnswer($correctText);
         }
-
-        $this->sendText($chatId, $ack, true);
+        
+        // Убеждаемся, что отправляем результат только тому, кто ответил
+        // Используем telegram_id пользователя, а не chatId из сообщения
+        $userChatId = $user->telegram_id;
+        if ($userChatId === null) {
+            $this->logger->warning('Не удалось отправить результат ответа: отсутствует telegram_id', [
+                'user_id' => $user->getKey(),
+                'duel_id' => $duel->getKey(),
+                'round_id' => $round->getKey(),
+            ]);
+        } else {
+            $this->sendText($userChatId, $ack, true);
+        }
 
         $duel = $duel->refresh(['rounds.question.answers', 'initiator', 'opponent', 'result']);
         $round = $duel->rounds->firstWhere('id', $roundId);
