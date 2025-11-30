@@ -734,10 +734,10 @@ final class CallbackQueryHandler
         $round = $duel->rounds->firstWhere('id', $roundId);
 
         if ($round instanceof DuelRound && $round->closed_at !== null) {
-            // Пауза 3 секунды перед отправкой результатов
-            sleep(3);
-            
             $this->sendDuelRoundResult($duel, $round);
+            
+            // Пауза 3 секунды после отправки результатов
+            sleep(3);
 
             if ($duel->status === 'finished' && $duel->result !== null) {
                 $this->sendDuelFinalResult($duel, $duel->result);

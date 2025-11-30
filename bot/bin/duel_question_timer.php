@@ -258,10 +258,13 @@ for ($i = 0; $i <= $timeoutSeconds; $i += $updateInterval) {
         exit(0);
     }
 
-    // Проверяем, что раунд всё ещё текущий
-    if ($duel->status !== 'in_progress') {
-        $logger->info('Дуэль больше не в процессе, отмена таймера.', [
+    // Проверяем, что раунд всё ещё текущий и не закрыт
+    if ($duel->status !== 'in_progress' || $round->closed_at !== null) {
+        $logger->info('Дуэль больше не в процессе или раунд закрыт, отмена таймера.', [
             'duel_id' => $duelId,
+            'round_id' => $roundId,
+            'duel_status' => $duel->status,
+            'round_closed' => $round->closed_at !== null,
         ]);
         exit(0);
     }
@@ -338,11 +341,11 @@ for ($i = 0; $i <= $timeoutSeconds; $i += $updateInterval) {
                         'round_id' => $roundId,
                     ]);
                     
-                    // Пауза 3 секунды перед отправкой результатов
-                    sleep(3);
-                    
                     // Отправляем результаты раунда и следующий вопрос
                     sendRoundResultsAndNextQuestion($round->duel, $round, $telegramClient, $logger, $container, $duelId);
+                    
+                    // Пауза 3 секунды после отправки результатов
+                    sleep(3);
                 }
             }
         } catch (\Throwable $e) {
