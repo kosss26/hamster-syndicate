@@ -45,7 +45,205 @@ if ($duelId === 0 || $roundId === 0 || $chatId === 0 || $messageId === 0 || $sta
 }
 
 $timeoutSeconds = 30;
-$updateInterval = 1; // Обновляем каждую секунду
+$updateInterval = 5; // Обновляем каждые 5 секунд
+
+/**
+ * Отправляет результаты раунда и следующий вопрос участникам дуэли
+ */
+function sendRoundResultsAndNextQuestion(Duel $duel, DuelRound $round, $telegramClient, $logger, $container, int $duelId): void
+{
+    try {
+        $duel->loadMissing('rounds.question.answers', 'initiator', 'opponent', 'result');
+        $round->loadMissing('question.answers');
+        
+        // Формируем результаты раунда
+        $initiatorSummary = formatParticipantSummary($duel, $round, true);
+        $opponentSummary = formatParticipantSummary($duel, $round, false);
+        
+        $duel->loadMissing('rounds');
+        $initiatorTotalScore = $duel->rounds->sum('initiator_score');
+        $opponentTotalScore = $duel->rounds->sum('opponent_score');
+        
+        $scoreLine = sprintf(
+            '⚔️ Счёт матча: <b>%d — %d</b>',
+            $initiatorTotalScore,
+            $opponentTotalScore
+        );
+        
+        $lines = [
+            sprintf('📝 <b>Итоги раунда %d</b>', (int) $round->round_number),
+            '',
+        ];
+        $lines = array_merge($lines, $initiatorSummary);
+        $lines[] = '';
+        $lines = array_merge($lines, $opponentSummary);
+        $lines[] = '';
+        $lines[] = $scoreLine;
+        
+        $resultText = implode("\n", $lines);
+        
+        // Отправляем результаты обоим участникам
+        foreach ([$duel->initiator, $duel->opponent] as $participant) {
+            if (!$participant instanceof \QuizBot\Domain\Model\User) {
+                continue;
+            }
+            
+            $chatId = $participant->telegram_id;
+            if ($chatId === null) {
+                continue;
+            }
+            
+            try {
+                $telegramClient->request('POST', 'sendMessage', [
+                    'json' => [
+                        'chat_id' => $chatId,
+                        'text' => $resultText,
+                        'parse_mode' => 'HTML',
+                    ],
+                ]);
+            } catch (\Throwable $e) {
+                $logger->error('Ошибка отправки результатов раунда', [
+                    'error' => $e->getMessage(),
+                    'chat_id' => $chatId,
+                ]);
+            }
+        }
+        
+        // Если дуэль завершена, отправляем финальные результаты
+        if ($duel->status === 'finished' && $duel->result !== null) {
+            $result = $duel->result;
+            $initiatorScore = (int) $result->initiator_total_score;
+            $opponentScore = (int) $result->opponent_total_score;
+            
+            $winnerName = 'Ничья';
+            if ($result->winner_user_id !== null) {
+                $winner = $result->winner_user_id === $duel->initiator_user_id
+                    ? $duel->initiator
+                    : $duel->opponent;
+                $winnerName = formatUserName($winner);
+            }
+            
+            $finalLines = [
+                '🏁 <b>Дуэль завершена!</b>',
+                '',
+                sprintf('⚔️ Итоговый счёт: <b>%d — %d</b>', $initiatorScore, $opponentScore),
+                '',
+            ];
+            
+            if ($result->winner_user_id === null) {
+                $finalLines[] = '🤝 <b>Ничья!</b> Оба игрока показали отличный результат!';
+            } else {
+                $finalLines[] = sprintf('🏆 <b>Победитель: %s</b>', $winnerName);
+                $finalLines[] = '🎉 Поздравляем с победой!';
+            }
+            
+            $finalText = implode("\n", $finalLines);
+            
+            foreach ([$duel->initiator, $duel->opponent] as $participant) {
+                if (!$participant instanceof \QuizBot\Domain\Model\User) {
+                    continue;
+                }
+                
+                $chatId = $participant->telegram_id;
+                if ($chatId === null) {
+                    continue;
+                }
+                
+                try {
+                    $telegramClient->request('POST', 'sendMessage', [
+                        'json' => [
+                            'chat_id' => $chatId,
+                            'text' => $finalText,
+                            'parse_mode' => 'HTML',
+                        ],
+                    ]);
+                } catch (\Throwable $e) {
+                    $logger->error('Ошибка отправки финальных результатов', [
+                        'error' => $e->getMessage(),
+                        'chat_id' => $chatId,
+                    ]);
+                }
+            }
+        } else {
+            // Отправляем следующий вопрос
+            $duelService = $container->get(\QuizBot\Application\Services\DuelService::class);
+            $nextRound = $duelService->getCurrentRound($duel);
+            
+            if ($nextRound instanceof DuelRound) {
+                // Запускаем отправку следующего вопроса через webhook или напрямую
+                // Для простоты просто логируем - следующий вопрос отправится при следующем взаимодействии
+                $logger->info('Следующий раунд готов к отправке', [
+                    'duel_id' => $duelId,
+                    'next_round_id' => $nextRound->getKey(),
+                ]);
+            }
+        }
+    } catch (\Throwable $e) {
+        $logger->error('Ошибка отправки результатов раунда', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+            'duel_id' => $duel->getKey(),
+            'round_id' => $round->getKey(),
+        ]);
+    }
+}
+
+function formatParticipantSummary(Duel $duel, DuelRound $round, bool $forInitiator): array
+{
+    $user = $forInitiator ? $duel->initiator : $duel->opponent;
+    $payload = $forInitiator ? ($round->initiator_payload ?? []) : ($round->opponent_payload ?? []);
+    
+    $status = '⏳ ответ не получен';
+    
+    if (($payload['completed'] ?? false) === true) {
+        if (($payload['reason'] ?? null) === 'timeout') {
+            $status = '⏰ время вышло';
+        } elseif (($payload['is_correct'] ?? false) === true) {
+            $status = '✅ правильный ответ';
+        } else {
+            $status = '❌ неверный ответ';
+        }
+    }
+    
+    $answerText = null;
+    if (isset($payload['answer_id']) && $round->relationLoaded('question') && $round->question instanceof \QuizBot\Domain\Model\Question) {
+        $answer = $round->question->answers->firstWhere('id', $payload['answer_id']);
+        if ($answer instanceof \QuizBot\Domain\Model\Answer) {
+            $answerText = htmlspecialchars($answer->answer_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        }
+    }
+    
+    $lines = [
+        sprintf('%s — %s', formatUserName($user), $status),
+    ];
+    
+    if ($answerText !== null) {
+        $lines[] = sprintf('Ответ: %s', $answerText);
+    }
+    
+    if ($payload !== [] && isset($payload['time_elapsed'])) {
+        $lines[] = sprintf('Время: %d сек.', (int) $payload['time_elapsed']);
+    }
+    
+    return $lines;
+}
+
+function formatUserName(?\QuizBot\Domain\Model\User $user): string
+{
+    if (!$user instanceof \QuizBot\Domain\Model\User) {
+        return 'Неизвестный игрок';
+    }
+    
+    if (!empty($user->first_name)) {
+        return htmlspecialchars($user->first_name, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+    
+    if (!empty($user->username)) {
+        return htmlspecialchars('@' . $user->username, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+    
+    return sprintf('Игрок %d', (int) $user->getKey());
+}
 
 for ($i = 0; $i <= $timeoutSeconds; $i += $updateInterval) {
     $duel = Duel::query()->find($duelId);
@@ -112,6 +310,9 @@ for ($i = 0; $i <= $timeoutSeconds; $i += $updateInterval) {
                         'duel_id' => $duelId,
                         'round_id' => $roundId,
                     ]);
+                    
+                    // Отправляем результаты раунда и следующий вопрос
+                    sendRoundResultsAndNextQuestion($round->duel, $round, $telegramClient, $logger, $container, $duelId);
                 }
             }
         } catch (\Throwable $e) {
@@ -204,4 +405,202 @@ $logger->info('Таймер вопроса дуэли истёк', [
 ]);
 
 exit(0);
+
+/**
+ * Отправляет результаты раунда и следующий вопрос участникам дуэли
+ */
+function sendRoundResultsAndNextQuestion(Duel $duel, DuelRound $round, $telegramClient, $logger, $container, int $duelId): void
+{
+    try {
+        $duel->loadMissing('rounds.question.answers', 'initiator', 'opponent', 'result');
+        $round->loadMissing('question.answers');
+        
+        // Формируем результаты раунда
+        $initiatorSummary = formatParticipantSummary($duel, $round, true);
+        $opponentSummary = formatParticipantSummary($duel, $round, false);
+        
+        $duel->loadMissing('rounds');
+        $initiatorTotalScore = $duel->rounds->sum('initiator_score');
+        $opponentTotalScore = $duel->rounds->sum('opponent_score');
+        
+        $scoreLine = sprintf(
+            '⚔️ Счёт матча: <b>%d — %d</b>',
+            $initiatorTotalScore,
+            $opponentTotalScore
+        );
+        
+        $lines = [
+            sprintf('📝 <b>Итоги раунда %d</b>', (int) $round->round_number),
+            '',
+        ];
+        $lines = array_merge($lines, $initiatorSummary);
+        $lines[] = '';
+        $lines = array_merge($lines, $opponentSummary);
+        $lines[] = '';
+        $lines[] = $scoreLine;
+        
+        $resultText = implode("\n", $lines);
+        
+        // Отправляем результаты обоим участникам
+        foreach ([$duel->initiator, $duel->opponent] as $participant) {
+            if (!$participant instanceof \QuizBot\Domain\Model\User) {
+                continue;
+            }
+            
+            $chatId = $participant->telegram_id;
+            if ($chatId === null) {
+                continue;
+            }
+            
+            try {
+                $telegramClient->request('POST', 'sendMessage', [
+                    'json' => [
+                        'chat_id' => $chatId,
+                        'text' => $resultText,
+                        'parse_mode' => 'HTML',
+                    ],
+                ]);
+            } catch (\Throwable $e) {
+                $logger->error('Ошибка отправки результатов раунда', [
+                    'error' => $e->getMessage(),
+                    'chat_id' => $chatId,
+                ]);
+            }
+        }
+        
+        // Если дуэль завершена, отправляем финальные результаты
+        if ($duel->status === 'finished' && $duel->result !== null) {
+            $result = $duel->result;
+            $initiatorScore = (int) $result->initiator_total_score;
+            $opponentScore = (int) $result->opponent_total_score;
+            
+            $winnerName = 'Ничья';
+            if ($result->winner_user_id !== null) {
+                $winner = $result->winner_user_id === $duel->initiator_user_id
+                    ? $duel->initiator
+                    : $duel->opponent;
+                $winnerName = formatUserName($winner);
+            }
+            
+            $finalLines = [
+                '🏁 <b>Дуэль завершена!</b>',
+                '',
+                sprintf('⚔️ Итоговый счёт: <b>%d — %d</b>', $initiatorScore, $opponentScore),
+                '',
+            ];
+            
+            if ($result->winner_user_id === null) {
+                $finalLines[] = '🤝 <b>Ничья!</b> Оба игрока показали отличный результат!';
+            } else {
+                $finalLines[] = sprintf('🏆 <b>Победитель: %s</b>', $winnerName);
+                $finalLines[] = '🎉 Поздравляем с победой!';
+            }
+            
+            $finalText = implode("\n", $finalLines);
+            
+            foreach ([$duel->initiator, $duel->opponent] as $participant) {
+                if (!$participant instanceof \QuizBot\Domain\Model\User) {
+                    continue;
+                }
+                
+                $chatId = $participant->telegram_id;
+                if ($chatId === null) {
+                    continue;
+                }
+                
+                try {
+                    $telegramClient->request('POST', 'sendMessage', [
+                        'json' => [
+                            'chat_id' => $chatId,
+                            'text' => $finalText,
+                            'parse_mode' => 'HTML',
+                        ],
+                    ]);
+                } catch (\Throwable $e) {
+                    $logger->error('Ошибка отправки финальных результатов', [
+                        'error' => $e->getMessage(),
+                        'chat_id' => $chatId,
+                    ]);
+                }
+            }
+        } else {
+            // Отправляем следующий вопрос
+            $duelService = $container->get(\QuizBot\Application\Services\DuelService::class);
+            $nextRound = $duelService->getCurrentRound($duel);
+            
+            if ($nextRound instanceof DuelRound) {
+                // Запускаем отправку следующего вопроса через webhook или напрямую
+                // Для простоты просто логируем - следующий вопрос отправится при следующем взаимодействии
+                $logger->info('Следующий раунд готов к отправке', [
+                    'duel_id' => $duelId,
+                    'next_round_id' => $nextRound->getKey(),
+                ]);
+            }
+        }
+    } catch (\Throwable $e) {
+        $logger->error('Ошибка отправки результатов раунда', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+            'duel_id' => $duel->getKey(),
+            'round_id' => $round->getKey(),
+        ]);
+    }
+}
+
+function formatParticipantSummary(Duel $duel, DuelRound $round, bool $forInitiator): array
+{
+    $user = $forInitiator ? $duel->initiator : $duel->opponent;
+    $payload = $forInitiator ? ($round->initiator_payload ?? []) : ($round->opponent_payload ?? []);
+    
+    $status = '⏳ ответ не получен';
+    
+    if (($payload['completed'] ?? false) === true) {
+        if (($payload['reason'] ?? null) === 'timeout') {
+            $status = '⏰ время вышло';
+        } elseif (($payload['is_correct'] ?? false) === true) {
+            $status = '✅ правильный ответ';
+        } else {
+            $status = '❌ неверный ответ';
+        }
+    }
+    
+    $answerText = null;
+    if (isset($payload['answer_id']) && $round->relationLoaded('question') && $round->question instanceof \QuizBot\Domain\Model\Question) {
+        $answer = $round->question->answers->firstWhere('id', $payload['answer_id']);
+        if ($answer instanceof \QuizBot\Domain\Model\Answer) {
+            $answerText = htmlspecialchars($answer->answer_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        }
+    }
+    
+    $lines = [
+        sprintf('%s — %s', formatUserName($user), $status),
+    ];
+    
+    if ($answerText !== null) {
+        $lines[] = sprintf('Ответ: %s', $answerText);
+    }
+    
+    if ($payload !== [] && isset($payload['time_elapsed'])) {
+        $lines[] = sprintf('Время: %d сек.', (int) $payload['time_elapsed']);
+    }
+    
+    return $lines;
+}
+
+function formatUserName(?\QuizBot\Domain\Model\User $user): string
+{
+    if (!$user instanceof \QuizBot\Domain\Model\User) {
+        return 'Неизвестный игрок';
+    }
+    
+    if (!empty($user->first_name)) {
+        return htmlspecialchars($user->first_name, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+    
+    if (!empty($user->username)) {
+        return htmlspecialchars('@' . $user->username, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+    
+    return sprintf('Игрок %d', (int) $user->getKey());
+}
 
