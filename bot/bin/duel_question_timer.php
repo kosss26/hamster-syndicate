@@ -34,6 +34,14 @@ $startTime = (int) ($argv[5] ?? 0);
 $originalText = $argv[6] ?? '';
 $replyMarkup = $argv[7] ?? '{}';
 
+if ($duelId === 0 || $roundId === 0 || $chatId === 0 || $messageId === 0 || $startTime === 0) {
+    $logger->error('Недостаточно аргументов для скрипта duel_question_timer.php');
+    exit(1);
+}
+
+$timeoutSeconds = 30;
+$updateInterval = 5; // Обновляем каждые 5 секунд
+
 $logger->info('Таймер дуэли запущен', [
     'duel_id' => $duelId,
     'round_id' => $roundId,
@@ -43,14 +51,6 @@ $logger->info('Таймер дуэли запущен', [
     'timeout_seconds' => $timeoutSeconds,
     'update_interval' => $updateInterval,
 ]);
-
-if ($duelId === 0 || $roundId === 0 || $chatId === 0 || $messageId === 0 || $startTime === 0) {
-    $logger->error('Недостаточно аргументов для скрипта duel_question_timer.php');
-    exit(1);
-}
-
-$timeoutSeconds = 30;
-$updateInterval = 5; // Обновляем каждые 5 секунд
 
 /**
  * Отправляет результаты раунда и следующий вопрос участникам дуэли
