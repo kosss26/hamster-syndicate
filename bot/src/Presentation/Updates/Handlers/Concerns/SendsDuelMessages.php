@@ -91,10 +91,11 @@ trait SendsDuelMessages
         $baseLines = $lines;
         $formatter = method_exists($this, 'getMessageFormatter') ? $this->getMessageFormatter() : null;
         
+        $startTime = time();
         $messageIds = $this->broadcastToParticipants($duel, [
             'parse_mode' => 'HTML',
             'reply_markup' => $replyMarkup,
-        ], function ($payload, User $participant) use ($baseLines, $formatter, $currentRound, $totalRounds, $allRounds, $duel) {
+        ], function ($payload, User $participant) use ($baseLines, $formatter, $currentRound, $totalRounds, $allRounds, $duel, $startTime, $replyMarkup) {
             // Создаём кастомный прогресс-бар для каждого участника
             $customLines = $baseLines;
             if ($formatter !== null) {
@@ -103,17 +104,33 @@ trait SendsDuelMessages
                 $customLines[0] = $progressBar; // Заменяем первую строку (прогресс-бар)
             }
             
-            $payload['text'] = implode("\n", $customLines);
+            $text = implode("\n", $customLines);
+            $payload['text'] = $text;
+            
+            // Сохраняем текст для таймера
+            $payload['_timer_text'] = $text;
+            
             return $payload;
         });
 
         // Запускаем фоновые скрипты для обновления таймера для каждого участника
-        $basePath = dirname(__DIR__, 4);
+        // Определяем basePath через рефлексию
+        $reflection = new \ReflectionClass($this);
+        $basePath = dirname($reflection->getFileName(), 4);
         $scriptPath = $basePath . '/bin/duel_question_timer.php';
-        $startTime = time();
         $replyMarkupJson = json_encode($replyMarkup);
 
         foreach ($messageIds as $chatId => $messageId) {
+            // Получаем текст для этого участника (нужно пересоздать с правильным прогресс-баром)
+            $participant = $duel->initiator->telegram_id === $chatId ? $duel->initiator : $duel->opponent;
+            $customLines = $baseLines;
+            if ($formatter !== null && $participant !== null) {
+                $userId = $participant->getKey();
+                $progressBar = $formatter->formatDuelProgress($currentRound, $totalRounds, $allRounds, $userId);
+                $customLines[0] = $progressBar;
+            }
+            $textForTimer = implode("\n", $customLines);
+            
             // Запускаем скрипт в фоне
             $command = sprintf(
                 'php %s %d %d %d %d %d %s %s > /dev/null 2>&1 &',
@@ -123,7 +140,7 @@ trait SendsDuelMessages
                 $chatId,
                 $messageId,
                 $startTime,
-                escapeshellarg($text),
+                escapeshellarg($textForTimer),
                 escapeshellarg($replyMarkupJson)
             );
             
