@@ -43,13 +43,19 @@ trait SendsDuelMessages
         $totalRounds = $duel->rounds_to_win * 2 - 1;
         $currentRound = (int) $round->round_number;
 
+        // Загружаем все раунды для отображения прогресса
+        $duel->loadMissing('rounds');
+        $allRounds = $duel->rounds->sortBy('round_number');
+
         // Используем MessageFormatter если доступен
         $formatter = method_exists($this, 'getMessageFormatter') ? $this->getMessageFormatter() : null;
 
         $lines = [];
         
         if ($formatter) {
-            $progressBar = $formatter->formatDuelProgress($currentRound, $totalRounds);
+            // Для прогресс-бара нужно показывать результат для каждого участника отдельно
+            // Но так как сообщение отправляется обоим, показываем общий прогресс без привязки к пользователю
+            $progressBar = $formatter->formatDuelProgress($currentRound, $totalRounds, $allRounds, null);
             $lines[] = $progressBar;
             $lines[] = '';
         } else {
@@ -77,18 +83,29 @@ trait SendsDuelMessages
             }
         }
 
-        $text = implode("\n", $lines);
         $replyMarkup = [
             'inline_keyboard' => $buttons,
         ];
 
-        $payload = [
-            'text' => $text,
+        // Создаём кастомный payload для каждого участника с правильным прогресс-баром
+        $baseLines = $lines;
+        $formatter = method_exists($this, 'getMessageFormatter') ? $this->getMessageFormatter() : null;
+        
+        $messageIds = $this->broadcastToParticipants($duel, [
             'parse_mode' => 'HTML',
             'reply_markup' => $replyMarkup,
-        ];
-
-        $messageIds = $this->broadcastToParticipants($duel, $payload);
+        ], function ($payload, User $participant) use ($baseLines, $formatter, $currentRound, $totalRounds, $allRounds, $duel) {
+            // Создаём кастомный прогресс-бар для каждого участника
+            $customLines = $baseLines;
+            if ($formatter !== null) {
+                $userId = $participant->getKey();
+                $progressBar = $formatter->formatDuelProgress($currentRound, $totalRounds, $allRounds, $userId);
+                $customLines[0] = $progressBar; // Заменяем первую строку (прогресс-бар)
+            }
+            
+            $payload['text'] = implode("\n", $customLines);
+            return $payload;
+        });
 
         // Запускаем фоновые скрипты для обновления таймера для каждого участника
         $basePath = dirname(__DIR__, 4);
@@ -123,10 +140,15 @@ trait SendsDuelMessages
         $initiatorSummary = $this->formatParticipantSummary($duel, $round, true);
         $opponentSummary = $this->formatParticipantSummary($duel, $round, false);
 
+        // Показываем общий счёт матча, а не раунда
+        $duel->loadMissing('rounds');
+        $initiatorTotalScore = $duel->rounds->sum('initiator_score');
+        $opponentTotalScore = $duel->rounds->sum('opponent_score');
+        
         $scoreLine = sprintf(
-            '⚔️ Счёт раунда: <b>%d — %d</b>',
-            (int) $round->initiator_score,
-            (int) $round->opponent_score
+            '⚔️ Счёт матча: <b>%d — %d</b>',
+            $initiatorTotalScore,
+            $opponentTotalScore
         );
 
         $lines = [];
@@ -261,7 +283,7 @@ trait SendsDuelMessages
         ]);
     }
 
-    private function broadcastToParticipants(Duel $duel, array $payload): array
+    private function broadcastToParticipants(Duel $duel, array $payload, ?callable $customizePayload = null): array
     {
         $client = $this->getTelegramClient();
         $messageIds = [];
@@ -277,9 +299,14 @@ trait SendsDuelMessages
                 continue;
             }
 
+            $finalPayload = $payload;
+            if ($customizePayload !== null) {
+                $finalPayload = $customizePayload($payload, $participant);
+            }
+
             try {
                 $response = $client->request('POST', 'sendMessage', [
-                    'json' => $payload + ['chat_id' => $chatId],
+                    'json' => $finalPayload + ['chat_id' => $chatId],
                 ]);
                 
                 $responseBody = (string) $response->getBody();
@@ -340,7 +367,7 @@ trait SendsDuelMessages
         }
 
         if ($payload !== [] && isset($payload['time_elapsed'])) {
-            $lines[] = sprintf('Время: %d с', (int) $payload['time_elapsed']);
+            $lines[] = sprintf('Время: %d сек.', (int) $payload['time_elapsed']);
         }
 
         return $lines;

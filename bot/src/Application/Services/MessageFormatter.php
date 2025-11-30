@@ -63,12 +63,54 @@ class MessageFormatter
 
     /**
      * Форматирует прогресс дуэли
+     * 
+     * @param int $current Текущий раунд
+     * @param int $total Всего раундов
+     * @param \Illuminate\Support\Collection|null $allRounds Все раунды дуэли для определения правильности ответов
+     * @param int|null $userId ID пользователя для которого показывается прогресс (для определения правильности ответов)
      */
-    public function formatDuelProgress(int $current, int $total): string
+    public function formatDuelProgress(int $current, int $total, $allRounds = null, ?int $userId = null): string
     {
-        $bar = $this->progressBar($current, $total, 10, '⚔️', '⚪');
-
-        return sprintf("Раунд %d/%d\n%s", $current, $total, $bar);
+        $progress = [];
+        
+        for ($i = 1; $i <= $total; $i++) {
+            if ($i < $current) {
+                // Прошлые раунды - показываем результат
+                if ($allRounds !== null) {
+                    $pastRound = $allRounds->firstWhere('round_number', $i);
+                    if ($pastRound !== null && $userId !== null) {
+                        // Определяем правильность ответа для конкретного пользователя из payload
+                        $pastRound->loadMissing('duel');
+                        $isInitiator = $pastRound->duel->initiator_user_id === $userId;
+                        $payload = $isInitiator ? ($pastRound->initiator_payload ?? []) : ($pastRound->opponent_payload ?? []);
+                        
+                        // Проверяем, есть ли информация об ответе
+                        if (isset($payload['completed']) && $payload['completed'] === true) {
+                            $isCorrect = ($payload['is_correct'] ?? false) === true;
+                            $progress[] = $isCorrect ? '🟢' : '🔴';
+                        } else {
+                            // Если ответ ещё не получен, показываем белый круг
+                            $progress[] = '⚪';
+                        }
+                    } else {
+                        // Если нет информации, показываем белый круг
+                        $progress[] = '⚪';
+                    }
+                } else {
+                    $progress[] = '⚪';
+                }
+            } elseif ($i === $current) {
+                // Текущий раунд - мечи
+                $progress[] = '⚔️';
+            } else {
+                // Будущие раунды - белый круг
+                $progress[] = '⚪';
+            }
+        }
+        
+        $progressBar = implode('', $progress);
+        
+        return sprintf("Раунд %d/%d\n%s", $current, $total, $progressBar);
     }
 
     /**

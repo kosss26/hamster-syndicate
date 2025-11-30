@@ -38,7 +38,7 @@ class DuelService
             'initiator_user_id' => $initiator->getKey(),
             'opponent_user_id' => $opponent ? $opponent->getKey() : null,
             'category_id' => $category ? $category->getKey() : null,
-            'rounds_to_win' => $settings['rounds_to_win'] ?? 3,
+            'rounds_to_win' => $settings['rounds_to_win'] ?? 5,
             'status' => $opponent === null ? 'waiting' : 'matched',
             'settings' => $settings,
             'matched_at' => $opponent === null ? null : Carbon::now(),

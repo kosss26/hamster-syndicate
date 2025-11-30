@@ -20,7 +20,7 @@ return new class implements Migration {
             $table->foreignId('initiator_user_id')->constrained('users')->cascadeOnDelete();
             $table->foreignId('opponent_user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('category_id')->nullable()->constrained('categories')->nullOnDelete();
-            $table->unsignedTinyInteger('rounds_to_win')->default(3);
+            $table->unsignedTinyInteger('rounds_to_win')->default(5);
             $table->string('status', 32)->default('waiting');
             $table->json('settings')->nullable();
             $table->timestamp('matched_at')->nullable();
