@@ -39,6 +39,9 @@ $logger->info('Таймер дуэли запущен', [
     'round_id' => $roundId,
     'chat_id' => $chatId,
     'message_id' => $messageId,
+    'start_time' => $startTime,
+    'timeout_seconds' => $timeoutSeconds,
+    'update_interval' => $updateInterval,
 ]);
 
 if ($duelId === 0 || $roundId === 0 || $chatId === 0 || $messageId === 0 || $startTime === 0) {
@@ -246,6 +249,12 @@ function formatUserName(?\QuizBot\Domain\Model\User $user): string
     
     return sprintf('Игрок %d', (int) $user->getKey());
 }
+
+$logger->info('Начало цикла таймера', [
+    'duel_id' => $duelId,
+    'round_id' => $roundId,
+    'iterations' => (int) ($timeoutSeconds / $updateInterval) + 1,
+]);
 
 for ($i = 0; $i <= $timeoutSeconds; $i += $updateInterval) {
     $duel = Duel::query()->find($duelId);
