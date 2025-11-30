@@ -16,8 +16,16 @@ require_once $basePath . '/vendor/autoload.php';
 error_log(sprintf('[DUEL_TIMER] Скрипт запущен: duel_id=%d, round_id=%d, chat_id=%d, message_id=%d', 
     $argv[1] ?? 0, $argv[2] ?? 0, $argv[3] ?? 0, $argv[4] ?? 0));
 
+// Создаём временный логгер для логирования до инициализации контейнера
+$tempLogFile = dirname(__DIR__) . '/storage/logs/timer_debug.log';
+@file_put_contents($tempLogFile, sprintf("[%s] Скрипт начал работу\n", date('Y-m-d H:i:s')), FILE_APPEND);
+
+@file_put_contents($tempLogFile, sprintf("[%s] Создание bootstrap\n", date('Y-m-d H:i:s')), FILE_APPEND);
+
 $bootstrap = new AppBootstrap($basePath);
 $container = $bootstrap->getContainer();
+
+@file_put_contents($tempLogFile, sprintf("[%s] Контейнер создан\n", date('Y-m-d H:i:s')), FILE_APPEND);
 
 /** @var Logger $logger */
 $logger = $container->get(Logger::class);
