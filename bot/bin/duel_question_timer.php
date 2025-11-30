@@ -21,8 +21,10 @@ $container = $bootstrap->getContainer();
 
 /** @var Logger $logger */
 $logger = $container->get(Logger::class);
+/** @var \QuizBot\Infrastructure\Telegram\TelegramClientFactory $telegramFactory */
+$telegramFactory = $container->get(\QuizBot\Infrastructure\Telegram\TelegramClientFactory::class);
 /** @var Client $telegramClient */
-$telegramClient = $container->get(GuzzleHttp\ClientInterface::class);
+$telegramClient = $telegramFactory->create();
 
 $duelId = (int) ($argv[1] ?? 0);
 $roundId = (int) ($argv[2] ?? 0);
