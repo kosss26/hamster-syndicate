@@ -163,6 +163,13 @@ final class AppBootstrap
                     $c->get(\QuizBot\Application\Services\MessageFormatter::class)
                 );
             },
+            \QuizBot\Application\Services\AdminService::class => function (Container $c) {
+                return new \QuizBot\Application\Services\AdminService(
+                    $c->get(Config::class),
+                    $c->get(Logger::class),
+                    $c->get(DuelService::class)
+                );
+            },
             SampleDataSeeder::class => function (Container $c) {
                 return new SampleDataSeeder();
             },
@@ -177,7 +184,8 @@ final class AppBootstrap
                     $c->get(GameSessionService::class),
                     $c->get(StoryService::class),
                     $c->get(ProfileFormatter::class),
-                    $c->get(MessageFormatter::class)
+                    $c->get(MessageFormatter::class),
+                    $c
                 );
             },
             MigrationRunner::class => function (Container $c) {

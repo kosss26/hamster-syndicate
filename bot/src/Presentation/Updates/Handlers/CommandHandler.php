@@ -11,6 +11,7 @@ use QuizBot\Application\Services\DuelService;
 use QuizBot\Application\Services\GameSessionService;
 use QuizBot\Application\Services\ProfileFormatter;
 use QuizBot\Application\Services\StoryService;
+use QuizBot\Application\Services\AdminService;
 use QuizBot\Domain\Model\User;
 use QuizBot\Domain\Model\Duel;
 use QuizBot\Presentation\Updates\Handlers\Concerns\SendsDuelMessages;
@@ -33,6 +34,8 @@ final class CommandHandler
 
     private ProfileFormatter $profileFormatter;
 
+    private AdminService $adminService;
+
     public function __construct(
         ClientInterface $telegramClient,
         Logger $logger,
@@ -40,7 +43,8 @@ final class CommandHandler
         DuelService $duelService,
         GameSessionService $gameSessionService,
         StoryService $storyService,
-        ProfileFormatter $profileFormatter
+        ProfileFormatter $profileFormatter,
+        AdminService $adminService
     ) {
         $this->telegramClient = $telegramClient;
         $this->logger = $logger;
@@ -49,6 +53,7 @@ final class CommandHandler
         $this->gameSessionService = $gameSessionService;
         $this->storyService = $storyService;
         $this->profileFormatter = $profileFormatter;
+        $this->adminService = $adminService;
     }
 
     protected function getTelegramClient(): ClientInterface
@@ -116,6 +121,12 @@ final class CommandHandler
 
         if ($this->startsWith($normalized, '/help')) {
             $this->sendHelp($chatId);
+
+            return;
+        }
+
+        if ($this->startsWith($normalized, '/admin')) {
+            $this->handleAdmin($chatId, $user);
 
             return;
         }
@@ -570,6 +581,62 @@ final class CommandHandler
         $this->sendDuelInvitationToUser($target, $duel, $initiator);
 
         return true;
+    }
+
+    private function handleAdmin($chatId, ?User $user): void
+    {
+        if ($user === null) {
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => '❌ Ошибка: не удалось определить пользователя.',
+                ],
+            ]);
+
+            return;
+        }
+
+        if (!$this->adminService->isAdmin($user)) {
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => '❌ У вас нет прав администратора.',
+                ],
+            ]);
+
+            return;
+        }
+
+        $this->sendAdminPanel($chatId);
+    }
+
+    private function sendAdminPanel($chatId): void
+    {
+        $text = "🔧 <b>Админ-панель</b>\n\nВыберите действие:";
+
+        $this->telegramClient->request('POST', 'sendMessage', [
+            'json' => [
+                'chat_id' => $chatId,
+                'text' => $text,
+                'parse_mode' => 'HTML',
+                'reply_markup' => [
+                    'inline_keyboard' => [
+                        [
+                            [
+                                'text' => '⚔️ Завершить все активные дуэли',
+                                'callback_data' => 'admin:finish_all_duels',
+                            ],
+                        ],
+                        [
+                            [
+                                'text' => '📊 Статистика',
+                                'callback_data' => 'admin:stats',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
     }
 }
 

@@ -16,6 +16,7 @@ use QuizBot\Application\Services\GameSessionService;
 use QuizBot\Application\Services\ProfileFormatter;
 use QuizBot\Application\Services\StoryService;
 use QuizBot\Application\Services\MessageFormatter;
+use QuizBot\Application\Services\AdminService;
 
 final class UpdateRouter
 {
@@ -37,6 +38,8 @@ final class UpdateRouter
 
     private MessageFormatter $messageFormatter;
 
+    private AdminService $adminService;
+
     public function __construct(
         ClientInterface $telegramClient,
         Logger $logger,
@@ -46,7 +49,8 @@ final class UpdateRouter
         GameSessionService $gameSessionService,
         StoryService $storyService,
         ProfileFormatter $profileFormatter,
-        MessageFormatter $messageFormatter
+        MessageFormatter $messageFormatter,
+        AdminService $adminService
     ) {
         $this->telegramClient = $telegramClient;
         $this->logger = $logger;
@@ -57,6 +61,7 @@ final class UpdateRouter
         $this->storyService = $storyService;
         $this->profileFormatter = $profileFormatter;
         $this->messageFormatter = $messageFormatter;
+        $this->adminService = $adminService;
     }
 
     /**
@@ -91,7 +96,8 @@ final class UpdateRouter
                 $this->duelService,
                 $this->gameSessionService,
                 $this->storyService,
-                $this->messageFormatter
+                $this->messageFormatter,
+                $this->adminService
             );
             $callbackHandler->handle($update['callback_query']);
 
@@ -106,7 +112,8 @@ final class UpdateRouter
                 $this->duelService,
                 $this->gameSessionService,
                 $this->storyService,
-                $this->profileFormatter
+                $this->profileFormatter,
+                $this->adminService
             );
             $commandHandler->handle($update['command']);
         }

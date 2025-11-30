@@ -11,6 +11,7 @@ use QuizBot\Application\Services\UserService;
 use QuizBot\Application\Services\DuelService;
 use QuizBot\Application\Services\GameSessionService;
 use QuizBot\Application\Services\StoryService;
+use QuizBot\Application\Services\AdminService;
 use QuizBot\Domain\Model\User;
 use QuizBot\Domain\Model\Question;
 use QuizBot\Domain\Model\GameSession;
@@ -41,6 +42,8 @@ final class CallbackQueryHandler
 
     private \QuizBot\Application\Services\MessageFormatter $messageFormatter;
 
+    private AdminService $adminService;
+
     private string $basePath;
 
     public function __construct(
@@ -51,7 +54,8 @@ final class CallbackQueryHandler
         DuelService $duelService,
         GameSessionService $gameSessionService,
         StoryService $storyService,
-        \QuizBot\Application\Services\MessageFormatter $messageFormatter
+        \QuizBot\Application\Services\MessageFormatter $messageFormatter,
+        AdminService $adminService
     ) {
         $this->telegramClient = $telegramClient;
         $this->logger = $logger;
@@ -61,6 +65,7 @@ final class CallbackQueryHandler
         $this->gameSessionService = $gameSessionService;
         $this->storyService = $storyService;
         $this->messageFormatter = $messageFormatter;
+        $this->adminService = $adminService;
         $this->basePath = dirname(__DIR__, 4);
     }
 
@@ -260,6 +265,12 @@ final class CallbackQueryHandler
 
         $from = $callback['from'] ?? null;
         $user = $this->resolveUser($from);
+
+        if ($this->startsWith($data, 'admin:')) {
+            $this->handleAdminAction($chatId, $data, $user);
+
+            return;
+        }
 
         if ($this->startsWith($data, 'story-locked:')) {
             $chapterCode = substr($data, strlen('story-locked:'));
@@ -1184,6 +1195,95 @@ final class CallbackQueryHandler
         }
 
         $this->sendText($chatId, 'Следующий вопрос пока недоступен. Попробуй начать новый раунд /play.');
+    }
+
+    private function handleAdminAction($chatId, string $data, ?User $user): void
+    {
+        if ($user === null) {
+            $this->sendText($chatId, '❌ Ошибка: не удалось определить пользователя.');
+
+            return;
+        }
+
+        if (!$this->adminService->isAdmin($user)) {
+            $this->sendText($chatId, '❌ У вас нет прав администратора.');
+
+            return;
+        }
+
+        if ($data === 'admin:finish_all_duels') {
+            $this->handleFinishAllDuels($chatId);
+
+            return;
+        }
+
+        if ($data === 'admin:stats') {
+            $this->handleAdminStats($chatId);
+
+            return;
+        }
+
+        $this->sendText($chatId, '❌ Неизвестное админ-действие.');
+    }
+
+    private function handleFinishAllDuels($chatId): void
+    {
+        try {
+            $result = $this->adminService->finishAllActiveDuels();
+
+            $text = sprintf(
+                "✅ <b>Завершение дуэлей</b>\n\n" .
+                "Завершено: %d\n" .
+                "Отменено: %d\n",
+                $result['completed'],
+                $result['cancelled']
+            );
+
+            if (!empty($result['errors'])) {
+                $text .= "\n⚠️ Ошибки:\n" . implode("\n", array_slice($result['errors'], 0, 5));
+                if (count($result['errors']) > 5) {
+                    $text .= sprintf("\n... и ещё %d ошибок", count($result['errors']) - 5);
+                }
+            }
+
+            $this->sendText($chatId, $text);
+        } catch (\Throwable $e) {
+            $this->logger->error('Ошибка при завершении всех дуэлей', [
+                'error' => $e->getMessage(),
+                'exception' => $e,
+            ]);
+            $this->sendText($chatId, '❌ Ошибка при завершении дуэлей: ' . $e->getMessage());
+        }
+    }
+
+    private function handleAdminStats($chatId): void
+    {
+        try {
+            $activeDuels = \QuizBot\Domain\Model\Duel::query()
+                ->whereIn('status', ['waiting', 'matched', 'in_progress'])
+                ->count();
+
+            $totalUsers = \QuizBot\Domain\Model\User::query()->count();
+            $totalDuels = \QuizBot\Domain\Model\Duel::query()->count();
+
+            $text = sprintf(
+                "📊 <b>Статистика</b>\n\n" .
+                "Активных дуэлей: %d\n" .
+                "Всего пользователей: %d\n" .
+                "Всего дуэлей: %d",
+                $activeDuels,
+                $totalUsers,
+                $totalDuels
+            );
+
+            $this->sendText($chatId, $text);
+        } catch (\Throwable $e) {
+            $this->logger->error('Ошибка при получении статистики', [
+                'error' => $e->getMessage(),
+                'exception' => $e,
+            ]);
+            $this->sendText($chatId, '❌ Ошибка при получении статистики: ' . $e->getMessage());
+        }
     }
 }
 
