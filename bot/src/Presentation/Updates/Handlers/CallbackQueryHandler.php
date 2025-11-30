@@ -820,7 +820,7 @@ final class CallbackQueryHandler
                 htmlspecialchars($question->question_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
             );
             $lines[] = '';
-            $lines[] = '⏱ У тебя 30 секунд. Чем быстрее ответишь, тем больше очков получишь!';
+            $lines[] = sprintf('⏱ У тебя %d секунд. Чем быстрее ответишь, тем больше очков получишь!', 30);
             $lines[] = '';
 
             $answerButtons = [];
@@ -871,21 +871,59 @@ final class CallbackQueryHandler
             }
         }
 
+        $text = implode("\n", $lines);
         $payload = [
             'chat_id' => $chatId,
-            'text' => implode("\n", $lines),
+            'text' => $text,
             'parse_mode' => 'HTML',
         ];
 
+        $replyMarkup = null;
         if (!empty($keyboard)) {
-            $payload['reply_markup'] = [
+            $replyMarkup = [
                 'inline_keyboard' => $keyboard,
             ];
+            $payload['reply_markup'] = $replyMarkup;
         }
 
-        $this->telegramClient->request('POST', 'sendMessage', [
+        $response = $this->telegramClient->request('POST', 'sendMessage', [
             'json' => $payload,
         ]);
+
+        // Если это вопрос истории, запускаем фоновый скрипт для обновления таймера
+        if ($question instanceof StoryQuestion && $step !== null) {
+            try {
+                $responseBody = (string) $response->getBody();
+                $responseData = json_decode($responseBody, true);
+                $messageId = isset($responseData['result']['message_id']) ? (int) $responseData['result']['message_id'] : 0;
+
+                if ($messageId > 0) {
+                    $scriptPath = $this->basePath . '/bin/story_question_timer.php';
+                    $startTime = time();
+                    $replyMarkupJson = json_encode($replyMarkup ?: []);
+
+                    // Запускаем скрипт в фоне
+                    $command = sprintf(
+                        'php %s %d %d %d %d %d %s %s > /dev/null 2>&1 &',
+                        escapeshellarg($scriptPath),
+                        $chatId,
+                        $messageId,
+                        $progress->getKey(),
+                        $step->getKey(),
+                        $startTime,
+                        escapeshellarg($text),
+                        escapeshellarg($replyMarkupJson)
+                    );
+
+                    exec($command);
+                }
+            } catch (\Throwable $e) {
+                $this->logger->debug('Не удалось запустить таймер вопроса истории', [
+                    'error' => $e->getMessage(),
+                    'chat_id' => $chatId,
+                ]);
+            }
+        }
     }
 
     private function sendStoryAnswerFeedback($chatId, array $feedback): void

@@ -77,15 +77,41 @@ trait SendsDuelMessages
             }
         }
 
-        $payload = [
-            'text' => implode("\n", $lines),
-            'parse_mode' => 'HTML',
-            'reply_markup' => [
-                'inline_keyboard' => $buttons,
-            ],
+        $text = implode("\n", $lines);
+        $replyMarkup = [
+            'inline_keyboard' => $buttons,
         ];
 
-        $this->broadcastToParticipants($duel, $payload);
+        $payload = [
+            'text' => $text,
+            'parse_mode' => 'HTML',
+            'reply_markup' => $replyMarkup,
+        ];
+
+        $messageIds = $this->broadcastToParticipants($duel, $payload);
+
+        // Запускаем фоновые скрипты для обновления таймера для каждого участника
+        $basePath = dirname(__DIR__, 4);
+        $scriptPath = $basePath . '/bin/duel_question_timer.php';
+        $startTime = time();
+        $replyMarkupJson = json_encode($replyMarkup);
+
+        foreach ($messageIds as $chatId => $messageId) {
+            // Запускаем скрипт в фоне
+            $command = sprintf(
+                'php %s %d %d %d %d %d %s %s > /dev/null 2>&1 &',
+                escapeshellarg($scriptPath),
+                $duel->getKey(),
+                $round->getKey(),
+                $chatId,
+                $messageId,
+                $startTime,
+                escapeshellarg($text),
+                escapeshellarg($replyMarkupJson)
+            );
+            
+            exec($command);
+        }
     }
 
     private function sendDuelRoundResult(Duel $duel, DuelRound $round): void
@@ -235,9 +261,10 @@ trait SendsDuelMessages
         ]);
     }
 
-    private function broadcastToParticipants(Duel $duel, array $payload): void
+    private function broadcastToParticipants(Duel $duel, array $payload): array
     {
         $client = $this->getTelegramClient();
+        $messageIds = [];
 
         foreach ([$duel->initiator, $duel->opponent] as $participant) {
             if (!$participant instanceof User) {
@@ -250,10 +277,25 @@ trait SendsDuelMessages
                 continue;
             }
 
-            $client->request('POST', 'sendMessage', [
-                'json' => $payload + ['chat_id' => $chatId],
-            ]);
+            try {
+                $response = $client->request('POST', 'sendMessage', [
+                    'json' => $payload + ['chat_id' => $chatId],
+                ]);
+                
+                $responseData = json_decode($response->getBody()->getContents(), true);
+                if (isset($responseData['result']['message_id'])) {
+                    $messageIds[$chatId] = (int) $responseData['result']['message_id'];
+                }
+            } catch (\Throwable $e) {
+                $this->getLogger()->error('Ошибка отправки сообщения участнику дуэли', [
+                    'error' => $e->getMessage(),
+                    'chat_id' => $chatId,
+                    'duel_id' => $duel->getKey(),
+                ]);
+            }
         }
+
+        return $messageIds;
     }
 
     /**
