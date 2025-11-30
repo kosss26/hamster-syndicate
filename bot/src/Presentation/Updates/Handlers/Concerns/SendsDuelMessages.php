@@ -52,18 +52,20 @@ trait SendsDuelMessages
 
         $lines = [];
         
+        // Заголовок раунда - крупно, капсом, по центру
+        $roundHeader = sprintf('РАУНД %d ИЗ %d', $currentRound, $totalRounds);
+        $lines[] = sprintf('<b>%s</b>', $roundHeader);
+        $lines[] = '';
+        
         if ($formatter) {
             // Для прогресс-бара нужно показывать результат для каждого участника отдельно
             // Но так как сообщение отправляется обоим, показываем общий прогресс без привязки к пользователю
             $progressBar = $formatter->formatDuelProgress($currentRound, $totalRounds, $allRounds, null);
             $lines[] = $progressBar;
             $lines[] = '';
-        } else {
-            $lines[] = sprintf('⚔️ <b>Раунд %d/%d</b>', $currentRound, $totalRounds);
         }
         
         $lines[] = sprintf('⏱ Время на ответ: <b>%d сек.</b>', $timeLimit);
-        $lines[] = '━━━━━━━━━━━━━━━━━━';
         $lines[] = '';
         $lines[] = sprintf('❓ <b>%s</b>', htmlspecialchars($question->question_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
         $lines[] = '';
