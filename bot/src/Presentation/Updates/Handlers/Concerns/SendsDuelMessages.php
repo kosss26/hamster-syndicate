@@ -146,10 +146,28 @@ trait SendsDuelMessages
             }
             
             // Запускаем скрипт в фоне
-            // Используем абсолютный путь к PHP и полный путь к скрипту
-            $phpPath = PHP_BINARY ?: '/usr/bin/php';
-            if (!file_exists($phpPath)) {
-                $phpPath = 'php'; // Fallback
+            // Используем PHP CLI (не php-fpm!)
+            // Пробуем разные варианты путей к PHP CLI
+            $phpPath = 'php'; // По умолчанию используем php из PATH
+            
+            // Проверяем стандартные пути к PHP CLI
+            $possiblePaths = [
+                '/usr/bin/php',
+                '/usr/bin/php8.2',
+                '/usr/bin/php8.1',
+                '/usr/bin/php8.0',
+                '/usr/bin/php7.4',
+            ];
+            
+            foreach ($possiblePaths as $path) {
+                if (file_exists($path) && !is_dir($path)) {
+                    // Проверяем, что это не php-fpm
+                    $realPath = realpath($path);
+                    if ($realPath !== false && strpos($realPath, 'fpm') === false) {
+                        $phpPath = $path;
+                        break;
+                    }
+                }
             }
             
             $logFile = $basePath . '/storage/logs/timer.log';
