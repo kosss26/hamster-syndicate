@@ -269,7 +269,18 @@ for ($i = 0; $i <= $timeoutSeconds; $i += $updateInterval) {
         exit(0);
     }
 
-    $elapsed = time() - $startTime;
+    // Используем question_sent_at из базы для точного расчета времени
+    $round->refresh();
+    if ($round->question_sent_at === null) {
+        $logger->warning('question_sent_at не установлен, используем startTime', [
+            'duel_id' => $duelId,
+            'round_id' => $roundId,
+        ]);
+        $elapsed = time() - $startTime;
+    } else {
+        $elapsed = $round->question_sent_at->diffInSeconds(\Carbon\Carbon::now());
+    }
+    
     $remaining = max(0, $timeoutSeconds - $elapsed);
 
     if ($remaining <= 0) {
@@ -289,6 +300,14 @@ for ($i = 0; $i <= $timeoutSeconds; $i += $updateInterval) {
                 ]);
                 break;
             }
+            
+            $logger->info('Время истекло, применяем таймауты', [
+                'duel_id' => $duelId,
+                'round_id' => $roundId,
+                'elapsed' => $elapsed,
+                'time_limit' => $timeoutSeconds,
+                'question_sent_at' => $round->question_sent_at?->toAtomString(),
+            ]);
             
             // Применяем таймауты для обоих участников (даже если скрипт запущен только для одного)
             $initiatorTimeout = $duelService->applyTimeoutIfNeeded($round, true, $now);
@@ -341,8 +360,8 @@ for ($i = 0; $i <= $timeoutSeconds; $i += $updateInterval) {
         break;
     }
 
-    // Обновляем текст сообщения с новым временем
-    if ($messageId > 0 && $chatId !== 0) {
+    // Обновляем текст сообщения с новым временем (только если раунд ещё открыт)
+    if ($messageId > 0 && $chatId !== 0 && $round->closed_at === null) {
         // Заменяем строку с временем в оригинальном тексте
         // Пробуем разные варианты паттернов
         $updatedText = preg_replace(
