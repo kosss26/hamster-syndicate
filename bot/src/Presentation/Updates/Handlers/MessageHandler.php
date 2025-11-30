@@ -12,6 +12,7 @@ use QuizBot\Application\Services\DuelService;
 use QuizBot\Application\Services\GameSessionService;
 use QuizBot\Application\Services\ProfileFormatter;
 use QuizBot\Application\Services\StoryService;
+use QuizBot\Application\Services\AdminService;
 use QuizBot\Domain\Model\User;
 
 final class MessageHandler
@@ -32,6 +33,8 @@ final class MessageHandler
 
     private StoryService $storyService;
 
+    private AdminService $adminService;
+
     public function __construct(
         ClientInterface $telegramClient,
         Logger $logger,
@@ -40,7 +43,8 @@ final class MessageHandler
         DuelService $duelService,
         GameSessionService $gameSessionService,
         StoryService $storyService,
-        ProfileFormatter $profileFormatter
+        ProfileFormatter $profileFormatter,
+        AdminService $adminService
     ) {
         $this->telegramClient = $telegramClient;
         $this->logger = $logger;
@@ -50,6 +54,7 @@ final class MessageHandler
         $this->gameSessionService = $gameSessionService;
         $this->storyService = $storyService;
         $this->profileFormatter = $profileFormatter;
+        $this->adminService = $adminService;
     }
 
     /**
@@ -86,7 +91,8 @@ final class MessageHandler
                 $this->duelService,
                 $this->gameSessionService,
                 $this->storyService,
-                $this->profileFormatter
+                $this->profileFormatter,
+                $this->adminService
             );
             $commandHandler->handle([
                 'chat_id' => $chatId,
@@ -107,7 +113,8 @@ final class MessageHandler
                 $this->duelService,
                 $this->gameSessionService,
                 $this->storyService,
-                $this->profileFormatter
+                $this->profileFormatter,
+                $this->adminService
             );
 
             if ($user instanceof User && $this->looksLikeUsernameInput($text)) {

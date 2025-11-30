@@ -80,7 +80,8 @@ final class UpdateRouter
                 $this->duelService,
                 $this->gameSessionService,
                 $this->storyService,
-                $this->profileFormatter
+                $this->profileFormatter,
+                $this->adminService
             );
             $messageHandler->handle($update['message']);
 
