@@ -311,20 +311,32 @@ for ($i = 0; $i <= $timeoutSeconds; $i += $updateInterval) {
                 'question_sent_at' => $round->question_sent_at?->toAtomString(),
             ]);
             
+            // Проверяем состояние участников до применения таймаутов
+            $initiatorPayloadBefore = $round->initiator_payload ?? [];
+            $opponentPayloadBefore = $round->opponent_payload ?? [];
+            
+            $logger->info('Состояние участников до таймаутов', [
+                'duel_id' => $duelId,
+                'round_id' => $roundId,
+                'initiator_done' => isset($initiatorPayloadBefore['completed']) && $initiatorPayloadBefore['completed'] === true,
+                'opponent_done' => isset($opponentPayloadBefore['completed']) && $opponentPayloadBefore['completed'] === true,
+            ]);
+            
             // Применяем таймауты для обоих участников (даже если скрипт запущен только для одного)
             $initiatorTimeout = $duelService->applyTimeoutIfNeeded($round, true, $now);
             $opponentTimeout = $duelService->applyTimeoutIfNeeded($round, false, $now);
+            
+            // Обновляем раунд после применения таймаутов
+            $round->refresh();
             
             $logger->info('Проверка таймаутов после истечения времени', [
                 'duel_id' => $duelId,
                 'round_id' => $roundId,
                 'initiator_timeout' => $initiatorTimeout,
                 'opponent_timeout' => $opponentTimeout,
-                'round_closed_before' => $round->closed_at !== null,
+                'initiator_payload_after' => $round->initiator_payload ?? [],
+                'opponent_payload_after' => $round->opponent_payload ?? [],
             ]);
-            
-            // Обновляем раунд после применения таймаутов
-            $round->refresh();
             
             // Проверяем, можно ли завершить раунд
             $duelService->maybeCompleteRound($round);
@@ -348,6 +360,8 @@ for ($i = 0; $i <= $timeoutSeconds; $i += $updateInterval) {
                     'round_id' => $roundId,
                     'initiator_payload' => $round->initiator_payload ?? [],
                     'opponent_payload' => $round->opponent_payload ?? [],
+                    'initiator_done' => isset($round->initiator_payload['completed']) && $round->initiator_payload['completed'] === true,
+                    'opponent_done' => isset($round->opponent_payload['completed']) && $round->opponent_payload['completed'] === true,
                 ]);
             }
         } catch (\Throwable $e) {
