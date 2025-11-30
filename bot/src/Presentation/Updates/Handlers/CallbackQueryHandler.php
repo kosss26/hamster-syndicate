@@ -256,11 +256,19 @@ final class CallbackQueryHandler
             return;
         }
 
-        $this->telegramClient->request('POST', 'answerCallbackQuery', [
-            'json' => [
-                'callback_query_id' => $callbackId,
-            ],
-        ]);
+        try {
+            $this->telegramClient->request('POST', 'answerCallbackQuery', [
+                'json' => [
+                    'callback_query_id' => $callbackId,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            $this->logger->warning('Не удалось ответить на callback query', [
+                'error' => $e->getMessage(),
+                'callback_id' => $callbackId,
+            ]);
+            // Продолжаем обработку даже если не удалось ответить на callback
+        }
 
         $chatId = $message['chat']['id'] ?? null;
 
@@ -678,24 +686,24 @@ final class CallbackQueryHandler
 
     private function handleDuelAnswer($chatId, string $data, ?User $user): void
     {
+        if ($user === null) {
+            $this->sendText($chatId, 'Не удалось определить профиль. Попробуйте /start.');
+
+            return;
+        }
+
+        if (!preg_match('/^duel-answer:(\d+):(\d+):(\d+)$/', $data, $matches)) {
+            $this->sendText($chatId, 'Не удалось обработать ответ дуэли. Попробуйте снова.');
+
+            return;
+        }
+
+        [, $duelIdRaw, $roundIdRaw, $answerIdRaw] = $matches;
+        $duelId = (int) $duelIdRaw;
+        $roundId = (int) $roundIdRaw;
+        $answerId = (int) $answerIdRaw;
+
         try {
-            if ($user === null) {
-                $this->sendText($chatId, 'Не удалось определить профиль. Попробуйте /start.');
-
-                return;
-            }
-
-            if (!preg_match('/^duel-answer:(\d+):(\d+):(\d+)$/', $data, $matches)) {
-                $this->sendText($chatId, 'Не удалось обработать ответ дуэли. Попробуйте снова.');
-
-                return;
-            }
-
-            [, $duelIdRaw, $roundIdRaw, $answerIdRaw] = $matches;
-            $duelId = (int) $duelIdRaw;
-            $roundId = (int) $roundIdRaw;
-            $answerId = (int) $answerIdRaw;
-
             $duel = $this->duelService->findById($duelId);
 
             if (!$duel instanceof Duel) {
@@ -733,6 +741,56 @@ final class CallbackQueryHandler
 
                 return;
             }
+
+            $payload = $duel->initiator_user_id === $user->getKey() ? ($round->initiator_payload ?? []) : ($round->opponent_payload ?? []);
+            
+            $ack = 'Ответ засчитан.';
+            
+            if (($payload['reason'] ?? null) === 'timeout') {
+                $ack = '⏰ Время истекло. Ответ не засчитан.';
+            } elseif (($payload['is_correct'] ?? false) === true) {
+                $ack = $this->messageFormatter->correctAnswer('Верно!');
+            } else {
+                $round->loadMissing('question.answers');
+                $correctAnswer = $round->question?->answers->firstWhere('is_correct', true);
+                $correctText = $correctAnswer ? htmlspecialchars($correctAnswer->answer_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') : 'Правильный ответ';
+                $ack = $this->messageFormatter->incorrectAnswer($correctText);
+            }
+            
+            // Убеждаемся, что отправляем результат только тому, кто ответил
+            // Используем telegram_id пользователя, а не chatId из сообщения
+            $userChatId = $user->telegram_id;
+            if ($userChatId === null) {
+                $this->logger->warning('Не удалось отправить результат ответа: отсутствует telegram_id', [
+                    'user_id' => $user->getKey(),
+                    'duel_id' => $duel->getKey(),
+                    'round_id' => $round->getKey(),
+                ]);
+            } else {
+                $this->sendText($userChatId, $ack, true);
+            }
+
+            $duel = $duel->refresh(['rounds.question.answers', 'initiator', 'opponent', 'result']);
+            $round = $duel->rounds->firstWhere('id', $roundId);
+
+            if ($round instanceof DuelRound && $round->closed_at !== null) {
+                $this->sendDuelRoundResult($duel, $round);
+                
+                // Пауза 3 секунды после отправки результатов
+                sleep(3);
+
+                if ($duel->status === 'finished' && $duel->result !== null) {
+                    $this->sendDuelFinalResult($duel, $duel->result);
+
+                    return;
+                }
+
+                $nextRound = $this->duelService->getCurrentRound($duel);
+
+                if ($nextRound instanceof DuelRound) {
+                    $this->sendDuelQuestion($duel, $nextRound);
+                }
+            }
         } catch (\Throwable $exception) {
             $this->logger->error('Критическая ошибка в handleDuelAnswer', [
                 'error' => $exception->getMessage(),
@@ -741,58 +799,6 @@ final class CallbackQueryHandler
                 'user_id' => $user?->getKey(),
             ]);
             $this->sendText($chatId, '⚠️ Произошла ошибка при обработке ответа. Попробуй ещё раз.');
-
-            return;
-        }
-
-        $payload = $duel->initiator_user_id === $user->getKey() ? ($round->initiator_payload ?? []) : ($round->opponent_payload ?? []);
-        
-        $ack = 'Ответ засчитан.';
-        
-        if (($payload['reason'] ?? null) === 'timeout') {
-            $ack = '⏰ Время истекло. Ответ не засчитан.';
-        } elseif (($payload['is_correct'] ?? false) === true) {
-            $ack = $this->messageFormatter->correctAnswer('Верно!');
-        } else {
-            $round->loadMissing('question.answers');
-            $correctAnswer = $round->question?->answers->firstWhere('is_correct', true);
-            $correctText = $correctAnswer ? htmlspecialchars($correctAnswer->answer_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') : 'Правильный ответ';
-            $ack = $this->messageFormatter->incorrectAnswer($correctText);
-        }
-        
-        // Убеждаемся, что отправляем результат только тому, кто ответил
-        // Используем telegram_id пользователя, а не chatId из сообщения
-        $userChatId = $user->telegram_id;
-        if ($userChatId === null) {
-            $this->logger->warning('Не удалось отправить результат ответа: отсутствует telegram_id', [
-                'user_id' => $user->getKey(),
-                'duel_id' => $duel->getKey(),
-                'round_id' => $round->getKey(),
-            ]);
-        } else {
-            $this->sendText($userChatId, $ack, true);
-        }
-
-        $duel = $duel->refresh(['rounds.question.answers', 'initiator', 'opponent', 'result']);
-        $round = $duel->rounds->firstWhere('id', $roundId);
-
-        if ($round instanceof DuelRound && $round->closed_at !== null) {
-            $this->sendDuelRoundResult($duel, $round);
-            
-            // Пауза 3 секунды после отправки результатов
-            sleep(3);
-
-            if ($duel->status === 'finished' && $duel->result !== null) {
-                $this->sendDuelFinalResult($duel, $duel->result);
-
-                return;
-            }
-
-            $nextRound = $this->duelService->getCurrentRound($duel);
-
-            if ($nextRound instanceof DuelRound) {
-                $this->sendDuelQuestion($duel, $nextRound);
-            }
         }
     }
 
