@@ -281,72 +281,53 @@ for ($i = 0; $i <= $timeoutSeconds; $i += $updateInterval) {
             $round->refresh();
             $duel->refresh();
             
-            // Проверяем, что раунд всё ещё открыт
+            // Проверяем, что раунд всё ещё открыт (если уже закрыт, значит оба ответили)
             if ($round->closed_at !== null) {
-                $logger->info('Раунд уже закрыт, таймаут не применяется', [
+                $logger->info('Раунд уже закрыт (оба ответили), таймаут не нужен', [
                     'duel_id' => $duelId,
                     'round_id' => $roundId,
                 ]);
                 break;
             }
             
-            // Применяем таймауты только если участник ещё не ответил
+            // Применяем таймауты для обоих участников (даже если скрипт запущен только для одного)
             $initiatorTimeout = $duelService->applyTimeoutIfNeeded($round, true, $now);
             $opponentTimeout = $duelService->applyTimeoutIfNeeded($round, false, $now);
             
-            $logger->info('Проверка таймаутов', [
+            $logger->info('Проверка таймаутов после истечения времени', [
                 'duel_id' => $duelId,
                 'round_id' => $roundId,
                 'initiator_timeout' => $initiatorTimeout,
                 'opponent_timeout' => $opponentTimeout,
-                'round_closed' => $round->closed_at !== null,
+                'round_closed_before' => $round->closed_at !== null,
             ]);
             
-            if ($initiatorTimeout || $opponentTimeout) {
-                $round->refresh();
-                // Проверяем, можно ли завершить раунд
-                $duelService->maybeCompleteRound($round);
+            // Обновляем раунд после применения таймаутов
+            $round->refresh();
+            
+            // Проверяем, можно ли завершить раунд
+            $duelService->maybeCompleteRound($round);
+            
+            $round->refresh();
+            if ($round->closed_at !== null) {
+                $duelService->maybeCompleteDuel($round->duel);
+                $logger->info('Раунд завершён после таймаута', [
+                    'duel_id' => $duelId,
+                    'round_id' => $roundId,
+                ]);
                 
-                $round->refresh();
-                if ($round->closed_at !== null) {
-                    $duelService->maybeCompleteDuel($round->duel);
-                    $logger->info('Раунд завершён после таймаута', [
-                        'duel_id' => $duelId,
-                        'round_id' => $roundId,
-                    ]);
-                    
-                    // Пауза 3 секунды перед отправкой результатов
-                    sleep(3);
-                    
-                    // Отправляем результаты раунда и следующий вопрос
-                    sendRoundResultsAndNextQuestion($round->duel, $round, $telegramClient, $logger, $container, $duelId);
-                } else {
-                    $logger->warning('Раунд не завершён после таймаута', [
-                        'duel_id' => $duelId,
-                        'round_id' => $roundId,
-                        'initiator_payload' => $round->initiator_payload ?? [],
-                        'opponent_payload' => $round->opponent_payload ?? [],
-                    ]);
-                }
+                // Отправляем результаты раунда и следующий вопрос
+                sendRoundResultsAndNextQuestion($round->duel, $round, $telegramClient, $logger, $container, $duelId);
+                
+                // Пауза 3 секунды после отправки результатов
+                sleep(3);
             } else {
-                // Если таймауты не применены, всё равно проверяем завершение раунда
-                $round->refresh();
-                $duelService->maybeCompleteRound($round);
-                
-                $round->refresh();
-                if ($round->closed_at !== null) {
-                    $duelService->maybeCompleteDuel($round->duel);
-                    $logger->info('Раунд завершён (оба ответили)', [
-                        'duel_id' => $duelId,
-                        'round_id' => $roundId,
-                    ]);
-                    
-                    // Отправляем результаты раунда и следующий вопрос
-                    sendRoundResultsAndNextQuestion($round->duel, $round, $telegramClient, $logger, $container, $duelId);
-                    
-                    // Пауза 3 секунды после отправки результатов
-                    sleep(3);
-                }
+                $logger->warning('Раунд не завершён после таймаута', [
+                    'duel_id' => $duelId,
+                    'round_id' => $roundId,
+                    'initiator_payload' => $round->initiator_payload ?? [],
+                    'opponent_payload' => $round->opponent_payload ?? [],
+                ]);
             }
         } catch (\Throwable $e) {
             $logger->error('Ошибка применения таймаута в скрипте таймера', [
