@@ -282,7 +282,8 @@ trait SendsDuelMessages
                     'json' => $payload + ['chat_id' => $chatId],
                 ]);
                 
-                $responseData = json_decode($response->getBody()->getContents(), true);
+                $responseBody = (string) $response->getBody();
+                $responseData = json_decode($responseBody, true);
                 if (isset($responseData['result']['message_id'])) {
                     $messageIds[$chatId] = (int) $responseData['result']['message_id'];
                 }
