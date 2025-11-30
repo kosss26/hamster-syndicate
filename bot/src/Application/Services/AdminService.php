@@ -39,14 +39,23 @@ final class AdminService
     {
         $adminIdsStr = $this->config->get('ADMIN_TELEGRAM_IDS', '');
 
-        if (empty($adminIdsStr)) {
+        // Преобразуем в строку, если это число или другой тип
+        if (!is_string($adminIdsStr)) {
+            if (is_numeric($adminIdsStr)) {
+                $adminIdsStr = (string) $adminIdsStr;
+            } else {
+                return [];
+            }
+        }
+
+        if (empty(trim($adminIdsStr))) {
             return [];
         }
 
         $ids = explode(',', $adminIdsStr);
         $ids = array_map('trim', $ids);
         $ids = array_filter($ids, function ($id) {
-            return is_numeric($id);
+            return is_numeric($id) && !empty($id);
         });
 
         return array_map('intval', $ids);
