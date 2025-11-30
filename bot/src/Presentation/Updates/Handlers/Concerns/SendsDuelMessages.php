@@ -132,9 +132,24 @@ trait SendsDuelMessages
             }
             $textForTimer = implode("\n", $customLines);
             
+            // Проверяем существование скрипта
+            if (!file_exists($scriptPath)) {
+                $this->getLogger()->error('Скрипт таймера не найден', [
+                    'script_path' => $scriptPath,
+                    'duel_id' => $duel->getKey(),
+                    'round_id' => $round->getKey(),
+                ]);
+                continue;
+            }
+            
             // Запускаем скрипт в фоне
+            // Используем абсолютный путь к PHP и полный путь к скрипту
+            $phpPath = PHP_BINARY ?: 'php';
+            $logFile = $basePath . '/storage/logs/timer.log';
             $command = sprintf(
-                'php %s %d %d %d %d %d %s %s > /dev/null 2>&1 &',
+                'cd %s && %s %s %d %d %d %d %d %s %s >> %s 2>&1 &',
+                escapeshellarg($basePath),
+                escapeshellarg($phpPath),
                 escapeshellarg($scriptPath),
                 $duel->getKey(),
                 $round->getKey(),
@@ -142,10 +157,29 @@ trait SendsDuelMessages
                 $messageId,
                 $startTime,
                 escapeshellarg($textForTimer),
-                escapeshellarg($replyMarkupJson)
+                escapeshellarg($replyMarkupJson),
+                escapeshellarg($logFile)
             );
             
-            exec($command);
+            $this->getLogger()->info('Запуск таймера дуэли', [
+                'duel_id' => $duel->getKey(),
+                'round_id' => $round->getKey(),
+                'chat_id' => $chatId,
+                'message_id' => $messageId,
+                'script_path' => $scriptPath,
+                'php_path' => $phpPath,
+            ]);
+            
+            $output = [];
+            $returnVar = 0;
+            exec($command, $output, $returnVar);
+            
+            if ($returnVar !== 0 && !empty($output)) {
+                $this->getLogger()->warning('Предупреждение при запуске таймера', [
+                    'return_var' => $returnVar,
+                    'output' => implode("\n", $output),
+                ]);
+            }
         }
     }
 
