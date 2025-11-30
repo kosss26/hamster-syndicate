@@ -68,11 +68,27 @@ for ($i = 0; $i <= $timeoutSeconds; $i += $updateInterval) {
             $round->refresh();
             $duel->refresh();
             
+            // Проверяем, что раунд всё ещё открыт
+            if ($round->closed_at !== null) {
+                $logger->info('Раунд уже закрыт, таймаут не применяется', [
+                    'duel_id' => $duelId,
+                    'round_id' => $roundId,
+                ]);
+                break;
+            }
+            
             // Применяем таймауты только если участник ещё не ответил
             $initiatorTimeout = $duelService->applyTimeoutIfNeeded($round, true, $now);
             $opponentTimeout = $duelService->applyTimeoutIfNeeded($round, false, $now);
             
             if ($initiatorTimeout || $opponentTimeout) {
+                $logger->info('Таймаут применён для участников', [
+                    'duel_id' => $duelId,
+                    'round_id' => $roundId,
+                    'initiator_timeout' => $initiatorTimeout,
+                    'opponent_timeout' => $opponentTimeout,
+                ]);
+                
                 $round->refresh();
                 // Проверяем, можно ли завершить раунд
                 $duelService->maybeCompleteRound($round);
@@ -80,11 +96,16 @@ for ($i = 0; $i <= $timeoutSeconds; $i += $updateInterval) {
                 $round->refresh();
                 if ($round->closed_at !== null) {
                     $duelService->maybeCompleteDuel($round->duel);
+                    $logger->info('Раунд завершён после таймаута', [
+                        'duel_id' => $duelId,
+                        'round_id' => $roundId,
+                    ]);
                 }
             }
         } catch (\Throwable $e) {
             $logger->error('Ошибка применения таймаута в скрипте таймера', [
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
                 'duel_id' => $duelId,
                 'round_id' => $roundId,
             ]);

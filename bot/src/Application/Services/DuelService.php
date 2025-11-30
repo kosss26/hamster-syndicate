@@ -506,7 +506,7 @@ class DuelService
         return $counter;
     }
 
-    private function maybeCompleteRound(DuelRound $round): void
+    public function maybeCompleteRound(DuelRound $round): void
     {
         $now = Carbon::now();
         $updated = false;
