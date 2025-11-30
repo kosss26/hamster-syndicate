@@ -286,6 +286,175 @@ function formatUserName(?\QuizBot\Domain\Model\User $user): string
     return sprintf('Игрок %d', (int) $user->getKey());
 }
 
+/**
+ * Отправляет следующий вопрос дуэли участникам
+ */
+function sendNextDuelQuestion(Duel $duel, DuelRound $round, $telegramClient, $logger, $container): void
+{
+    try {
+        $duelService = $container->get(\QuizBot\Application\Services\DuelService::class);
+        $round = $duelService->markRoundDispatched($round);
+        $round->loadMissing('question.answers', 'duel.initiator', 'duel.opponent');
+        
+        /** @var \QuizBot\Domain\Model\Question|null $question */
+        $question = $round->question;
+        
+        if ($question === null) {
+            $logger->error('В раунде дуэли отсутствует вопрос', [
+                'duel_id' => $duel->getKey(),
+                'round_id' => $round->getKey(),
+            ]);
+            return;
+        }
+        
+        $timeLimit = $round->time_limit ?? 30;
+        $totalRounds = $duel->rounds_to_win * 2;
+        $currentRound = (int) $round->round_number;
+        
+        // Загружаем все раунды для отображения прогресса
+        $duel->loadMissing('rounds');
+        $allRounds = $duel->rounds->sortBy('round_number');
+        
+        // Создаём MessageFormatter для прогресс-бара
+        $formatter = new \QuizBot\Application\Services\MessageFormatter();
+        
+        $baseLines = [];
+        
+        // Заголовок раунда
+        $roundHeader = sprintf('РАУНД %d ИЗ %d', $currentRound, $totalRounds);
+        $baseLines[] = sprintf('<b><strong>%s</strong></b>', $roundHeader);
+        $baseLines[] = '';
+        
+        $baseLines[] = sprintf('⏱ Время на ответ: <b>%d сек.</b>', $timeLimit);
+        $baseLines[] = '';
+        $baseLines[] = sprintf('❓ <b>%s</b>', htmlspecialchars($question->question_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
+        $baseLines[] = '';
+        
+        // Перемешиваем ответы
+        $answers = $question->answers->shuffle();
+        
+        $buttons = [];
+        $row = [];
+        
+        foreach ($answers as $index => $answer) {
+            $row[] = [
+                'text' => htmlspecialchars($answer->answer_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                'callback_data' => sprintf('duel-answer:%d:%d:%d', $duel->getKey(), $round->getKey(), $answer->getKey()),
+            ];
+            
+            if (count($row) === 2 || $index === count($answers) - 1) {
+                $buttons[] = $row;
+                $row = [];
+            }
+        }
+        
+        $replyMarkup = [
+            'inline_keyboard' => $buttons,
+        ];
+        
+        // Отправляем вопрос каждому участнику с правильным прогресс-баром
+        foreach ([$duel->initiator, $duel->opponent] as $participant) {
+            if (!$participant instanceof \QuizBot\Domain\Model\User) {
+                continue;
+            }
+            
+            $chatId = $participant->telegram_id;
+            if ($chatId === null) {
+                continue;
+            }
+            
+            // Создаём кастомный прогресс-бар для каждого участника
+            $customLines = $baseLines;
+            $userId = $participant->getKey();
+            $progressBar = $formatter->formatDuelProgress($currentRound, $totalRounds, $allRounds, $userId);
+            // Вставляем прогресс-бар после заголовка и пустой строки
+            array_splice($customLines, 2, 0, $progressBar);
+            array_splice($customLines, 3, 0, ''); // Пустая строка после прогресс-бара
+            
+            $text = implode("\n", $customLines);
+            
+            try {
+                $response = $telegramClient->request('POST', 'sendMessage', [
+                    'json' => [
+                        'chat_id' => $chatId,
+                        'text' => $text,
+                        'parse_mode' => 'HTML',
+                        'reply_markup' => $replyMarkup,
+                    ],
+                ]);
+                
+                $responseData = json_decode($response->getBody()->getContents(), true);
+                $messageId = isset($responseData['result']['message_id']) ? (int) $responseData['result']['message_id'] : 0;
+                
+                if ($messageId > 0) {
+                    // Запускаем таймер для этого вопроса
+                    $basePath = dirname(__DIR__);
+                    $scriptPath = $basePath . '/bin/duel_question_timer.php';
+                    $startTime = time();
+                    $replyMarkupJson = json_encode($replyMarkup);
+                    
+                    // Определяем PHP CLI
+                    $phpPath = 'php';
+                    $possiblePaths = ['/usr/bin/php', '/usr/bin/php8.2', '/usr/bin/php8.1', '/usr/bin/php8.0', '/usr/bin/php7.4'];
+                    foreach ($possiblePaths as $path) {
+                        if (file_exists($path) && !is_dir($path)) {
+                            $realPath = realpath($path);
+                            if ($realPath !== false && strpos($realPath, 'fpm') === false) {
+                                $phpPath = $path;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    $logFile = $basePath . '/storage/logs/timer.log';
+                    $logDir = dirname($logFile);
+                    if (!is_dir($logDir)) {
+                        @mkdir($logDir, 0775, true);
+                    }
+                    
+                    $command = sprintf(
+                        'cd %s && nohup %s %s %d %d %d %d %d %s %s >> %s 2>&1 & echo $!',
+                        escapeshellarg($basePath),
+                        escapeshellarg($phpPath),
+                        escapeshellarg($scriptPath),
+                        $duel->getKey(),
+                        $round->getKey(),
+                        $chatId,
+                        $messageId,
+                        $startTime,
+                        escapeshellarg($text),
+                        escapeshellarg($replyMarkupJson),
+                        escapeshellarg($logFile)
+                    );
+                    
+                    $processId = trim((string) shell_exec($command));
+                    $logger->info('Таймер запущен для следующего вопроса', [
+                        'duel_id' => $duel->getKey(),
+                        'round_id' => $round->getKey(),
+                        'chat_id' => $chatId,
+                        'message_id' => $messageId,
+                        'process_id' => $processId,
+                    ]);
+                }
+            } catch (\Throwable $e) {
+                $logger->error('Ошибка отправки следующего вопроса', [
+                    'error' => $e->getMessage(),
+                    'chat_id' => $chatId,
+                    'duel_id' => $duel->getKey(),
+                    'round_id' => $round->getKey(),
+                ]);
+            }
+        }
+    } catch (\Throwable $e) {
+        $logger->error('Ошибка отправки следующего вопроса дуэли', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+            'duel_id' => $duel->getKey(),
+            'round_id' => $round->getKey(),
+        ]);
+    }
+}
+
 $logger->info('Начало цикла таймера', [
     'duel_id' => $duelId,
     'round_id' => $roundId,
