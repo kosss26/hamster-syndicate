@@ -9,15 +9,27 @@ use QuizBot\Domain\Model\DuelRound;
 use GuzzleHttp\Client;
 use Monolog\Logger;
 
-require_once dirname(__DIR__) . '/vendor/autoload.php';
+$basePath = dirname(__DIR__);
+require_once $basePath . '/vendor/autoload.php';
 
-$bootstrap = new AppBootstrap(dirname(__DIR__));
+// Логируем начало работы скрипта
+error_log(sprintf('[DUEL_TIMER] Скрипт запущен: duel_id=%d, round_id=%d, chat_id=%d, message_id=%d', 
+    $argv[1] ?? 0, $argv[2] ?? 0, $argv[3] ?? 0, $argv[4] ?? 0));
+
+$bootstrap = new AppBootstrap($basePath);
 $container = $bootstrap->getContainer();
 
 /** @var Logger $logger */
 $logger = $container->get(Logger::class);
 /** @var Client $telegramClient */
 $telegramClient = $container->get(GuzzleHttp\ClientInterface::class);
+
+$logger->info('Таймер дуэли запущен', [
+    'duel_id' => $duelId,
+    'round_id' => $roundId,
+    'chat_id' => $chatId,
+    'message_id' => $messageId,
+]);
 
 $duelId = (int) ($argv[1] ?? 0);
 $roundId = (int) ($argv[2] ?? 0);
@@ -133,7 +145,7 @@ for ($i = 0; $i <= $timeoutSeconds; $i += $updateInterval) {
         }
 
         try {
-            $telegramClient->request('POST', 'editMessageText', [
+            $response = $telegramClient->request('POST', 'editMessageText', [
                 'json' => [
                     'chat_id' => $chatId,
                     'message_id' => $messageId,
@@ -142,14 +154,26 @@ for ($i = 0; $i <= $timeoutSeconds; $i += $updateInterval) {
                     'reply_markup' => json_decode($replyMarkup, true) ?: null,
                 ],
             ]);
-        } catch (\Throwable $e) {
-            // Игнорируем ошибки редактирования
-            if (strpos($e->getMessage(), 'message is not modified') === false && 
-                strpos($e->getMessage(), 'message to edit not found') === false) {
-                $logger->debug('Ошибка обновления таймера вопроса дуэли', [
-                    'error' => $e->getMessage(),
+            
+            // Логируем успешное обновление каждые 5 секунд для отладки
+            if ($remaining % 5 === 0) {
+                $logger->debug('Таймер обновлён', [
+                    'remaining' => $remaining,
                     'chat_id' => $chatId,
                     'message_id' => $messageId,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            // Игнорируем ошибки редактирования, но логируем для отладки
+            $errorMsg = $e->getMessage();
+            if (strpos($errorMsg, 'message is not modified') === false && 
+                strpos($errorMsg, 'message to edit not found') === false &&
+                strpos($errorMsg, 'Bad Request') === false) {
+                $logger->warning('Ошибка обновления таймера вопроса дуэли', [
+                    'error' => $errorMsg,
+                    'chat_id' => $chatId,
+                    'message_id' => $messageId,
+                    'remaining' => $remaining,
                 ]);
             }
         }
