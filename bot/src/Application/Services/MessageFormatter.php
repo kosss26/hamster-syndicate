@@ -54,6 +54,14 @@ class MessageFormatter
     }
 
     /**
+     * Создаёт полоску здоровья
+     */
+    public function healthBar(int $current, int $total, string $filledChar = '❤️', string $emptyChar = '🤍'): string
+    {
+        return str_repeat($filledChar, $current) . str_repeat($emptyChar, $total - $current);
+    }
+
+    /**
      * Форматирует прогресс дуэли
      */
     public function formatDuelProgress(int $current, int $total): string
@@ -86,11 +94,53 @@ class MessageFormatter
     }
 
     /**
+     * Форматирует правильный ответ с анимацией (для истории)
+     */
+    public function animatedCorrectAnswer(string $pointsText): string
+    {
+        return sprintf('🎯 Верно! ✨ Отлично! 🎉 %s', $pointsText);
+    }
+
+    /**
      * Форматирует неправильный ответ с анимацией
      */
     public function incorrectAnswer(string $correctAnswer): string
     {
         return sprintf("❌ Неверно\n💥 Правильный ответ: <b>%s</b>\n😢 Попробуй ещё раз!", $correctAnswer);
+    }
+
+    /**
+     * Форматирует неправильный ответ с анимацией (для истории)
+     */
+    public function animatedIncorrectAnswer(string $correctAnswerText): string
+    {
+        return sprintf('❌ Неверно 💥 Правильный ответ: %s 😢 Попробуй ещё раз!', $correctAnswerText);
+    }
+
+    /**
+     * Создаёт красивую рамку для вопроса
+     */
+    public function questionBox(string $questionText): string
+    {
+        $lines = explode("\n", $questionText);
+        $maxLength = 0;
+        foreach ($lines as $line) {
+            $lineLength = mb_strlen($line);
+            if ($lineLength > $maxLength) {
+                $maxLength = $lineLength;
+            }
+        }
+
+        $box = [];
+        $box[] = '```';
+        $box[] = '┌' . str_repeat('─', $maxLength + 2) . '┐';
+        foreach ($lines as $line) {
+            $box[] = '│ ' . str_pad($line, $maxLength, ' ') . ' │';
+        }
+        $box[] = '└' . str_repeat('─', $maxLength + 2) . '┘';
+        $box[] = '```';
+
+        return implode("\n", $box);
     }
 
     /**

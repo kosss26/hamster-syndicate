@@ -18,6 +18,8 @@ use QuizBot\Domain\Model\GameSession;
 use QuizBot\Domain\Model\StoryStep;
 use QuizBot\Domain\Model\StoryChapter;
 use QuizBot\Domain\Model\StoryProgress;
+use QuizBot\Domain\Model\StoryQuestion;
+use QuizBot\Domain\Model\StoryQuestionAnswer;
 use QuizBot\Domain\Model\Duel;
 use QuizBot\Domain\Model\DuelRound;
 use QuizBot\Presentation\Updates\Handlers\Concerns\SendsDuelMessages;
@@ -292,6 +294,12 @@ final class CallbackQueryHandler
             return;
         }
 
+        if ($this->startsWith($data, 'story-choice:')) {
+            $this->handleStoryChoice($chatId, $data, $user);
+
+            return;
+        }
+
         if ($this->startsWith($data, 'story-answer:')) {
             $this->handleStoryAnswer($chatId, $data, $user);
 
@@ -488,7 +496,7 @@ final class CallbackQueryHandler
         }
 
         try {
-            $state = $this->storyService->openChapter($user, $chapterCode);
+            $state = $this->storyService->startChapter($user, $chapterCode);
         } catch (\DomainException $exception) {
             $this->sendText($chatId, '🔒 Эта глава ещё закрыта. Заверши предыдущую, чтобы продолжить.');
 
@@ -702,11 +710,11 @@ final class CallbackQueryHandler
 
         /** @var StoryStep $step */
         $step = $state['step'];
-        /** @var Question|null $question */
-        $question = $state['question'];
+        /** @var StoryQuestion|null $question */
+        $question = $state['question'] ?? null;
 
         // Визуализация здоровья
-        $healthBar = $this->messageFormatter->formatHealth((int) $progress->lives_remaining);
+        $healthBar = $this->messageFormatter->healthBar((int) $progress->lives_remaining, 3);
         
         $lines = [
             $this->messageFormatter->header($chapter->title, '📖'),
@@ -731,30 +739,56 @@ final class CallbackQueryHandler
 
         $keyboard = [];
 
-        if ($question instanceof Question) {
-            $lines[] = $this->messageFormatter->box(
-                'Вопрос',
-                htmlspecialchars($question->question_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
-                '❓'
+        // Обработка шага с вопросом истории
+        if ($question instanceof StoryQuestion) {
+            // Показываем контекст, если есть
+            if (!empty($question->context_text)) {
+                $lines[] = '<i>' . htmlspecialchars($question->context_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</i>';
+                $lines[] = '';
+            }
+
+            // Показываем вопрос в красивом формате
+            $lines[] = $this->messageFormatter->questionBox(
+                htmlspecialchars($question->question_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
             );
+            $lines[] = '';
 
             $answerButtons = [];
             $row = [];
 
-            foreach ($question->answers as $index => $answer) {
+            $question->load('answers');
+            $answers = $question->answers()->orderBy('position')->get();
+
+            foreach ($answers as $index => $answer) {
                 $row[] = [
                     'text' => htmlspecialchars($answer->answer_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
                     'callback_data' => sprintf('story-answer:%s:%s:%d', $chapter->code, $step->code, $answer->getKey()),
                 ];
 
-                if (count($row) === 2 || $index === count($question->answers) - 1) {
+                if (count($row) === 2 || $index === count($answers) - 1) {
                     $answerButtons[] = $row;
                     $row = [];
                 }
             }
 
             $keyboard = $answerButtons;
+        } elseif ($step->step_type === StoryStep::TYPE_CHOICE && !empty($step->choice_options)) {
+            // Обработка шага с выбором (интерактивные ветки)
+            $choiceOptions = $step->choice_options;
+            $choiceButtons = [];
+
+            foreach ($choiceOptions as $key => $label) {
+                $choiceButtons[] = [
+                    [
+                        'text' => htmlspecialchars($label, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                        'callback_data' => sprintf('story-choice:%s:%s:%s', $chapter->code, $step->code, $key),
+                    ],
+                ];
+            }
+
+            $keyboard = $choiceButtons;
         } else {
+            // Обычный повествовательный шаг
             $nextCode = $state['continue_code'] ?? null;
 
             if ($nextCode !== null) {
@@ -786,25 +820,34 @@ final class CallbackQueryHandler
 
     private function sendStoryAnswerFeedback($chatId, array $feedback): void
     {
-        /** @var Question $question */
+        /** @var StoryQuestion $question */
         $question = $feedback['question'];
         $isCorrect = (bool) $feedback['is_correct'];
+        $explanation = $feedback['explanation'] ?? null;
 
         $lines = [];
 
         if ($isCorrect) {
-            $lines[] = $this->messageFormatter->correctAnswer('Верно!');
+            $lines[] = $this->messageFormatter->animatedCorrectAnswer('+10 очков');
         } else {
             $correctAnswers = $feedback['correct_answers'] ?? [];
             $correctText = !empty($correctAnswers) 
                 ? htmlspecialchars($correctAnswers[0]->answer_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
                 : 'Правильный ответ';
-            $lines[] = $this->messageFormatter->incorrectAnswer($correctText);
+            $lines[] = $this->messageFormatter->animatedIncorrectAnswer($correctText);
         }
 
         $lines[] = '';
         $lines[] = $this->messageFormatter->separator();
-        $lines[] = sprintf('📝 <i>%s</i>', htmlspecialchars($question->question_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
+
+        // Показываем объяснение, если есть
+        if (!empty($explanation)) {
+            $lines[] = '💡 <b>Объяснение:</b>';
+            $lines[] = '';
+            $lines[] = htmlspecialchars($explanation, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            $lines[] = '';
+            $lines[] = $this->messageFormatter->separator();
+        }
 
         $this->sendText($chatId, implode("\n", $lines));
     }
