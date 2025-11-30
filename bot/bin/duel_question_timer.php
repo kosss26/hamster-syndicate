@@ -201,6 +201,9 @@ function sendRoundResultsAndNextQuestion(Duel $duel, DuelRound $round, $telegram
                 }
             }
         } else {
+            // Пауза 3 секунды после отправки результатов перед следующим вопросом
+            sleep(3);
+            
             // Отправляем следующий вопрос напрямую
             $duelService = $container->get(\QuizBot\Application\Services\DuelService::class);
             $nextRound = $duelService->getCurrentRound($duel);
@@ -586,10 +589,8 @@ for ($i = 0; $i <= $timeoutSeconds; $i += $updateInterval) {
                 ]);
                 
                 // Отправляем результаты раунда и следующий вопрос
+                // Задержка 3 секунды будет внутри функции sendRoundResultsAndNextQuestion
                 sendRoundResultsAndNextQuestion($round->duel, $round, $telegramClient, $logger, $container, $duelId);
-                
-                // Пауза 3 секунды после отправки результатов
-                sleep(3);
             } else {
                 // Проверяем, почему раунд не завершился
                 $initiatorDone = isset($round->initiator_payload['completed']) && $round->initiator_payload['completed'] === true;
