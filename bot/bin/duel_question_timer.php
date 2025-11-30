@@ -66,6 +66,28 @@ $logger->info('Таймер дуэли запущен', [
  */
 function sendRoundResultsAndNextQuestion(Duel $duel, DuelRound $round, $telegramClient, $logger, $container, int $duelId): void
 {
+    // Блокировка: только один скрипт должен отправлять результаты
+    $lockFile = dirname(__DIR__) . '/storage/logs/round_' . $round->getKey() . '_lock';
+    $lockHandle = @fopen($lockFile, 'x');
+    
+    if ($lockHandle === false) {
+        // Файл блокировки уже существует - другой скрипт уже обрабатывает этот раунд
+        $logger->info('Другой скрипт уже обрабатывает результаты раунда', [
+            'duel_id' => $duelId,
+            'round_id' => $round->getKey(),
+        ]);
+        return;
+    }
+    
+    // Устанавливаем блокировку на 10 секунд
+    fwrite($lockHandle, (string) getmypid());
+    fclose($lockHandle);
+    
+    // Удаляем блокировку через 10 секунд (на случай, если скрипт упадёт)
+    register_shutdown_function(function() use ($lockFile) {
+        @unlink($lockFile);
+    });
+    
     try {
         $duel->loadMissing('rounds.question.answers', 'initiator', 'opponent', 'result');
         $round->loadMissing('question.answers');
@@ -179,16 +201,21 @@ function sendRoundResultsAndNextQuestion(Duel $duel, DuelRound $round, $telegram
                 }
             }
         } else {
-            // Отправляем следующий вопрос
+            // Отправляем следующий вопрос напрямую
             $duelService = $container->get(\QuizBot\Application\Services\DuelService::class);
             $nextRound = $duelService->getCurrentRound($duel);
             
             if ($nextRound instanceof DuelRound) {
-                // Запускаем отправку следующего вопроса через webhook или напрямую
-                // Для простоты просто логируем - следующий вопрос отправится при следующем взаимодействии
-                $logger->info('Следующий раунд готов к отправке', [
+                $logger->info('Отправка следующего вопроса', [
                     'duel_id' => $duelId,
                     'next_round_id' => $nextRound->getKey(),
+                ]);
+                
+                // Отправляем следующий вопрос напрямую
+                sendNextDuelQuestion($duel, $nextRound, $telegramClient, $logger, $container);
+            } else {
+                $logger->info('Следующий раунд не найден, дуэль завершена', [
+                    'duel_id' => $duelId,
                 ]);
             }
         }
