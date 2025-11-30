@@ -187,7 +187,7 @@ class StoryService
     /**
      * Обработка ответа пользователя на вопрос истории.
      */
-    public function submitAnswer(User $user, string $chapterCode, string $stepCode, int $answerId): array
+    public function submitAnswer(User $user, string $chapterCode, string $stepCode, int $answerId, ?int $questionStartTime = null): array
     {
         $chapter = $this->findChapterByCode($chapterCode);
         $progress = $this->loadProgress($user, $chapter);
@@ -220,9 +220,30 @@ class StoryService
         }
 
         $isCorrect = (bool) $answer->is_correct;
+        $pointsEarned = 0;
 
         if ($isCorrect) {
-            $progress->score += (int) ($currentStep->reward_points ?? 10);
+            // Система очков на основе времени: 30 секунд = 30 очков
+            // Чем быстрее ответ, тем больше очков
+            if ($questionStartTime !== null) {
+                $timeElapsed = time() - $questionStartTime;
+                $maxTime = 30; // 30 секунд на вопрос
+                $maxPoints = 30; // Максимум 30 очков
+                
+                if ($timeElapsed < $maxTime) {
+                    $pointsEarned = $maxPoints - $timeElapsed; // Оставшееся время = очки
+                    if ($pointsEarned < 1) {
+                        $pointsEarned = 1; // Минимум 1 очко за правильный ответ
+                    }
+                } else {
+                    $pointsEarned = 1; // Если ответил слишком поздно, минимум 1 очко
+                }
+            } else {
+                // Если время не передано, используем базовое значение
+                $pointsEarned = (int) ($currentStep->reward_points ?? 10);
+            }
+            
+            $progress->score += $pointsEarned;
         } else {
             $progress->mistakes += 1;
             if ($progress->lives_remaining > 0) {
@@ -243,6 +264,7 @@ class StoryService
             'question' => $storyQuestion,
             'correct_answers' => $storyQuestion->answers->where('is_correct', true)->values()->all(),
             'explanation' => $storyQuestion->explanation,
+            'points_earned' => $pointsEarned,
         ];
 
         return $state;

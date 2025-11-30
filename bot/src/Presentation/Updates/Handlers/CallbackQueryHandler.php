@@ -512,7 +512,8 @@ final class CallbackQueryHandler
             return;
         }
 
-        $this->presentStoryState($chatId, $state);
+        // Первое сообщение главы - показываем заголовок
+        $this->presentStoryState($chatId, $state, true);
     }
 
     private function handleStoryContinue($chatId, string $data, ?User $user): void
@@ -547,7 +548,8 @@ final class CallbackQueryHandler
             return;
         }
 
-        $this->presentStoryState($chatId, $state);
+        // Не первое сообщение - не показываем заголовок
+        $this->presentStoryState($chatId, $state, false);
     }
 
     private function handleStoryAnswer($chatId, string $data, ?User $user): void
@@ -569,8 +571,30 @@ final class CallbackQueryHandler
         [, $chapterCode, $stepCode, $answerIdRaw] = $parts;
         $answerId = (int) $answerIdRaw;
 
+        // Получаем шаг для определения его ID
+        $chapter = \QuizBot\Domain\Model\StoryChapter::query()->where('code', $chapterCode)->first();
+        $step = $chapter ? \QuizBot\Domain\Model\StoryStep::query()
+            ->where('chapter_id', $chapter->getKey())
+            ->where('code', $stepCode)
+            ->first() : null;
+
+        // Получаем время начала вопроса из кеша
+        $questionStartTime = null;
+        if ($step !== null) {
+            $cacheKey = sprintf('story_question_start_%d_%d', $user->getKey(), $step->getKey());
+            try {
+                $questionStartTime = $this->cache->get($cacheKey, function () {
+                    return null;
+                });
+                // Удаляем из кеша после использования
+                $this->cache->delete($cacheKey);
+            } catch (\Throwable $e) {
+                // Если не удалось получить время, продолжаем без него
+            }
+        }
+
         try {
-            $state = $this->storyService->submitAnswer($user, $chapterCode, $stepCode, $answerId);
+            $state = $this->storyService->submitAnswer($user, $chapterCode, $stepCode, $answerId, $questionStartTime);
         } catch (\Throwable $exception) {
             $this->logger->error('Ошибка ответа на сюжетный вопрос', [
                 'error' => $exception->getMessage(),
@@ -589,7 +613,8 @@ final class CallbackQueryHandler
             unset($state['answer_feedback']);
         }
 
-        $this->presentStoryState($chatId, $state);
+        // Не первое сообщение - не показываем заголовок
+        $this->presentStoryState($chatId, $state, false);
     }
 
     private function handleDuelAnswer($chatId, string $data, ?User $user): void
@@ -685,7 +710,7 @@ final class CallbackQueryHandler
         }
     }
 
-    private function presentStoryState($chatId, array $state): void
+    private function presentStoryState($chatId, array $state, bool $isFirstMessage = false): void
     {
         /** @var StoryChapter $chapter */
         $chapter = $state['chapter'];
@@ -695,9 +720,10 @@ final class CallbackQueryHandler
         if ($state['completed'] === true || $state['step'] === null) {
             $lines = [
                 '🏁 <b>Глава завершена!</b>',
+                '',
                 htmlspecialchars($chapter->title, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
                 '',
-                sprintf('🏆 Очки главы: %d', (int) $progress->score),
+                sprintf('🏆 Очки главы: <b>%d</b>', (int) $progress->score),
                 sprintf('❌ Ошибок: %d', (int) $progress->mistakes),
                 '',
                 'Следующая глава разблокирована — открой /story, чтобы продолжить!',
@@ -713,23 +739,24 @@ final class CallbackQueryHandler
         /** @var StoryQuestion|null $question */
         $question = $state['question'] ?? null;
 
-        // Визуализация здоровья
-        $healthBar = $this->messageFormatter->healthBar((int) $progress->lives_remaining, 3);
-        
-        $lines = [
-            $this->messageFormatter->header($chapter->title, '📖'),
-            '',
-        ];
+        $lines = [];
 
-        if (!empty($chapter->description)) {
-            $lines[] = htmlspecialchars($chapter->description, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        // Показываем заголовок главы только при первом сообщении
+        if ($isFirstMessage) {
+            $lines[] = $this->messageFormatter->header($chapter->title, '📖');
             $lines[] = '';
+            
+            if (!empty($chapter->description)) {
+                $lines[] = htmlspecialchars($chapter->description, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+                $lines[] = '';
+            }
         }
 
-        // Статистика главы
-        $lines[] = sprintf('💎 Очки: <b>%d</b>', (int) $progress->score);
-        $lines[] = $healthBar;
-        $lines[] = $this->messageFormatter->separator();
+        // Красивая визуализация здоровья
+        $lives = (int) $progress->lives_remaining;
+        $maxLives = 3;
+        $healthDisplay = str_repeat('❤️', $lives) . str_repeat('🤍', $maxLives - $lives);
+        $lines[] = sprintf('💚 Жизни: %s', $healthDisplay);
         $lines[] = '';
 
         if (!empty($step->narrative_text)) {
@@ -741,6 +768,10 @@ final class CallbackQueryHandler
 
         // Обработка шага с вопросом истории
         if ($question instanceof StoryQuestion) {
+            // Сохраняем время начала вопроса в кеше для расчета очков
+            $cacheKey = sprintf('story_question_start_%d_%d', $progress->user_id, $step->getKey());
+            $this->cache->set($cacheKey, time(), 60); // Храним 60 секунд
+
             // Показываем контекст, если есть
             if (!empty($question->context_text)) {
                 $lines[] = '<i>' . htmlspecialchars($question->context_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</i>';
@@ -751,6 +782,8 @@ final class CallbackQueryHandler
             $lines[] = $this->messageFormatter->questionBox(
                 htmlspecialchars($question->question_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
             );
+            $lines[] = '';
+            $lines[] = '⏱ У тебя 30 секунд. Чем быстрее ответишь, тем больше очков получишь!';
             $lines[] = '';
 
             $answerButtons = [];
@@ -824,11 +857,15 @@ final class CallbackQueryHandler
         $question = $feedback['question'];
         $isCorrect = (bool) $feedback['is_correct'];
         $explanation = $feedback['explanation'] ?? null;
+        $pointsEarned = $feedback['points_earned'] ?? 0;
 
         $lines = [];
 
         if ($isCorrect) {
-            $lines[] = $this->messageFormatter->animatedCorrectAnswer('+10 очков');
+            $pointsText = $pointsEarned > 0 
+                ? sprintf('+%d очков', $pointsEarned)
+                : '+1 очко';
+            $lines[] = $this->messageFormatter->animatedCorrectAnswer($pointsText);
         } else {
             $correctAnswers = $feedback['correct_answers'] ?? [];
             $correctText = !empty($correctAnswers) 
