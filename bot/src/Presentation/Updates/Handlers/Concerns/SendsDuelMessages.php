@@ -182,11 +182,6 @@ trait SendsDuelMessages
         $lines = array_merge($lines, $opponentSummary);
         $lines[] = '';
         $lines[] = $scoreLine;
-        
-        if ($formatter) {
-            $lines[] = '';
-            $lines[] = $formatter->separator();
-        }
 
         $payload = [
             'text' => implode("\n", $lines),
@@ -376,7 +371,6 @@ trait SendsDuelMessages
 
         $lines = [
             sprintf('%s — %s', $this->formatUserName($user), $status),
-            sprintf('Очки: %d', $score),
         ];
 
         if ($answerText !== null) {

@@ -564,7 +564,7 @@ class DuelService
         return isset($payload['answer_id'], $payload['score']) || (($payload['reason'] ?? null) === 'timeout');
     }
 
-    private function applyTimeoutIfNeeded(DuelRound $round, bool $forInitiator, Carbon $now): bool
+    public function applyTimeoutIfNeeded(DuelRound $round, bool $forInitiator, Carbon $now): bool
     {
         if ($round->question_sent_at === null) {
             return false;

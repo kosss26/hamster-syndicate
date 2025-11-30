@@ -60,6 +60,28 @@ for ($i = 0; $i <= $timeoutSeconds; $i += $updateInterval) {
     $remaining = max(0, $timeoutSeconds - $elapsed);
 
     if ($remaining <= 0) {
+        // Время истекло - применяем таймауты для обоих участников
+        $duelService = $container->get(\QuizBot\Application\Services\DuelService::class);
+        $now = \Carbon\Carbon::now();
+        
+        $round->refresh();
+        $duel->refresh();
+        
+        // Применяем таймауты
+        $initiatorTimeout = $duelService->applyTimeoutIfNeeded($round, true, $now);
+        $opponentTimeout = $duelService->applyTimeoutIfNeeded($round, false, $now);
+        
+        if ($initiatorTimeout || $opponentTimeout) {
+            $round->refresh();
+            // Проверяем, можно ли завершить раунд
+            $duelService->maybeCompleteRound($round);
+            
+            $round->refresh();
+            if ($round->closed_at !== null) {
+                $duelService->maybeCompleteDuel($round->duel);
+            }
+        }
+        
         break;
     }
 
