@@ -2289,6 +2289,13 @@ class SampleDataSeeder
      */
     private function seedStory(array $questionIndex): void
     {
+        // Удаляем все старые главы и связанные данные
+        \QuizBot\Domain\Model\StoryQuestionAnswer::query()->delete();
+        \QuizBot\Domain\Model\StoryQuestion::query()->delete();
+        \QuizBot\Domain\Model\StoryProgress::query()->delete();
+        \QuizBot\Domain\Model\StoryStep::query()->delete();
+        \QuizBot\Domain\Model\StoryChapter::query()->delete();
+
         $chapters = [
             [
                 'code' => 'archive_chapter_1',
