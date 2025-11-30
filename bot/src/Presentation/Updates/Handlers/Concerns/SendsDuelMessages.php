@@ -97,20 +97,18 @@ trait SendsDuelMessages
         $messageIds = $this->broadcastToParticipants($duel, [
             'parse_mode' => 'HTML',
             'reply_markup' => $replyMarkup,
-        ], function ($payload, User $participant) use ($baseLines, $formatter, $currentRound, $totalRounds, $allRounds, $duel, $startTime, $replyMarkup) {
+        ], function ($payload, User $participant) use ($baseLines, $formatter, $currentRound, $totalRounds, $allRounds, $duel) {
             // Создаём кастомный прогресс-бар для каждого участника
             $customLines = $baseLines;
             if ($formatter !== null) {
                 $userId = $participant->getKey();
                 $progressBar = $formatter->formatDuelProgress($currentRound, $totalRounds, $allRounds, $userId);
-                $customLines[0] = $progressBar; // Заменяем первую строку (прогресс-бар)
+                // Заменяем прогресс-бар (он на позиции после заголовка и пустой строки)
+                $customLines[2] = $progressBar; // Индекс 2: после заголовка и пустой строки
             }
             
             $text = implode("\n", $customLines);
             $payload['text'] = $text;
-            
-            // Сохраняем текст для таймера
-            $payload['_timer_text'] = $text;
             
             return $payload;
         });
