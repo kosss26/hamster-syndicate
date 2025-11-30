@@ -129,19 +129,32 @@ for ($i = 0; $i <= $timeoutSeconds; $i += $updateInterval) {
     // Обновляем текст сообщения с новым временем
     if ($messageId > 0 && $chatId !== 0) {
         // Заменяем строку с временем в оригинальном тексте
+        // Пробуем разные варианты паттернов
         $updatedText = preg_replace(
             '/⏱ Время на ответ: <b>\d+ сек\.<\/b>/',
             sprintf('⏱ Время на ответ: <b>%d сек.</b>', $remaining),
             $originalText
         );
 
-        // Если не нашлось, пробуем другой формат
+        // Если не нашлось, пробуем без HTML тегов
         if ($updatedText === $originalText) {
             $updatedText = preg_replace(
-                '/⏱.*?сек\./',
-                sprintf('⏱ Время на ответ: <b>%d сек.</b>', $remaining),
+                '/⏱ Время на ответ: \d+ сек\./',
+                sprintf('⏱ Время на ответ: %d сек.', $remaining),
                 $originalText
             );
+        }
+        
+        // Если всё ещё не нашли, ищем строку с временем и заменяем число
+        if ($updatedText === $originalText) {
+            $lines = explode("\n", $originalText);
+            foreach ($lines as $idx => $line) {
+                if (preg_match('/⏱.*?(\d+).*?сек/', $line)) {
+                    $lines[$idx] = sprintf('⏱ Время на ответ: <b>%d сек.</b>', $remaining);
+                    $updatedText = implode("\n", $lines);
+                    break;
+                }
+            }
         }
 
         try {
@@ -155,9 +168,9 @@ for ($i = 0; $i <= $timeoutSeconds; $i += $updateInterval) {
                 ],
             ]);
             
-            // Логируем успешное обновление каждые 5 секунд для отладки
-            if ($remaining % 5 === 0) {
-                $logger->debug('Таймер обновлён', [
+            // Логируем успешное обновление каждые 5 секунд или в последние 5 секунд
+            if ($remaining % 5 === 0 || $remaining <= 5) {
+                $logger->info('Таймер обновлён', [
                     'remaining' => $remaining,
                     'chat_id' => $chatId,
                     'message_id' => $messageId,
@@ -168,12 +181,14 @@ for ($i = 0; $i <= $timeoutSeconds; $i += $updateInterval) {
             $errorMsg = $e->getMessage();
             if (strpos($errorMsg, 'message is not modified') === false && 
                 strpos($errorMsg, 'message to edit not found') === false &&
-                strpos($errorMsg, 'Bad Request') === false) {
+                strpos($errorMsg, 'Bad Request') === false &&
+                strpos($errorMsg, 'message can\'t be edited') === false) {
                 $logger->warning('Ошибка обновления таймера вопроса дуэли', [
                     'error' => $errorMsg,
                     'chat_id' => $chatId,
                     'message_id' => $messageId,
                     'remaining' => $remaining,
+                    'original_text_preview' => substr($originalText, 0, 100),
                 ]);
             }
         }
