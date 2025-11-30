@@ -365,6 +365,12 @@ final class CallbackQueryHandler
 
             return;
         }
+
+        if ($this->startsWith($data, 'story-hint:')) {
+            $this->handleStoryHintAction($chatId, $data, $user);
+
+            return;
+        }
     }
 
     private function handleDuelAccept($chatId, int $duelId, ?User $user): void
@@ -870,6 +876,12 @@ final class CallbackQueryHandler
                     $answerButtons[] = $row;
                     $row = [];
                 }
+            }
+
+            // Добавляем кнопки подсказок для сюжета
+            $hintButtons = $this->getStoryHintButtons($user, $chapter, $step);
+            if (!empty($hintButtons)) {
+                $answerButtons[] = $hintButtons;
             }
 
             $keyboard = $answerButtons;
