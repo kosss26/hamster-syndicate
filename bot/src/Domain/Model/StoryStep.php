@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace QuizBot\Domain\Model;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class StoryStep extends BaseModel
 {
@@ -15,14 +16,15 @@ class StoryStep extends BaseModel
      */
     protected $fillable = [
         'chapter_id',
-        'question_id',
         'code',
+        'step_type',
         'narrative_text',
         'position',
         'branch_key',
         'reward_points',
         'penalty_points',
         'transitions',
+        'choice_options',
     ];
 
     /**
@@ -33,18 +35,23 @@ class StoryStep extends BaseModel
         'reward_points' => 'int',
         'penalty_points' => 'int',
         'transitions' => 'array',
+        'choice_options' => 'array',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
+
+    public const TYPE_NARRATIVE = 'narrative';
+    public const TYPE_QUESTION = 'question';
+    public const TYPE_CHOICE = 'choice';
 
     public function chapter(): BelongsTo
     {
         return $this->belongsTo(StoryChapter::class, 'chapter_id');
     }
 
-    public function question(): BelongsTo
+    public function questions(): HasMany
     {
-        return $this->belongsTo(Question::class, 'question_id');
+        return $this->hasMany(StoryQuestion::class, 'story_step_id');
     }
 }
 

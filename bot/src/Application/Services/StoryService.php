@@ -9,9 +9,9 @@ use Monolog\Logger;
 use QuizBot\Domain\Model\StoryChapter;
 use QuizBot\Domain\Model\StoryProgress;
 use QuizBot\Domain\Model\StoryStep;
+use QuizBot\Domain\Model\StoryQuestion;
+use QuizBot\Domain\Model\StoryQuestionAnswer;
 use QuizBot\Domain\Model\User;
-use QuizBot\Domain\Model\Question;
-use QuizBot\Domain\Model\Answer;
 
 class StoryService
 {
@@ -96,117 +96,12 @@ class StoryService
      * @return array{
      *     chapter: StoryChapter,
      *     progress: StoryProgress,
+     *     status: string,
      *     step: ?StoryStep,
-     *     question: ?Question,
+     *     question: ?StoryQuestion,
      *     continue_code: ?string,
-     *     completed: bool,
-     *     answer_feedback?: array{
-     *         is_correct: bool,
-     *         question: Question,
-     *         correct_answers: array<int, Answer>
-     *     }
+     *     completed: bool
      * }
-     */
-    public function openChapter(User $user, string $chapterCode): array
-    {
-        $chapter = $this->findChapterByCode($chapterCode);
-        $state = $this->startChapter($user, $chapterCode);
-
-        return $this->prepareState($chapter, $state['progress'], $state['step']);
-    }
-
-    /**
-     * Продолжение шага без вопроса (например, повествовательный блок).
-     */
-    public function continueStep(User $user, string $chapterCode, string $stepCode): array
-    {
-        $chapter = $this->findChapterByCode($chapterCode);
-        $progress = $this->loadProgress($user, $chapter);
-        $currentStep = $this->findStepByCode($chapter, $stepCode);
-
-        if ($currentStep === null) {
-            throw new \RuntimeException('Шаг не найден.');
-        }
-
-        if ($progress->current_step_id !== $currentStep->getKey()) {
-            throw new \RuntimeException('Шаг уже не активен для пользователя.');
-        }
-
-        if ($currentStep->question_id !== null) {
-            throw new \RuntimeException('Шаг требует ответа на вопрос.');
-        }
-
-        $nextCode = $this->resolveTransition($currentStep, null);
-        $nextStep = $nextCode !== null ? $this->findStepByCode($chapter, $nextCode) : null;
-
-        return $this->moveToStep($chapter, $progress, $currentStep, $nextStep, null);
-    }
-
-    /**
-     * Обработка ответа пользователя на вопрос шага.
-     */
-    public function submitAnswer(User $user, string $chapterCode, string $stepCode, int $answerId): array
-    {
-        $chapter = $this->findChapterByCode($chapterCode);
-        $progress = $this->loadProgress($user, $chapter);
-        $currentStep = $this->findStepByCode($chapter, $stepCode);
-
-        if ($currentStep === null) {
-            throw new \RuntimeException('Шаг для ответа не найден.');
-        }
-
-        if ($progress->current_step_id !== $currentStep->getKey()) {
-            throw new \RuntimeException('Шаг уже завершён.');
-        }
-
-        if ($currentStep->question_id === null) {
-            throw new \RuntimeException('У шага нет вопроса.');
-        }
-
-        /** @var Question|null $question */
-        $question = $currentStep->question()->with('answers')->first();
-
-        if ($question === null) {
-            throw new \RuntimeException('Вопрос не найден.');
-        }
-
-        /** @var Answer|null $answer */
-        $answer = $question->answers()
-            ->where('id', $answerId)
-            ->first();
-
-        if ($answer === null) {
-            throw new \RuntimeException('Ответ не найден.');
-        }
-
-        $isCorrect = (bool) $answer->is_correct;
-
-        if ($isCorrect) {
-            $progress->score += (int) ($currentStep->reward_points ?? 10);
-        } else {
-            $progress->mistakes += 1;
-            if ($progress->lives_remaining > 0) {
-                $progress->lives_remaining -= 1;
-            }
-        }
-
-        $progress->save();
-
-        $nextCode = $this->resolveTransition($currentStep, $isCorrect);
-        $nextStep = $nextCode !== null ? $this->findStepByCode($chapter, $nextCode) : null;
-
-        $state = $this->moveToStep($chapter, $progress, $currentStep, $nextStep, $isCorrect);
-        $state['answer_feedback'] = [
-            'is_correct' => $isCorrect,
-            'question' => $question,
-            'correct_answers' => $question->answers->where('is_correct', true)->values()->all(),
-        ];
-
-        return $state;
-    }
-
-    /**
-     * @return array{chapter: StoryChapter, progress: StoryProgress, status: string, step: ?StoryStep}
      */
     public function startChapter(User $user, string $chapterCode): array
     {
@@ -256,19 +151,222 @@ class StoryService
             $progress->save();
         }
 
+        return $this->prepareState($chapter, $progress, $step);
+    }
+
+    /**
+     * Продолжение шага без вопроса (повествовательный блок или выбор).
+     */
+    public function continueStep(User $user, string $chapterCode, string $stepCode, ?string $choiceKey = null): array
+    {
+        $chapter = $this->findChapterByCode($chapterCode);
+        $progress = $this->loadProgress($user, $chapter);
+        $currentStep = $this->findStepByCode($chapter, $stepCode);
+
+        if ($currentStep === null) {
+            throw new \RuntimeException('Шаг не найден.');
+        }
+
+        if ($progress->current_step_id !== $currentStep->getKey()) {
+            throw new \RuntimeException('Шаг уже не активен для пользователя.');
+        }
+
+        // Если это шаг с выбором, обрабатываем выбор
+        if ($currentStep->step_type === StoryStep::TYPE_CHOICE && $choiceKey !== null) {
+            $transitions = $currentStep->transitions ?? [];
+            $nextCode = $transitions[$choiceKey] ?? null;
+        } else {
+            $nextCode = $this->resolveTransition($currentStep, null);
+        }
+
+        $nextStep = $nextCode !== null ? $this->findStepByCode($chapter, $nextCode) : null;
+
+        return $this->moveToStep($chapter, $progress, $currentStep, $nextStep, null);
+    }
+
+    /**
+     * Обработка ответа пользователя на вопрос истории.
+     */
+    public function submitAnswer(User $user, string $chapterCode, string $stepCode, int $answerId): array
+    {
+        $chapter = $this->findChapterByCode($chapterCode);
+        $progress = $this->loadProgress($user, $chapter);
+        $currentStep = $this->findStepByCode($chapter, $stepCode);
+
+        if ($currentStep === null) {
+            throw new \RuntimeException('Шаг для ответа не найден.');
+        }
+
+        if ($progress->current_step_id !== $currentStep->getKey()) {
+            throw new \RuntimeException('Шаг уже завершён.');
+        }
+
+        // Получаем вопрос истории для этого шага
+        $storyQuestion = $currentStep->questions()->orderBy('position')->first();
+
+        if ($storyQuestion === null) {
+            throw new \RuntimeException('У шага нет вопроса истории.');
+        }
+
+        $storyQuestion->load('answers');
+
+        /** @var StoryQuestionAnswer|null $answer */
+        $answer = $storyQuestion->answers()
+            ->where('id', $answerId)
+            ->first();
+
+        if ($answer === null) {
+            throw new \RuntimeException('Ответ не найден.');
+        }
+
+        $isCorrect = (bool) $answer->is_correct;
+
+        if ($isCorrect) {
+            $progress->score += (int) ($currentStep->reward_points ?? 10);
+        } else {
+            $progress->mistakes += 1;
+            if ($progress->lives_remaining > 0) {
+                $progress->lives_remaining -= 1;
+            }
+        }
+
+        $progress->save();
+
+        $nextCode = $this->resolveTransition($currentStep, $isCorrect);
+        $nextStep = $nextCode !== null ? $this->findStepByCode($chapter, $nextCode) : null;
+
+        $state = $this->moveToStep($chapter, $progress, $currentStep, $nextStep, $isCorrect);
+        
+        // Добавляем информацию об ответе и объяснение
+        $state['answer_feedback'] = [
+            'is_correct' => $isCorrect,
+            'question' => $storyQuestion,
+            'correct_answers' => $storyQuestion->answers->where('is_correct', true)->values()->all(),
+            'explanation' => $storyQuestion->explanation,
+        ];
+
+        return $state;
+    }
+
+    /**
+     * @return array{
+     *     chapter: StoryChapter,
+     *     progress: StoryProgress,
+     *     step: ?StoryStep,
+     *     question: ?StoryQuestion,
+     *     continue_code: ?string,
+     *     completed: bool
+     * }
+     */
+    private function prepareState(StoryChapter $chapter, StoryProgress $progress, ?StoryStep $step): array
+    {
+        $question = null;
+        $continueCode = null;
+        $completed = false;
+
+        if ($step === null) {
+            $completed = true;
+            if ($progress->status !== self::STATUS_COMPLETED) {
+                $progress->status = self::STATUS_COMPLETED;
+                $progress->completed_at = Carbon::now();
+                $progress->save();
+            }
+        } else {
+            // Загружаем вопрос истории для шага
+            if ($step->step_type === StoryStep::TYPE_QUESTION) {
+                $question = $step->questions()->orderBy('position')->with('answers')->first();
+            }
+
+            if ($step->step_type === StoryStep::TYPE_NARRATIVE || $step->step_type === StoryStep::TYPE_CHOICE) {
+                $continueCode = sprintf('story-continue:%s:%s', $chapter->code, $step->code);
+            }
+        }
+
         return [
             'chapter' => $chapter,
             'progress' => $progress,
             'status' => $progress->status,
             'step' => $step,
+            'question' => $question,
+            'continue_code' => $continueCode,
+            'completed' => $completed,
         ];
     }
 
-    private function resolveFirstStepId(StoryChapter $chapter): ?int
+    /**
+     * Переход к следующему шагу.
+     */
+    private function moveToStep(
+        StoryChapter $chapter,
+        StoryProgress $progress,
+        StoryStep $currentStep,
+        ?StoryStep $nextStep,
+        ?bool $wasCorrect
+    ): array {
+        if ($nextStep === null) {
+            $progress->status = self::STATUS_COMPLETED;
+            $progress->completed_at = Carbon::now();
+            $progress->current_step_id = null;
+        } else {
+            $progress->current_step_id = $nextStep->getKey();
+        }
+
+        $progress->save();
+
+        return $this->prepareState($chapter, $progress, $nextStep);
+    }
+
+    private function resolveTransition(StoryStep $step, ?bool $isCorrect): ?string
     {
-        return $chapter->steps()
-            ->orderBy('position')
-            ->value('id');
+        $transitions = $step->transitions ?? [];
+
+        if ($isCorrect === true && isset($transitions['correct'])) {
+            return $transitions['correct'];
+        }
+
+        if ($isCorrect === false && isset($transitions['incorrect'])) {
+            return $transitions['incorrect'];
+        }
+
+        if (isset($transitions['next'])) {
+            return $transitions['next'];
+        }
+
+        if (isset($transitions['auto'])) {
+            return $transitions['auto'];
+        }
+
+        return null;
+    }
+
+    private function findChapterByCode(string $code): StoryChapter
+    {
+        $chapter = StoryChapter::query()->where('code', $code)->first();
+
+        if ($chapter === null) {
+            throw new \RuntimeException(sprintf('Глава с кодом %s не найдена.', $code));
+        }
+
+        return $chapter;
+    }
+
+    private function findStepByCode(StoryChapter $chapter, string $code): ?StoryStep
+    {
+        return $chapter->steps()->where('code', $code)->first();
+    }
+
+    private function loadProgress(User $user, StoryChapter $chapter): StoryProgress
+    {
+        $progress = StoryProgress::query()
+            ->where('user_id', $user->getKey())
+            ->where('chapter_id', $chapter->getKey())
+            ->first();
+
+        if ($progress === null) {
+            throw new \RuntimeException('Прогресс по главе не найден.');
+        }
+
+        return $progress;
     }
 
     private function resolveCurrentStep(StoryProgress $progress, StoryChapter $chapter): ?StoryStep
@@ -287,141 +385,10 @@ class StoryService
         return $chapter->steps()->orderBy('position')->first();
     }
 
-    private function findChapterByCode(string $chapterCode): StoryChapter
+    private function resolveFirstStepId(StoryChapter $chapter): ?int
     {
-        $chapter = StoryChapter::query()
-            ->where('code', $chapterCode)
-            ->where('is_active', true)
-            ->first();
-
-        if ($chapter === null) {
-            throw new \RuntimeException('Глава не найдена.');
-        }
-
-        return $chapter;
-    }
-
-    private function loadProgress(User $user, StoryChapter $chapter): StoryProgress
-    {
-        $progress = StoryProgress::query()
-            ->where('user_id', $user->getKey())
-            ->where('chapter_id', $chapter->getKey())
-            ->first();
-
-        if ($progress === null) {
-            $progress = StoryProgress::query()->create([
-                'user_id' => $user->getKey(),
-                'chapter_id' => $chapter->getKey(),
-                'current_step_id' => $this->resolveFirstStepId($chapter),
-                'status' => self::STATUS_AVAILABLE,
-                'score' => 0,
-                'lives_remaining' => 3,
-                'mistakes' => 0,
-            ]);
-        }
-
-        return $progress;
-    }
-
-    private function findStepByCode(StoryChapter $chapter, string $code): ?StoryStep
-    {
-        return StoryStep::query()
-            ->where('chapter_id', $chapter->getKey())
-            ->where('code', $code)
-            ->first();
-    }
-
-    private function resolveTransition(StoryStep $step, ?bool $isCorrect): ?string
-    {
-        $transitions = $step->transitions ?? [];
-
-        if ($isCorrect === true) {
-            return $transitions['correct'] ?? $transitions['next'] ?? null;
-        }
-
-        if ($isCorrect === false) {
-            return $transitions['incorrect'] ?? $transitions['next'] ?? null;
-        }
-
-        return $transitions['next'] ?? null;
-    }
-
-    /**
-     * @return array{
-     *     chapter: StoryChapter,
-     *     progress: StoryProgress,
-     *     step: ?StoryStep,
-     *     question: ?Question,
-     *     continue_code: ?string,
-     *     completed: bool
-     * }
-     */
-    private function prepareState(StoryChapter $chapter, StoryProgress $progress, ?StoryStep $step): array
-    {
-        if ($step === null) {
-            return [
-                'chapter' => $chapter,
-                'progress' => $progress,
-                'step' => null,
-                'question' => null,
-                'continue_code' => null,
-                'completed' => true,
-            ];
-        }
-
-        $question = null;
-
-        if ($step->question_id !== null) {
-            $question = $step->question()->with('answers')->first();
-        }
-
-        $continueCode = null;
-        if ($question === null) {
-            $continueCode = $this->resolveTransition($step, null);
-        }
-
-        return [
-            'chapter' => $chapter,
-            'progress' => $progress,
-            'step' => $step,
-            'question' => $question,
-            'continue_code' => $continueCode,
-            'completed' => false,
-        ];
-    }
-
-    /**
-     * @return array{
-     *     chapter: StoryChapter,
-     *     progress: StoryProgress,
-     *     step: ?StoryStep,
-     *     question: ?Question,
-     *     continue_code: ?string,
-     *     completed: bool
-     * }
-     */
-    private function moveToStep(
-        StoryChapter $chapter,
-        StoryProgress $progress,
-        StoryStep $currentStep,
-        ?StoryStep $nextStep,
-        ?bool $isCorrect
-    ): array {
-        if ($nextStep === null) {
-            $progress->status = self::STATUS_COMPLETED;
-            $progress->current_step_id = null;
-            $progress->completed_at = Carbon::now();
-        } else {
-            $progress->current_step_id = $nextStep->getKey();
-            if ($progress->status !== self::STATUS_COMPLETED) {
-                $progress->status = self::STATUS_IN_PROGRESS;
-            }
-        }
-
-        $progress->save();
-
-        return $this->prepareState($chapter, $progress, $nextStep);
+        return $chapter->steps()
+            ->orderBy('position')
+            ->value('id');
     }
 }
-
-
