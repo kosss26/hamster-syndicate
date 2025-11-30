@@ -827,7 +827,8 @@ final class CallbackQueryHandler
             $row = [];
 
             $question->load('answers');
-            $answers = $question->answers()->orderBy('position')->get();
+            // Перемешиваем ответы в случайном порядке
+            $answers = $question->answers->shuffle();
 
             foreach ($answers as $index => $answer) {
                 $row[] = [
@@ -1213,6 +1214,9 @@ final class CallbackQueryHandler
 
         $buttons = [];
         $row = [];
+
+        // Перемешиваем ответы в случайном порядке
+        $answers = $answers->shuffle();
 
         foreach ($answers as $index => $answer) {
             $row[] = [

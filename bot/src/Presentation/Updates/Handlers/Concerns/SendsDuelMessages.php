@@ -73,13 +73,16 @@ trait SendsDuelMessages
         $buttons = [];
         $row = [];
 
-        foreach ($question->answers as $index => $answer) {
+        // Перемешиваем ответы в случайном порядке
+        $answers = $question->answers->shuffle();
+
+        foreach ($answers as $index => $answer) {
             $row[] = [
                 'text' => htmlspecialchars($answer->answer_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
                 'callback_data' => sprintf('duel-answer:%d:%d:%d', $duel->getKey(), $round->getKey(), $answer->getKey()),
             ];
 
-            if (count($row) === 2 || $index === count($question->answers) - 1) {
+            if (count($row) === 2 || $index === count($answers) - 1) {
                 $buttons[] = $row;
                 $row = [];
             }
@@ -144,10 +147,21 @@ trait SendsDuelMessages
             
             // Запускаем скрипт в фоне
             // Используем абсолютный путь к PHP и полный путь к скрипту
-            $phpPath = PHP_BINARY ?: 'php';
+            $phpPath = PHP_BINARY ?: '/usr/bin/php';
+            if (!file_exists($phpPath)) {
+                $phpPath = 'php'; // Fallback
+            }
+            
             $logFile = $basePath . '/storage/logs/timer.log';
+            
+            // Убеждаемся, что директория для логов существует
+            $logDir = dirname($logFile);
+            if (!is_dir($logDir)) {
+                @mkdir($logDir, 0775, true);
+            }
+            
             $command = sprintf(
-                'cd %s && %s %s %d %d %d %d %d %s %s >> %s 2>&1 &',
+                'cd %s && nohup %s %s %d %d %d %d %d %s %s >> %s 2>&1 & echo $!',
                 escapeshellarg($basePath),
                 escapeshellarg($phpPath),
                 escapeshellarg($scriptPath),
@@ -168,16 +182,22 @@ trait SendsDuelMessages
                 'message_id' => $messageId,
                 'script_path' => $scriptPath,
                 'php_path' => $phpPath,
+                'command' => $command,
             ]);
             
-            $output = [];
-            $returnVar = 0;
-            exec($command, $output, $returnVar);
+            $processId = trim((string) shell_exec($command));
             
-            if ($returnVar !== 0 && !empty($output)) {
-                $this->getLogger()->warning('Предупреждение при запуске таймера', [
-                    'return_var' => $returnVar,
-                    'output' => implode("\n", $output),
+            if (!empty($processId) && is_numeric($processId)) {
+                $this->getLogger()->debug('Таймер запущен', [
+                    'process_id' => $processId,
+                    'duel_id' => $duel->getKey(),
+                    'round_id' => $round->getKey(),
+                ]);
+            } else {
+                $this->getLogger()->warning('Не удалось получить PID процесса таймера', [
+                    'duel_id' => $duel->getKey(),
+                    'round_id' => $round->getKey(),
+                    'output' => $processId,
                 ]);
             }
         }
