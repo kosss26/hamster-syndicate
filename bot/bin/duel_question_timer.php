@@ -356,10 +356,32 @@ for ($i = 0; $i <= $timeoutSeconds; $i += $updateInterval) {
                 'opponent_payload_after' => $round->opponent_payload ?? [],
             ]);
             
+            // Проверяем состояние участников перед вызовом maybeCompleteRound
+            $initiatorDoneBefore = isset($round->initiator_payload['completed']) && $round->initiator_payload['completed'] === true;
+            $opponentDoneBefore = isset($round->opponent_payload['completed']) && $round->opponent_payload['completed'] === true;
+            
+            $logger->info('Перед вызовом maybeCompleteRound', [
+                'duel_id' => $duelId,
+                'round_id' => $roundId,
+                'initiator_done' => $initiatorDoneBefore,
+                'opponent_done' => $opponentDoneBefore,
+                'initiator_payload' => $round->initiator_payload ?? [],
+                'opponent_payload' => $round->opponent_payload ?? [],
+            ]);
+            
             // Проверяем, можно ли завершить раунд
             $duelService->maybeCompleteRound($round);
             
             $round->refresh();
+            
+            $logger->info('После вызова maybeCompleteRound', [
+                'duel_id' => $duelId,
+                'round_id' => $roundId,
+                'round_closed' => $round->closed_at !== null,
+                'initiator_payload' => $round->initiator_payload ?? [],
+                'opponent_payload' => $round->opponent_payload ?? [],
+            ]);
+            
             if ($round->closed_at !== null) {
                 $duelService->maybeCompleteDuel($round->duel);
                 $logger->info('Раунд завершён после таймаута', [
@@ -373,13 +395,18 @@ for ($i = 0; $i <= $timeoutSeconds; $i += $updateInterval) {
                 // Пауза 3 секунды после отправки результатов
                 sleep(3);
             } else {
+                // Проверяем, почему раунд не завершился
+                $initiatorDone = isset($round->initiator_payload['completed']) && $round->initiator_payload['completed'] === true;
+                $opponentDone = isset($round->opponent_payload['completed']) && $round->opponent_payload['completed'] === true;
+                
                 $logger->warning('Раунд не завершён после таймаута', [
                     'duel_id' => $duelId,
                     'round_id' => $roundId,
+                    'initiator_done' => $initiatorDone,
+                    'opponent_done' => $opponentDone,
                     'initiator_payload' => $round->initiator_payload ?? [],
                     'opponent_payload' => $round->opponent_payload ?? [],
-                    'initiator_done' => isset($round->initiator_payload['completed']) && $round->initiator_payload['completed'] === true,
-                    'opponent_done' => isset($round->opponent_payload['completed']) && $round->opponent_payload['completed'] === true,
+                    'both_done' => $initiatorDone && $opponentDone,
                 ]);
             }
         } catch (\Throwable $e) {
