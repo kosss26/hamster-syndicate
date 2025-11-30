@@ -117,9 +117,9 @@ trait SendsDuelMessages
         });
 
         // Запускаем фоновые скрипты для обновления таймера для каждого участника
-        // Определяем basePath через рефлексию
+        // Определяем basePath через рефлексию (трейт находится в bot/src/Presentation/Updates/Handlers/Concerns/)
         $reflection = new \ReflectionClass($this);
-        $basePath = dirname($reflection->getFileName(), 4);
+        $basePath = dirname($reflection->getFileName(), 5); // Поднимаемся на 5 уровней до bot/
         $scriptPath = $basePath . '/bin/duel_question_timer.php';
         $replyMarkupJson = json_encode($replyMarkup);
 
