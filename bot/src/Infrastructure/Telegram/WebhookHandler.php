@@ -97,7 +97,8 @@ final class WebhookHandler
             $this->storyService,
             $this->profileFormatter,
             $this->messageFormatter,
-            $this->container->get(\QuizBot\Application\Services\AdminService::class)
+            $this->container->get(\QuizBot\Application\Services\AdminService::class),
+            $this->container->get(\QuizBot\Application\Services\HintService::class)
         );
 
         $updateRouter->route($payload);

@@ -22,6 +22,7 @@ use QuizBot\Application\Services\DuelService;
 use QuizBot\Application\Services\GameSessionService;
 use QuizBot\Application\Services\StoryService;
 use QuizBot\Application\Services\ProfileFormatter;
+use QuizBot\Application\Services\HintService;
 use QuizBot\Database\Seeders\SampleDataSeeder;
 
 final class AppBootstrap
@@ -152,6 +153,13 @@ final class AppBootstrap
             StoryService::class => function (Container $c) {
                 return new StoryService(
                     $c->get(Logger::class)
+                );
+            },
+            HintService::class => function (Container $c) {
+                return new HintService(
+                    $c->get(Logger::class),
+                    $c->get(UserService::class),
+                    $c->get(GameSessionService::class)
                 );
             },
             MessageFormatter::class => function (Container $c) {
