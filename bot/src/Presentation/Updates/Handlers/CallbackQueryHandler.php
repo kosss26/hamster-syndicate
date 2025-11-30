@@ -12,6 +12,7 @@ use QuizBot\Application\Services\DuelService;
 use QuizBot\Application\Services\GameSessionService;
 use QuizBot\Application\Services\StoryService;
 use QuizBot\Application\Services\AdminService;
+use QuizBot\Application\Services\HintService;
 use QuizBot\Domain\Model\User;
 use QuizBot\Domain\Model\Question;
 use QuizBot\Domain\Model\GameSession;
@@ -46,6 +47,8 @@ final class CallbackQueryHandler
 
     private AdminService $adminService;
 
+    private HintService $hintService;
+
     private string $basePath;
 
     public function __construct(
@@ -57,7 +60,8 @@ final class CallbackQueryHandler
         GameSessionService $gameSessionService,
         StoryService $storyService,
         \QuizBot\Application\Services\MessageFormatter $messageFormatter,
-        AdminService $adminService
+        AdminService $adminService,
+        HintService $hintService
     ) {
         $this->telegramClient = $telegramClient;
         $this->logger = $logger;
@@ -68,6 +72,7 @@ final class CallbackQueryHandler
         $this->storyService = $storyService;
         $this->messageFormatter = $messageFormatter;
         $this->adminService = $adminService;
+        $this->hintService = $hintService;
         $this->basePath = dirname(__DIR__, 4);
     }
 
@@ -351,6 +356,14 @@ final class CallbackQueryHandler
             } else {
                 $this->sendText($chatId, 'Не удалось обработать ответ. Попробуйте снова.');
             }
+
+            return;
+        }
+
+        if ($this->startsWith($data, 'hint:')) {
+            $this->handleHintAction($chatId, $data, $user);
+
+            return;
         }
     }
 
@@ -1186,8 +1199,9 @@ final class CallbackQueryHandler
 
     /**
      * @param int|string $chatId
+     * @param array<string, mixed>|null $options
      */
-    private function sendText($chatId, string $text, bool $disablePreview = false): void
+    private function sendText($chatId, string $text, bool $disablePreview = false, ?array $options = null): void
     {
         $payload = [
             'chat_id' => $chatId,
@@ -1197,6 +1211,10 @@ final class CallbackQueryHandler
 
         if ($disablePreview) {
             $payload['disable_web_page_preview'] = true;
+        }
+
+        if ($options !== null) {
+            $payload = array_merge($payload, $options);
         }
 
         $this->telegramClient->request('POST', 'sendMessage', [
@@ -1247,6 +1265,15 @@ final class CallbackQueryHandler
             }
         }
 
+        // Добавляем кнопки подсказок, если они еще не использованы
+        $user = $session->user ?: $session->user()->first();
+        if ($user !== null) {
+            $hintButtons = $this->getHintButtons($session, $user);
+            if (!empty($hintButtons)) {
+                $buttons[] = $hintButtons;
+            }
+        }
+
         $this->telegramClient->request('POST', 'sendMessage', [
             'json' => [
                 'chat_id' => $chatId,
@@ -1257,6 +1284,184 @@ final class CallbackQueryHandler
                 ],
             ],
         ]);
+    }
+
+    /**
+     * Получает кнопки подсказок для вопроса
+     */
+    private function getHintButtons(GameSession $session, User $user): array
+    {
+        $check = $this->hintService->canUseHint($session, $user);
+        if (!$check['can_use']) {
+            return [];
+        }
+
+        $hintCost = HintService::getHintCost();
+        $user = $this->userService->ensureProfile($user);
+        $profile = $user->profile;
+
+        if (!$profile instanceof \QuizBot\Domain\Model\UserProfile) {
+            return [];
+        }
+
+        return [
+            [
+                'text' => sprintf('💡 50/50 (%d💰)', $hintCost),
+                'callback_data' => sprintf('hint:%d:fifty_fifty', $session->getKey()),
+            ],
+            [
+                'text' => sprintf('⏭ Пропуск (%d💰)', $hintCost),
+                'callback_data' => sprintf('hint:%d:skip', $session->getKey()),
+            ],
+        ];
+    }
+
+    /**
+     * Обрабатывает использование подсказки
+     */
+    private function handleHintAction($chatId, string $data, ?User $user): void
+    {
+        if ($user === null) {
+            $this->sendText($chatId, 'Не удалось определить профиль. Попробуйте /start.');
+
+            return;
+        }
+
+        if (!preg_match('/^hint:(\d+):(\w+)$/', $data, $matches)) {
+            $this->sendText($chatId, 'Не удалось обработать подсказку. Попробуйте снова.');
+
+            return;
+        }
+
+        [, $sessionIdRaw, $hintType] = $matches;
+        $sessionId = (int) $sessionIdRaw;
+
+        $session = $this->gameSessionService->findSessionForUser($user, $sessionId);
+
+        if ($session === null) {
+            $this->sendText($chatId, 'Сессия не найдена. Запустите новый раунд /play.');
+
+            return;
+        }
+
+        try {
+            switch ($hintType) {
+                case 'fifty_fifty':
+                    $result = $this->hintService->useFiftyFifty($session, $user);
+                    $this->handleFiftyFiftyHint($chatId, $session, $result);
+                    break;
+
+                case 'skip':
+                    $result = $this->hintService->useSkip($session, $user);
+                    $this->handleSkipHint($chatId, $session, $result);
+                    break;
+
+                case 'time_boost':
+                    $result = $this->hintService->useTimeBoost($session, $user);
+                    $this->handleTimeBoostHint($chatId, $session, $result);
+                    break;
+
+                default:
+                    $this->sendText($chatId, 'Неизвестный тип подсказки.');
+            }
+        } catch (\Throwable $exception) {
+            $this->logger->error('Ошибка использования подсказки', [
+                'error' => $exception->getMessage(),
+                'session_id' => $sessionId,
+                'hint_type' => $hintType,
+                'user_id' => $user->getKey(),
+            ]);
+            $this->sendText($chatId, '⚠️ ' . $exception->getMessage());
+        }
+    }
+
+    /**
+     * Обрабатывает подсказку 50/50
+     */
+    private function handleFiftyFiftyHint($chatId, GameSession $session, array $result): void
+    {
+        $question = $session->currentQuestion ?: $session->currentQuestion()->first();
+        if ($question === null) {
+            $this->sendText($chatId, 'Вопрос не найден.');
+
+            return;
+        }
+
+        $question->loadMissing(['answers', 'category']);
+        $remainingAnswers = $result['remaining_answers'] ?? [];
+        $removedCount = $result['removed_count'] ?? 0;
+
+        // Обновляем сообщение с вопросом, убрав неправильные ответы
+        $categoryTitle = 'Категория';
+        if ($question->category !== null) {
+            $categoryTitle = $question->category->title;
+        }
+
+        $textLines = [
+            sprintf("🎯 <b>%s</b>\n", htmlspecialchars((string) $categoryTitle, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')),
+            htmlspecialchars((string) $question->question_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+            '',
+            '💡 <i>Использована подсказка 50/50. Убрано неправильных ответов: ' . $removedCount . '</i>',
+        ];
+
+        $buttons = [];
+        $row = [];
+
+        foreach ($remainingAnswers as $index => $answer) {
+            // $answer - массив с ключами id, answer_text, is_correct
+            $answerId = $answer['id'] ?? null;
+            $answerText = $answer['answer_text'] ?? '';
+
+            if ($answerId === null) {
+                continue;
+            }
+
+            $row[] = [
+                'text' => htmlspecialchars((string) $answerText, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                'callback_data' => sprintf('answer:%d:%d', $session->getKey(), $answerId),
+            ];
+
+            if (count($row) === 2 || $index === count($remainingAnswers) - 1) {
+                $buttons[] = $row;
+                $row = [];
+            }
+        }
+
+        $this->sendText($chatId, implode("\n", $textLines));
+        $this->sendText($chatId, 'Выберите ответ:', false, [
+            'reply_markup' => [
+                'inline_keyboard' => $buttons,
+            ],
+        ]);
+    }
+
+    /**
+     * Обрабатывает подсказку "Пропуск"
+     */
+    private function handleSkipHint($chatId, GameSession $session, array $result): void
+    {
+        $nextQuestion = $result['next_question'] ?? null;
+        $skippedQuestion = $result['skipped_question'] ?? null;
+
+        if ($skippedQuestion !== null) {
+            $this->sendText($chatId, sprintf('⏭ Вопрос пропущен: <b>%s</b>', htmlspecialchars((string) $skippedQuestion->question_text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')));
+        }
+
+        if ($nextQuestion !== null) {
+            $this->sendQuestion($chatId, $session, $nextQuestion);
+        } else {
+            // Сессия завершена
+            $this->sendText($chatId, '🎉 Раунд завершён! Все вопросы пройдены.');
+        }
+    }
+
+    /**
+     * Обрабатывает подсказку "+15 секунд"
+     */
+    private function handleTimeBoostHint($chatId, GameSession $session, array $result): void
+    {
+        $addedSeconds = $result['added_seconds'] ?? 15;
+        $this->sendText($chatId, sprintf('⏱ Добавлено %d секунд времени!', $addedSeconds));
     }
 
     private function handleAnswerAction($chatId, int $sessionId, int $answerId, ?User $user): void

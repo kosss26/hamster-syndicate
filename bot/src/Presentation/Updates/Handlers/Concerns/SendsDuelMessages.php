@@ -21,26 +21,6 @@ trait SendsDuelMessages
     abstract protected function getLogger(): Logger;
 
     abstract protected function getDuelService(): DuelService;
-    
-    /**
-     * Получает URL картинки для вопросов дуэли из конфига
-     * Если не задан, возвращает null (вопросы отправляются без картинки)
-     */
-    protected function getDuelQuestionImageUrl(): ?string
-    {
-        // Пробуем получить из конфига через basePath, если доступен
-        if (property_exists($this, 'basePath')) {
-            $configPath = $this->basePath . '/config';
-            if (is_file($configPath . '/app.env')) {
-                $config = \QuizBot\Infrastructure\Config\Config::fromEnv($configPath);
-                $imageUrl = $config->get('DUEL_QUESTION_IMAGE_URL');
-                return !empty($imageUrl) ? (string) $imageUrl : null;
-            }
-        }
-        
-        // Если конфиг недоступен, возвращаем null
-        return null;
-    }
 
     private function sendDuelQuestion(Duel $duel, DuelRound $round): void
     {
@@ -116,9 +96,6 @@ trait SendsDuelMessages
         $baseLines = $lines;
         $formatter = method_exists($this, 'getMessageFormatter') ? $this->getMessageFormatter() : null;
         
-        // Получаем URL картинки из конфига (если задан)
-        $photoUrl = $this->getDuelQuestionImageUrl();
-        
         $startTime = time();
         $messageIds = $this->broadcastToParticipants($duel, [
             'parse_mode' => 'HTML',
@@ -137,7 +114,7 @@ trait SendsDuelMessages
             $payload['text'] = $text;
             
             return $payload;
-        }, $photoUrl);
+        });
 
         // Запускаем фоновые скрипты для обновления таймера для каждого участника
         // Определяем basePath через рефлексию (трейт находится в bot/src/Presentation/Updates/Handlers/Concerns/)
@@ -391,7 +368,7 @@ trait SendsDuelMessages
         ]);
     }
 
-    private function broadcastToParticipants(Duel $duel, array $payload, ?callable $customizePayload = null, ?string $photoUrl = null): array
+    private function broadcastToParticipants(Duel $duel, array $payload, ?callable $customizePayload = null): array
     {
         $client = $this->getTelegramClient();
         $messageIds = [];
@@ -413,23 +390,9 @@ trait SendsDuelMessages
             }
 
             try {
-                // Если задан URL картинки, отправляем фото с подписью
-                if ($photoUrl !== null && isset($finalPayload['text'])) {
-                    $response = $client->request('POST', 'sendPhoto', [
-                        'json' => [
-                            'chat_id' => $chatId,
-                            'photo' => $photoUrl,
-                            'caption' => $finalPayload['text'],
-                            'parse_mode' => $finalPayload['parse_mode'] ?? 'HTML',
-                            'reply_markup' => $finalPayload['reply_markup'] ?? null,
-                        ],
-                    ]);
-                } else {
-                    // Иначе отправляем обычное сообщение
-                    $response = $client->request('POST', 'sendMessage', [
-                        'json' => $finalPayload + ['chat_id' => $chatId],
-                    ]);
-                }
+                $response = $client->request('POST', 'sendMessage', [
+                    'json' => $finalPayload + ['chat_id' => $chatId],
+                ]);
                 
                 $responseBody = (string) $response->getBody();
                 $responseData = json_decode($responseBody, true);

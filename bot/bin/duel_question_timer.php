@@ -376,43 +376,15 @@ function sendNextDuelQuestion(Duel $duel, DuelRound $round, $telegramClient, $lo
             
             $text = implode("\n", $customLines);
             
-            // Получаем URL картинки из конфига (если задан)
-            $photoUrl = null;
             try {
-                /** @var \QuizBot\Infrastructure\Config\Config $config */
-                $config = $container->get(\QuizBot\Infrastructure\Config\Config::class);
-                $photoUrl = $config->get('DUEL_QUESTION_IMAGE_URL');
-                if (empty($photoUrl)) {
-                    $photoUrl = null;
-                }
-            } catch (\Throwable $e) {
-                // Если не удалось получить конфиг, продолжаем без картинки
-                $photoUrl = null;
-            }
-            
-            try {
-                // Если задан URL картинки, отправляем фото с подписью
-                if ($photoUrl !== null) {
-                    $response = $telegramClient->request('POST', 'sendPhoto', [
-                        'json' => [
-                            'chat_id' => $chatId,
-                            'photo' => $photoUrl,
-                            'caption' => $text,
-                            'parse_mode' => 'HTML',
-                            'reply_markup' => $replyMarkup,
-                        ],
-                    ]);
-                } else {
-                    // Иначе отправляем обычное сообщение
-                    $response = $telegramClient->request('POST', 'sendMessage', [
-                        'json' => [
-                            'chat_id' => $chatId,
-                            'text' => $text,
-                            'parse_mode' => 'HTML',
-                            'reply_markup' => $replyMarkup,
-                        ],
-                    ]);
-                }
+                $response = $telegramClient->request('POST', 'sendMessage', [
+                    'json' => [
+                        'chat_id' => $chatId,
+                        'text' => $text,
+                        'parse_mode' => 'HTML',
+                        'reply_markup' => $replyMarkup,
+                    ],
+                ]);
                 
                 $responseData = json_decode($response->getBody()->getContents(), true);
                 $messageId = isset($responseData['result']['message_id']) ? (int) $responseData['result']['message_id'] : 0;
