@@ -678,56 +678,69 @@ final class CallbackQueryHandler
 
     private function handleDuelAnswer($chatId, string $data, ?User $user): void
     {
-        if ($user === null) {
-            $this->sendText($chatId, 'Не удалось определить профиль. Попробуйте /start.');
-
-            return;
-        }
-
-        if (!preg_match('/^duel-answer:(\d+):(\d+):(\d+)$/', $data, $matches)) {
-            $this->sendText($chatId, 'Не удалось обработать ответ дуэли. Попробуйте снова.');
-
-            return;
-        }
-
-        [, $duelIdRaw, $roundIdRaw, $answerIdRaw] = $matches;
-        $duelId = (int) $duelIdRaw;
-        $roundId = (int) $roundIdRaw;
-        $answerId = (int) $answerIdRaw;
-
-        $duel = $this->duelService->findById($duelId);
-
-        if (!$duel instanceof Duel) {
-            $this->sendText($chatId, 'Дуэль не найдена. Возможно, она уже завершена.');
-
-            return;
-        }
-
-        if ($duel->initiator_user_id !== $user->getKey() && $duel->opponent_user_id !== $user->getKey()) {
-            $this->sendText($chatId, 'Ты не участвуешь в этой дуэли.');
-
-            return;
-        }
-
-        $round = $duel->rounds()->where('id', $roundId)->first();
-
-        if (!$round instanceof DuelRound) {
-            $this->sendText($chatId, 'Раунд не найден. Попробуй снова.');
-
-            return;
-        }
-
         try {
-            $round = $this->duelService->submitAnswer($round, $user, $answerId);
+            if ($user === null) {
+                $this->sendText($chatId, 'Не удалось определить профиль. Попробуйте /start.');
+
+                return;
+            }
+
+            if (!preg_match('/^duel-answer:(\d+):(\d+):(\d+)$/', $data, $matches)) {
+                $this->sendText($chatId, 'Не удалось обработать ответ дуэли. Попробуйте снова.');
+
+                return;
+            }
+
+            [, $duelIdRaw, $roundIdRaw, $answerIdRaw] = $matches;
+            $duelId = (int) $duelIdRaw;
+            $roundId = (int) $roundIdRaw;
+            $answerId = (int) $answerIdRaw;
+
+            $duel = $this->duelService->findById($duelId);
+
+            if (!$duel instanceof Duel) {
+                $this->sendText($chatId, 'Дуэль не найдена. Возможно, она уже завершена.');
+
+                return;
+            }
+
+            if ($duel->initiator_user_id !== $user->getKey() && $duel->opponent_user_id !== $user->getKey()) {
+                $this->sendText($chatId, 'Ты не участвуешь в этой дуэли.');
+
+                return;
+            }
+
+            $round = $duel->rounds()->where('id', $roundId)->first();
+
+            if (!$round instanceof DuelRound) {
+                $this->sendText($chatId, 'Раунд не найден. Попробуй снова.');
+
+                return;
+            }
+
+            try {
+                $round = $this->duelService->submitAnswer($round, $user, $answerId);
+            } catch (\Throwable $exception) {
+                $this->logger->error('Ошибка обработки ответа дуэли', [
+                    'error' => $exception->getMessage(),
+                    'trace' => $exception->getTraceAsString(),
+                    'duel_id' => $duelId,
+                    'round_id' => $roundId,
+                    'answer_id' => $answerId,
+                    'user_id' => $user->getKey(),
+                ]);
+                $this->sendText($chatId, '⚠️ Не удалось засчитать ответ. Попробуй ещё раз.');
+
+                return;
+            }
         } catch (\Throwable $exception) {
-            $this->logger->error('Ошибка обработки ответа дуэли', [
+            $this->logger->error('Критическая ошибка в handleDuelAnswer', [
                 'error' => $exception->getMessage(),
-                'duel_id' => $duelId,
-                'round_id' => $roundId,
-                'answer_id' => $answerId,
-                'user_id' => $user->getKey(),
+                'trace' => $exception->getTraceAsString(),
+                'data' => $data,
+                'user_id' => $user?->getKey(),
             ]);
-            $this->sendText($chatId, '⚠️ Не удалось засчитать ответ. Попробуй ещё раз.');
+            $this->sendText($chatId, '⚠️ Произошла ошибка при обработке ответа. Попробуй ещё раз.');
 
             return;
         }
