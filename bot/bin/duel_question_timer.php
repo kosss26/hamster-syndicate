@@ -8,6 +8,7 @@ use QuizBot\Domain\Model\Duel;
 use QuizBot\Domain\Model\DuelRound;
 use GuzzleHttp\Client;
 use Monolog\Logger;
+use Illuminate\Support\Carbon;
 
 $basePath = dirname(__DIR__);
 require_once $basePath . '/vendor/autoload.php';
@@ -297,7 +298,7 @@ for ($i = 0; $i <= $timeoutSeconds; $i += $updateInterval) {
         ]);
         $elapsed = time() - $startTime;
     } else {
-        $elapsed = $round->question_sent_at->diffInSeconds(\Carbon\Carbon::now());
+        $elapsed = $round->question_sent_at->diffInSeconds(Carbon::now());
     }
     
     $remaining = max(0, $timeoutSeconds - $elapsed);
@@ -306,7 +307,7 @@ for ($i = 0; $i <= $timeoutSeconds; $i += $updateInterval) {
         // Время истекло - применяем таймауты для обоих участников
         try {
             $duelService = $container->get(\QuizBot\Application\Services\DuelService::class);
-            $now = \Carbon\Carbon::now();
+            $now = Carbon::now();
             
             $round->refresh();
             $duel->refresh();
