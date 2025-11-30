@@ -110,7 +110,8 @@ class MessageFormatter
         
         $progressBar = implode('', $progress);
         
-        return sprintf("Раунд %d/%d\n%s", $current, $total, $progressBar);
+        // Возвращаем только прогресс-бар, без заголовка (заголовок добавляется отдельно)
+        return $progressBar;
     }
 
     /**

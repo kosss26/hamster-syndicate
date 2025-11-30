@@ -52,9 +52,9 @@ trait SendsDuelMessages
 
         $lines = [];
         
-        // Заголовок раунда - крупно, капсом, по центру
+        // Заголовок раунда - крупно, капсом, жирный
         $roundHeader = sprintf('РАУНД %d ИЗ %d', $currentRound, $totalRounds);
-        $lines[] = sprintf('<b>%s</b>', $roundHeader);
+        $lines[] = sprintf('<b><strong>%s</strong></b>', $roundHeader);
         $lines[] = '';
         
         if ($formatter) {
@@ -129,7 +129,8 @@ trait SendsDuelMessages
             if ($formatter !== null && $participant !== null) {
                 $userId = $participant->getKey();
                 $progressBar = $formatter->formatDuelProgress($currentRound, $totalRounds, $allRounds, $userId);
-                $customLines[0] = $progressBar;
+                // Заменяем прогресс-бар (он на позиции после заголовка)
+                $customLines[2] = $progressBar; // Индекс 2: после заголовка и пустой строки
             }
             $textForTimer = implode("\n", $customLines);
             
