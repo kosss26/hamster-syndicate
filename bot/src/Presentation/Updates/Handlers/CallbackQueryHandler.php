@@ -427,6 +427,9 @@ final class CallbackQueryHandler
             htmlspecialchars($duel->code, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
         ));
 
+        // Пауза 5 секунд перед отправкой первого вопроса
+        sleep(5);
+
         if ($currentRound = $this->duelService->getCurrentRound($duel)) {
             $this->sendDuelQuestion($duel, $currentRound);
         }
@@ -731,6 +734,9 @@ final class CallbackQueryHandler
         $round = $duel->rounds->firstWhere('id', $roundId);
 
         if ($round instanceof DuelRound && $round->closed_at !== null) {
+            // Пауза 3 секунды перед отправкой результатов
+            sleep(3);
+            
             $this->sendDuelRoundResult($duel, $round);
 
             if ($duel->status === 'finished' && $duel->result !== null) {

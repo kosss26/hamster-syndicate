@@ -24,13 +24,6 @@ $logger = $container->get(Logger::class);
 /** @var Client $telegramClient */
 $telegramClient = $container->get(GuzzleHttp\ClientInterface::class);
 
-$logger->info('Таймер дуэли запущен', [
-    'duel_id' => $duelId,
-    'round_id' => $roundId,
-    'chat_id' => $chatId,
-    'message_id' => $messageId,
-]);
-
 $duelId = (int) ($argv[1] ?? 0);
 $roundId = (int) ($argv[2] ?? 0);
 $chatId = (int) ($argv[3] ?? 0);
@@ -38,6 +31,13 @@ $messageId = (int) ($argv[4] ?? 0);
 $startTime = (int) ($argv[5] ?? 0);
 $originalText = $argv[6] ?? '';
 $replyMarkup = $argv[7] ?? '{}';
+
+$logger->info('Таймер дуэли запущен', [
+    'duel_id' => $duelId,
+    'round_id' => $roundId,
+    'chat_id' => $chatId,
+    'message_id' => $messageId,
+]);
 
 if ($duelId === 0 || $roundId === 0 || $chatId === 0 || $messageId === 0 || $startTime === 0) {
     $logger->error('Недостаточно аргументов для скрипта duel_question_timer.php');
@@ -291,14 +291,15 @@ for ($i = 0; $i <= $timeoutSeconds; $i += $updateInterval) {
             $initiatorTimeout = $duelService->applyTimeoutIfNeeded($round, true, $now);
             $opponentTimeout = $duelService->applyTimeoutIfNeeded($round, false, $now);
             
+            $logger->info('Проверка таймаутов', [
+                'duel_id' => $duelId,
+                'round_id' => $roundId,
+                'initiator_timeout' => $initiatorTimeout,
+                'opponent_timeout' => $opponentTimeout,
+                'round_closed' => $round->closed_at !== null,
+            ]);
+            
             if ($initiatorTimeout || $opponentTimeout) {
-                $logger->info('Таймаут применён для участников', [
-                    'duel_id' => $duelId,
-                    'round_id' => $roundId,
-                    'initiator_timeout' => $initiatorTimeout,
-                    'opponent_timeout' => $opponentTimeout,
-                ]);
-                
                 $round->refresh();
                 // Проверяем, можно ли завершить раунд
                 $duelService->maybeCompleteRound($round);
@@ -310,6 +311,35 @@ for ($i = 0; $i <= $timeoutSeconds; $i += $updateInterval) {
                         'duel_id' => $duelId,
                         'round_id' => $roundId,
                     ]);
+                    
+                    // Пауза 3 секунды перед отправкой результатов
+                    sleep(3);
+                    
+                    // Отправляем результаты раунда и следующий вопрос
+                    sendRoundResultsAndNextQuestion($round->duel, $round, $telegramClient, $logger, $container, $duelId);
+                } else {
+                    $logger->warning('Раунд не завершён после таймаута', [
+                        'duel_id' => $duelId,
+                        'round_id' => $roundId,
+                        'initiator_payload' => $round->initiator_payload ?? [],
+                        'opponent_payload' => $round->opponent_payload ?? [],
+                    ]);
+                }
+            } else {
+                // Если таймауты не применены, всё равно проверяем завершение раунда
+                $round->refresh();
+                $duelService->maybeCompleteRound($round);
+                
+                $round->refresh();
+                if ($round->closed_at !== null) {
+                    $duelService->maybeCompleteDuel($round->duel);
+                    $logger->info('Раунд завершён (оба ответили)', [
+                        'duel_id' => $duelId,
+                        'round_id' => $roundId,
+                    ]);
+                    
+                    // Пауза 3 секунды перед отправкой результатов
+                    sleep(3);
                     
                     // Отправляем результаты раунда и следующий вопрос
                     sendRoundResultsAndNextQuestion($round->duel, $round, $telegramClient, $logger, $container, $duelId);
