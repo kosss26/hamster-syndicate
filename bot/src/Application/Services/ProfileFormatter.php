@@ -50,9 +50,7 @@ class ProfileFormatter
 
         // Заголовок профиля
         $lines = [
-            '┌──────────────────┐',
-            '│ 📊 ТВОЙ ПРОФИЛЬ │',
-            '└──────────────────┘',
+            '📊 <b>ТВОЙ ПРОФИЛЬ</b>',
             '',
         ];
 
@@ -60,15 +58,13 @@ class ProfileFormatter
         $lines[] = sprintf('🎚️ <b>УРОВЕНЬ %d</b>', $level);
         $lines[] = sprintf('⭐ Опыт: %d / %d', $expInCurrentLevel, $expNeeded);
         $lines[] = '━━━━━━━━━━━━━━━━';
-        $lines[] = '';
 
         // Основная статистика
         $lines[] = '💎 <b>РЕСУРСЫ</b>';
-        $lines[] = $this->messageFormatter->formatNumber((int) $profile->coins, '💰');
+        $lines[] = sprintf('💰 Монеты: %s', number_format((int) $profile->coins, 0, ',', ' '));
+        $lines[] = sprintf('📖 Прогресс: %s', number_format((int) $profile->story_progress_score, 0, ',', ' '));
         $lines[] = sprintf('🔥 Серия побед: %d дней', (int) $profile->streak_days);
-        $lines[] = $this->messageFormatter->formatNumber((int) $profile->story_progress_score, '📖');
         $lines[] = '━━━━━━━━━━━━━━━━';
-        $lines[] = '';
 
         // Статистика дуэлей
         $lines[] = '⚔️ <b>СТАТИСТИКА ДУЭЛЕЙ</b>';
