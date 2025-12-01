@@ -453,9 +453,10 @@ final class CommandHandler
             return;
         }
 
+        // Не создаем дуэль сразу - только показываем меню выбора
+        // Дуэль будет создана только при выборе "Пригласить друга" или "Случайный соперник"
         try {
-            $newDuel = $this->duelService->createDuel($user);
-            $this->sendDuelMenu($chatId, $newDuel);
+            $this->sendDuelMenu($chatId, null);
         } catch (\Throwable $exception) {
             $this->logger->error('Не удалось создать дуэль', [
                 'error' => $exception->getMessage(),
