@@ -18,15 +18,6 @@ class ProfileFormatter
         $this->messageFormatter = $messageFormatter;
     }
 
-    /**
-     * Рассчитывает опыт, необходимый для следующего уровня
-     */
-    private function getExperienceForNextLevel(int $currentLevel): int
-    {
-        // Формула: базовый опыт * уровень^1.5
-        return (int) (100 * pow($currentLevel, 1.5));
-    }
-
     public function format(User $user): string
     {
         $user = $this->userService->ensureProfile($user);
@@ -36,12 +27,7 @@ class ProfileFormatter
             throw new \RuntimeException('Не удалось загрузить профиль пользователя.');
         }
 
-        $level = (int) $profile->level;
-        $experience = (int) $profile->experience;
-        $nextLevelExp = $this->getExperienceForNextLevel($level);
-        $currentLevelExp = $this->getExperienceForNextLevel($level - 1);
-        $expInCurrentLevel = $experience - $currentLevelExp;
-        $expNeeded = $nextLevelExp - $currentLevelExp;
+        $rating = (int) $profile->rating;
 
         $duelTotal = (int) ($profile->duel_wins + $profile->duel_losses + $profile->duel_draws);
         $duelWinRate = $duelTotal > 0
@@ -54,9 +40,8 @@ class ProfileFormatter
             '',
         ];
 
-        // Уровень и опыт
-        $lines[] = sprintf('🎚️ <b>УРОВЕНЬ %d</b>', $level);
-        $lines[] = sprintf('⭐ Опыт: %d / %d', $expInCurrentLevel, $expNeeded);
+        // Рейтинг
+        $lines[] = sprintf('⭐ <b>РЕЙТИНГ: %d</b>', $rating);
         $lines[] = '━━━━━━━━━━━━━━━━';
 
         // Основная статистика

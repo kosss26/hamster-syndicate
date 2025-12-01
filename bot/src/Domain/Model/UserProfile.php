@@ -17,6 +17,7 @@ class UserProfile extends BaseModel
         'user_id',
         'level',
         'experience',
+        'rating',
         'coins',
         'lives',
         'streak_days',
@@ -33,6 +34,7 @@ class UserProfile extends BaseModel
     protected $casts = [
         'level' => 'int',
         'experience' => 'int',
+        'rating' => 'int',
         'coins' => 'int',
         'lives' => 'int',
         'streak_days' => 'int',

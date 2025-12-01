@@ -607,54 +607,83 @@ class DuelService
 
     private function updateProfiles(Duel $duel, string $resultStatus): void
     {
-        foreach ([$duel->initiator, $duel->opponent] as $participant) {
-            if (!$participant instanceof User) {
-                continue;
-            }
+        $initiator = $duel->initiator;
+        $opponent = $duel->opponent;
 
-            $participant = $participant->fresh(['profile']);
-
-            if (!$participant?->profile instanceof UserProfile) {
-                continue;
-            }
-
-            $profile = $participant->profile;
-            $isWinner = false;
-
-            switch ($resultStatus) {
-                case 'initiator_win':
-                    if ($participant->getKey() === $duel->initiator_user_id) {
-                        $profile->duel_wins++;
-                        $isWinner = true;
-                    } else {
-                        $profile->duel_losses++;
-                        // Сбрасываем серию побед при поражении
-                        $profile->streak_days = 0;
-                    }
-                    break;
-                case 'opponent_win':
-                    if ($participant->getKey() === $duel->opponent_user_id) {
-                        $profile->duel_wins++;
-                        $isWinner = true;
-                    } else {
-                        $profile->duel_losses++;
-                        // Сбрасываем серию побед при поражении
-                        $profile->streak_days = 0;
-                    }
-                    break;
-                default:
-                    $profile->duel_draws++;
-                    // Ничья не сбрасывает серию, но и не увеличивает её
-                    break;
-            }
-
-            // Увеличиваем серию побед при победе
-            if ($isWinner) {
-                $profile->streak_days = (int) $profile->streak_days + 1;
-            }
-
-            $profile->save();
+        if (!$initiator instanceof User || !$opponent instanceof User) {
+            return;
         }
+
+        $initiator = $initiator->fresh(['profile']);
+        $opponent = $opponent->fresh(['profile']);
+
+        if (!$initiator?->profile instanceof UserProfile || !$opponent?->profile instanceof UserProfile) {
+            return;
+        }
+
+        $initiatorProfile = $initiator->profile;
+        $opponentProfile = $opponent->profile;
+
+        // Получаем текущие рейтинги для расчета изменения
+        $initiatorRating = (int) $initiatorProfile->rating;
+        $opponentRating = (int) $opponentProfile->rating;
+
+        // Базовая система рейтинга: фиксированные значения
+        // Можно улучшить, учитывая разницу рейтингов
+        $ratingChange = $this->calculateRatingChange($initiatorRating, $opponentRating);
+
+        switch ($resultStatus) {
+            case 'initiator_win':
+                $initiatorProfile->duel_wins++;
+                $initiatorProfile->rating = max(0, $initiatorRating + $ratingChange);
+                $initiatorProfile->streak_days = (int) $initiatorProfile->streak_days + 1;
+
+                $opponentProfile->duel_losses++;
+                $opponentProfile->rating = max(0, $opponentRating - $ratingChange);
+                $opponentProfile->streak_days = 0;
+                break;
+            case 'opponent_win':
+                $opponentProfile->duel_wins++;
+                $opponentProfile->rating = max(0, $opponentRating + $ratingChange);
+                $opponentProfile->streak_days = (int) $opponentProfile->streak_days + 1;
+
+                $initiatorProfile->duel_losses++;
+                $initiatorProfile->rating = max(0, $initiatorRating - $ratingChange);
+                $initiatorProfile->streak_days = 0;
+                break;
+            default:
+                // Ничья: рейтинг не меняется
+                $initiatorProfile->duel_draws++;
+                $opponentProfile->duel_draws++;
+                break;
+        }
+
+        $initiatorProfile->save();
+        $opponentProfile->save();
+    }
+
+    /**
+     * Рассчитывает изменение рейтинга на основе текущих рейтингов игроков
+     * Базовая система: фиксированное изменение, но можно учитывать разницу
+     */
+    private function calculateRatingChange(int $playerRating, int $opponentRating): int
+    {
+        $ratingDiff = $playerRating - $opponentRating;
+        
+        // Базовое изменение: 10 очков
+        $baseChange = 10;
+        
+        // Если игрок сильнее соперника более чем на 200 очков, получает меньше за победу
+        // Если игрок слабее соперника более чем на 200 очков, получает больше за победу
+        if ($ratingDiff > 200) {
+            // Сильный игрок побеждает слабого: меньше очков
+            $baseChange = max(5, $baseChange - 2);
+        } elseif ($ratingDiff < -200) {
+            // Слабый игрок побеждает сильного: больше очков
+            $baseChange = min(15, $baseChange + 2);
+        }
+        
+        return $baseChange;
     }
 }
 
