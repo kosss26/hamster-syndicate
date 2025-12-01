@@ -18,6 +18,34 @@ class ProfileFormatter
         $this->messageFormatter = $messageFormatter;
     }
 
+    /**
+     * Получает звание на основе рейтинга
+     */
+    private function getRankByRating(int $rating): array
+    {
+        if ($rating < 400) {
+            return ['emoji' => '🥉', 'name' => 'Новичок'];
+        } elseif ($rating < 600) {
+            return ['emoji' => '📚', 'name' => 'Ученик'];
+        } elseif ($rating < 800) {
+            return ['emoji' => '📖', 'name' => 'Знаток'];
+        } elseif ($rating < 1000) {
+            return ['emoji' => '🎓', 'name' => 'Студент'];
+        } elseif ($rating < 1200) {
+            return ['emoji' => '⭐', 'name' => 'Эксперт'];
+        } elseif ($rating < 1400) {
+            return ['emoji' => '⭐⭐', 'name' => 'Мастер'];
+        } elseif ($rating < 1600) {
+            return ['emoji' => '⭐⭐⭐', 'name' => 'Гранд-мастер'];
+        } elseif ($rating < 1800) {
+            return ['emoji' => '💎', 'name' => 'Элита'];
+        } elseif ($rating < 2000) {
+            return ['emoji' => '👑', 'name' => 'Легенда'];
+        } else {
+            return ['emoji' => '🌟', 'name' => 'Иммортал'];
+        }
+    }
+
     public function format(User $user): string
     {
         $user = $this->userService->ensureProfile($user);
@@ -28,6 +56,7 @@ class ProfileFormatter
         }
 
         $rating = (int) $profile->rating;
+        $rank = $this->getRankByRating($rating);
 
         $duelTotal = (int) ($profile->duel_wins + $profile->duel_losses + $profile->duel_draws);
         $duelWinRate = $duelTotal > 0
@@ -40,8 +69,9 @@ class ProfileFormatter
             '',
         ];
 
-        // Рейтинг
-        $lines[] = sprintf('⭐ <b>РЕЙТИНГ: %d</b>', $rating);
+        // Звание и рейтинг
+        $lines[] = sprintf('%s <b>%s</b>', $rank['emoji'], $rank['name']);
+        $lines[] = sprintf('⭐ Рейтинг: <b>%d</b>', $rating);
         $lines[] = '━━━━━━━━━━━━━━━━';
 
         // Основная статистика
