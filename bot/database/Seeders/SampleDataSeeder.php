@@ -592,6 +592,7 @@ class SampleDataSeeder
                         ],
                         [
                             'type' => 'multiple_choice',
+                            'image_url' => $item['image_url'] ?? null,
                             'explanation' => $item['explanation'],
                             'difficulty' => 1,
                             'time_limit' => 30,
@@ -4323,9 +4324,9 @@ class SampleDataSeeder
      *
      * @return array<string, mixed>
      */
-    private function makeQuestion(string $code, string $question, string $explanation, array $answers): array
+    private function makeQuestion(string $code, string $question, string $explanation, array $answers, ?string $imageUrl = null): array
     {
-        return [
+        $result = [
             'code' => $code,
             'question' => $question,
             'explanation' => $explanation,
@@ -4336,6 +4337,12 @@ class SampleDataSeeder
                 ];
             }, $answers),
         ];
+        
+        if ($imageUrl !== null) {
+            $result['image_url'] = $imageUrl;
+        }
+        
+        return $result;
     }
 
     /**

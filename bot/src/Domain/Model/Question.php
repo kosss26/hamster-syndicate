@@ -18,6 +18,7 @@ class Question extends BaseModel
         'category_id',
         'type',
         'question_text',
+        'image_url',
         'explanation',
         'difficulty',
         'time_limit',

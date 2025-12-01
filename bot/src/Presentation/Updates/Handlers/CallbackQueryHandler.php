@@ -948,9 +948,27 @@ final class CallbackQueryHandler
             $payload['reply_markup'] = $replyMarkup;
         }
 
-        $response = $this->telegramClient->request('POST', 'sendMessage', [
-            'json' => $payload,
-        ]);
+        // Если это вопрос истории с изображением, отправляем через sendPhoto
+        if ($question instanceof StoryQuestion && !empty($question->image_url)) {
+            $photoPayload = [
+                'chat_id' => $chatId,
+                'photo' => $question->image_url,
+                'caption' => $text,
+                'parse_mode' => 'HTML',
+            ];
+            
+            if (isset($payload['reply_markup'])) {
+                $photoPayload['reply_markup'] = $payload['reply_markup'];
+            }
+            
+            $response = $this->telegramClient->request('POST', 'sendPhoto', [
+                'json' => $photoPayload,
+            ]);
+        } else {
+            $response = $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => $payload,
+            ]);
+        }
 
         // Если это вопрос истории, запускаем фоновый скрипт для обновления таймера
         if ($question instanceof StoryQuestion && $step !== null) {
@@ -1305,16 +1323,31 @@ final class CallbackQueryHandler
             }
         }
 
-        $this->telegramClient->request('POST', 'sendMessage', [
-            'json' => [
-                'chat_id' => $chatId,
-                'text' => implode("\n", $textLines),
-                'parse_mode' => 'HTML',
-                'reply_markup' => [
-                    'inline_keyboard' => $buttons,
+        // Если есть изображение, отправляем через sendPhoto
+        if (!empty($question->image_url)) {
+            $this->telegramClient->request('POST', 'sendPhoto', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'photo' => $question->image_url,
+                    'caption' => implode("\n", $textLines),
+                    'parse_mode' => 'HTML',
+                    'reply_markup' => [
+                        'inline_keyboard' => $buttons,
+                    ],
                 ],
-            ],
-        ]);
+            ]);
+        } else {
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => implode("\n", $textLines),
+                    'parse_mode' => 'HTML',
+                    'reply_markup' => [
+                        'inline_keyboard' => $buttons,
+                    ],
+                ],
+            ]);
+        }
     }
 
     /**

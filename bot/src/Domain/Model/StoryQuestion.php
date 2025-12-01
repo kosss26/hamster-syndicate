@@ -17,6 +17,7 @@ class StoryQuestion extends BaseModel
     protected $fillable = [
         'story_step_id',
         'question_text',
+        'image_url',
         'context_text',
         'explanation',
         'position',

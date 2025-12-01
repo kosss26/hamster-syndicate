@@ -148,9 +148,12 @@ trait SendsDuelMessages
         $formatter = method_exists($this, 'getMessageFormatter') ? $this->getMessageFormatter() : null;
         
         $startTime = time();
+        $hasImage = !empty($question->image_url);
         $messageIds = $this->broadcastToParticipants($duel, [
             'parse_mode' => 'HTML',
             'reply_markup' => $replyMarkup,
+            'has_image' => $hasImage,
+            'image_url' => $question->image_url,
         ], function ($payload, User $participant) use ($baseLines, $formatter, $currentRound, $totalRounds, $allRounds, $duel) {
             // Создаём кастомный прогресс-бар для каждого участника
             $customLines = $baseLines;
@@ -163,6 +166,9 @@ trait SendsDuelMessages
             
             $text = implode("\n", $customLines);
             $payload['text'] = $text;
+            if (isset($payload['caption'])) {
+                $payload['caption'] = $text;
+            }
             
             return $payload;
         });
@@ -495,9 +501,28 @@ trait SendsDuelMessages
             }
 
             try {
-                $response = $client->request('POST', 'sendMessage', [
-                    'json' => $finalPayload + ['chat_id' => $chatId],
-                ]);
+                // Если есть изображение, отправляем через sendPhoto
+                if (!empty($finalPayload['has_image']) && !empty($finalPayload['image_url'])) {
+                    $photoPayload = [
+                        'chat_id' => $chatId,
+                        'photo' => $finalPayload['image_url'],
+                        'caption' => $finalPayload['text'] ?? '',
+                        'parse_mode' => $finalPayload['parse_mode'] ?? 'HTML',
+                    ];
+                    
+                    if (isset($finalPayload['reply_markup'])) {
+                        $photoPayload['reply_markup'] = $finalPayload['reply_markup'];
+                    }
+                    
+                    $response = $client->request('POST', 'sendPhoto', [
+                        'json' => $photoPayload,
+                    ]);
+                } else {
+                    // Обычное текстовое сообщение
+                    $response = $client->request('POST', 'sendMessage', [
+                        'json' => $finalPayload + ['chat_id' => $chatId],
+                    ]);
+                }
                 
                 $responseBody = (string) $response->getBody();
                 $responseData = json_decode($responseBody, true);
