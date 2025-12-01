@@ -505,20 +505,58 @@ trait SendsDuelMessages
             try {
                 // Если есть изображение, отправляем через sendPhoto
                 if (!empty($finalPayload['has_image']) && !empty($finalPayload['image_url'])) {
-                    $photoPayload = [
-                        'chat_id' => $chatId,
-                        'photo' => $finalPayload['image_url'],
-                        'caption' => $finalPayload['text'] ?? '',
-                        'parse_mode' => $finalPayload['parse_mode'] ?? 'HTML',
-                    ];
+                    $imagePath = $finalPayload['image_url'];
+                    $isLocalFile = $this->isLocalFile($imagePath);
                     
-                    if (isset($finalPayload['reply_markup'])) {
-                        $photoPayload['reply_markup'] = $finalPayload['reply_markup'];
+                    if ($isLocalFile) {
+                        // Локальный файл - используем multipart/form-data
+                        $absolutePath = $this->resolveLocalPath($imagePath);
+                        
+                        if (!file_exists($absolutePath)) {
+                            $this->getLogger()->error('Локальный файл изображения не найден', [
+                                'path' => $absolutePath,
+                                'chat_id' => $chatId,
+                            ]);
+                            // Отправляем как обычное текстовое сообщение
+                            $response = $client->request('POST', 'sendMessage', [
+                                'json' => $finalPayload + ['chat_id' => $chatId],
+                            ]);
+                        } else {
+                            $multipart = [
+                                ['name' => 'chat_id', 'contents' => (string) $chatId],
+                                ['name' => 'photo', 'contents' => fopen($absolutePath, 'r')],
+                                ['name' => 'caption', 'contents' => $finalPayload['text'] ?? ''],
+                                ['name' => 'parse_mode', 'contents' => $finalPayload['parse_mode'] ?? 'HTML'],
+                            ];
+                            
+                            if (isset($finalPayload['reply_markup'])) {
+                                $multipart[] = [
+                                    'name' => 'reply_markup',
+                                    'contents' => json_encode($finalPayload['reply_markup']),
+                                ];
+                            }
+                            
+                            $response = $client->request('POST', 'sendPhoto', [
+                                'multipart' => $multipart,
+                            ]);
+                        }
+                    } else {
+                        // URL - используем JSON
+                        $photoPayload = [
+                            'chat_id' => $chatId,
+                            'photo' => $imagePath,
+                            'caption' => $finalPayload['text'] ?? '',
+                            'parse_mode' => $finalPayload['parse_mode'] ?? 'HTML',
+                        ];
+                        
+                        if (isset($finalPayload['reply_markup'])) {
+                            $photoPayload['reply_markup'] = $finalPayload['reply_markup'];
+                        }
+                        
+                        $response = $client->request('POST', 'sendPhoto', [
+                            'json' => $photoPayload,
+                        ]);
                     }
-                    
-                    $response = $client->request('POST', 'sendPhoto', [
-                        'json' => $photoPayload,
-                    ]);
                 } else {
                     // Обычное текстовое сообщение
                     $response = $client->request('POST', 'sendMessage', [

@@ -1325,17 +1325,56 @@ final class CallbackQueryHandler
 
         // Если есть изображение, отправляем через sendPhoto
         if (!empty($question->image_url)) {
-            $this->telegramClient->request('POST', 'sendPhoto', [
-                'json' => [
-                    'chat_id' => $chatId,
-                    'photo' => $question->image_url,
-                    'caption' => implode("\n", $textLines),
-                    'parse_mode' => 'HTML',
-                    'reply_markup' => [
-                        'inline_keyboard' => $buttons,
+            $imagePath = $question->image_url;
+            $isLocalFile = $this->isLocalFile($imagePath);
+            
+            if ($isLocalFile) {
+                // Локальный файл - используем multipart/form-data
+                $absolutePath = $this->resolveLocalPath($imagePath);
+                
+                if (!file_exists($absolutePath)) {
+                    $this->getLogger()->error('Локальный файл изображения не найден', [
+                        'path' => $absolutePath,
+                        'chat_id' => $chatId,
+                    ]);
+                    // Отправляем как обычное текстовое сообщение
+                    $this->telegramClient->request('POST', 'sendMessage', [
+                        'json' => [
+                            'chat_id' => $chatId,
+                            'text' => implode("\n", $textLines),
+                            'parse_mode' => 'HTML',
+                            'reply_markup' => [
+                                'inline_keyboard' => $buttons,
+                            ],
+                        ],
+                    ]);
+                } else {
+                    $multipart = [
+                        ['name' => 'chat_id', 'contents' => (string) $chatId],
+                        ['name' => 'photo', 'contents' => fopen($absolutePath, 'r')],
+                        ['name' => 'caption', 'contents' => implode("\n", $textLines)],
+                        ['name' => 'parse_mode', 'contents' => 'HTML'],
+                        ['name' => 'reply_markup', 'contents' => json_encode(['inline_keyboard' => $buttons])],
+                    ];
+                    
+                    $this->telegramClient->request('POST', 'sendPhoto', [
+                        'multipart' => $multipart,
+                    ]);
+                }
+            } else {
+                // URL - используем JSON
+                $this->telegramClient->request('POST', 'sendPhoto', [
+                    'json' => [
+                        'chat_id' => $chatId,
+                        'photo' => $imagePath,
+                        'caption' => implode("\n", $textLines),
+                        'parse_mode' => 'HTML',
+                        'reply_markup' => [
+                            'inline_keyboard' => $buttons,
+                        ],
                     ],
-                ],
-            ]);
+                ]);
+            }
         } else {
             $this->telegramClient->request('POST', 'sendMessage', [
                 'json' => [
@@ -1348,6 +1387,48 @@ final class CallbackQueryHandler
                 ],
             ]);
         }
+    }
+
+    /**
+     * Проверяет, является ли путь локальным файлом (не URL)
+     */
+    private function isLocalFile(string $path): bool
+    {
+        // Если путь начинается с http:// или https://, это URL
+        if (preg_match('/^https?:\/\//', $path)) {
+            return false;
+        }
+        
+        // Если путь начинается с /, это абсолютный путь к локальному файлу
+        if (strpos($path, '/') === 0) {
+            return true;
+        }
+        
+        // Если путь не содержит ://, это может быть относительный путь
+        return strpos($path, '://') === false;
+    }
+    
+    /**
+     * Преобразует путь к локальному файлу в абсолютный путь
+     */
+    private function resolveLocalPath(string $path): string
+    {
+        // Если путь уже абсолютный, возвращаем как есть
+        if (strpos($path, '/') === 0) {
+            return $path;
+        }
+        
+        // Определяем basePath через рефлексию
+        $reflection = new \ReflectionClass($this);
+        $basePath = dirname($reflection->getFileName(), 4); // Поднимаемся на 4 уровня до bot/
+        
+        // Если путь начинается с storage/ или public/, используем их
+        if (strpos($path, 'storage/') === 0 || strpos($path, 'public/') === 0) {
+            return $basePath . '/' . $path;
+        }
+        
+        // По умолчанию ищем в storage/images/
+        return $basePath . '/storage/images/' . ltrim($path, '/');
     }
 
     /**
