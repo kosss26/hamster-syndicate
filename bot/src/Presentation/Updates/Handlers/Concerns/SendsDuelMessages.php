@@ -237,7 +237,7 @@ trait SendsDuelMessages
             }
             
             $command = sprintf(
-                'cd %s && nohup %s %s %d %d %d %d %d %s %s >> %s 2>&1 & echo $!',
+                'cd %s && nohup %s %s %d %d %d %d %d %s %s %d >> %s 2>&1 & echo $!',
                 escapeshellarg($basePath),
                 escapeshellarg($phpPath),
                 escapeshellarg($scriptPath),
@@ -248,6 +248,7 @@ trait SendsDuelMessages
                 $startTime,
                 escapeshellarg($textForTimer),
                 escapeshellarg($replyMarkupJson),
+                $hasImage ? 1 : 0,
                 escapeshellarg($logFile)
             );
             
