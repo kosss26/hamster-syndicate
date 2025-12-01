@@ -392,7 +392,7 @@ final class CommandHandler
             return;
         }
 
-        $text .= "\n\nПродолжай приключение — запусти /story или сыграй в /play!";
+        $text .= "\n\nПродолжай битву — запусти /duel!";
 
         $this->telegramClient->request('POST', 'sendMessage', [
             'json' => [

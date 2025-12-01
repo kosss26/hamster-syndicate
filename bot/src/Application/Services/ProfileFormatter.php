@@ -50,36 +50,37 @@ class ProfileFormatter
 
         // Заголовок профиля
         $lines = [
-            $this->messageFormatter->header('Твой профиль', '📊'),
+            '┌─────────────────────────┐',
+            '│   📊 ТВОЙ ПРОФИЛЬ       │',
+            '└─────────────────────────┘',
             '',
         ];
 
-        // Уровень и опыт с прогресс-баром
-        $expBar = $this->messageFormatter->progressBar($expInCurrentLevel, $expNeeded, 12);
-        $lines[] = sprintf('🎚️ <b>Уровень %d</b>', $level);
-        $lines[] = sprintf('🌟 Опыт: %d / %d', $expInCurrentLevel, $expNeeded);
-        $lines[] = $expBar;
+        // Уровень и опыт
+        $lines[] = sprintf('🎚️ <b>УРОВЕНЬ %d</b>', $level);
+        $lines[] = '━━━━━━━━━━━━━━━━━━━━━━━━';
+        $lines[] = sprintf('⭐ Опыт: %d / %d', $expInCurrentLevel, $expNeeded);
         $lines[] = '';
 
         // Основная статистика
-        $lines[] = '💎 <b>Ресурсы</b>';
+        $lines[] = '💎 <b>РЕСУРСЫ</b>';
+        $lines[] = '━━━━━━━━━━━━━━━━━━━━━━━━';
         $lines[] = $this->messageFormatter->formatNumber((int) $profile->coins, '💰');
-        $lines[] = sprintf('🔥 Серия: %d дней', (int) $profile->streak_days);
+        $lines[] = sprintf('🔥 Серия побед: %d дней', (int) $profile->streak_days);
         $lines[] = $this->messageFormatter->formatNumber((int) $profile->story_progress_score, '📖');
         $lines[] = '';
 
         // Статистика дуэлей
-        $lines[] = $this->messageFormatter->header('Статистика дуэлей', '⚔️');
+        $lines[] = '⚔️ <b>СТАТИСТИКА ДУЭЛЕЙ</b>';
+        $lines[] = '━━━━━━━━━━━━━━━━━━━━━━━━';
         
         if ($duelTotal > 0) {
-            $winRateBar = $this->messageFormatter->progressBar($profile->duel_wins, $duelTotal, 10, '🏆', '⚪');
             $lines[] = sprintf('📊 Всего дуэлей: %d', $duelTotal);
-            $lines[] = $winRateBar;
             $lines[] = '';
         }
         
-        $lines[] = sprintf('  🏆 Побед: <b>%d</b>', (int) $profile->duel_wins);
-        $lines[] = sprintf('  💔 Поражений: <b>%d</b>', (int) $profile->duel_losses);
+        $lines[] = sprintf('  ✅ Побед: <b>%d</b>', (int) $profile->duel_wins);
+        $lines[] = sprintf('  ❌ Поражений: <b>%d</b>', (int) $profile->duel_losses);
         $lines[] = sprintf('  🤝 Ничьих: <b>%d</b>', (int) $profile->duel_draws);
         
         if ($duelTotal > 0) {
