@@ -49,7 +49,7 @@ if ($duelId === 0 || $roundId === 0 || $chatId === 0 || $messageId === 0 || $sta
 }
 
 $timeoutSeconds = 30;
-$updateInterval = 5; // Обновляем каждые 5 секунд
+$updateInterval = 1; // Обновляем каждую секунду
 
 $logger->info('Таймер дуэли запущен', [
     'duel_id' => $duelId,
@@ -660,8 +660,8 @@ for ($i = 0; $i <= $timeoutSeconds; $i += $updateInterval) {
                 ],
             ]);
             
-            // Логируем успешное обновление каждые 5 секунд или в последние 5 секунд
-            if ($remaining % 5 === 0 || $remaining <= 5) {
+            // Логируем успешное обновление каждые 10 секунд или в последние 5 секунд
+            if ($remaining % 10 === 0 || $remaining <= 5) {
                 $logger->info('Таймер обновлён', [
                     'remaining' => $remaining,
                     'chat_id' => $chatId,
