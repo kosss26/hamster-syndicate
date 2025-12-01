@@ -633,6 +633,12 @@ final class CommandHandler
                         ],
                         [
                             [
+                                'text' => '🔄 Сбросить рейтинг всех до 0',
+                                'callback_data' => 'admin:reset_ratings',
+                            ],
+                        ],
+                        [
+                            [
                                 'text' => '📊 Статистика',
                                 'callback_data' => 'admin:stats',
                             ],

@@ -112,5 +112,21 @@ final class AdminService
 
         return $result;
     }
+
+    /**
+     * Сбрасывает рейтинг всех пользователей до 0
+     *
+     * @return int Количество обновленных профилей
+     */
+    public function resetAllRatings(): int
+    {
+        $updated = \QuizBot\Domain\Model\UserProfile::query()
+            ->where('rating', '!=', 0)
+            ->update(['rating' => 0]);
+
+        $this->logger->info(sprintf('Админ: сброшен рейтинг у %d пользователей', $updated));
+
+        return $updated;
+    }
 }
 

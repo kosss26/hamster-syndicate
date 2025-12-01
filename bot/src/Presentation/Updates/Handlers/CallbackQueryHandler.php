@@ -1843,6 +1843,12 @@ final class CallbackQueryHandler
             return;
         }
 
+        if ($data === 'admin:reset_ratings') {
+            $this->handleResetRatings($chatId);
+
+            return;
+        }
+
         if ($data === 'admin:stats') {
             $this->handleAdminStats($chatId);
 
