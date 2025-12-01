@@ -21,6 +21,57 @@ trait SendsDuelMessages
     abstract protected function getLogger(): Logger;
 
     abstract protected function getDuelService(): DuelService;
+    
+    /**
+     * Возвращает клавиатуру с основными кнопками меню
+     */
+    protected function getMainKeyboard(): array
+    {
+        return [
+            'keyboard' => [
+                [
+                    ['text' => '⚔️ Дуэль'],
+                    ['text' => '📊 Профиль'],
+                ],
+            ],
+            'resize_keyboard' => true,
+            'one_time_keyboard' => false,
+        ];
+    }
+    
+    /**
+     * Устанавливает постоянную клавиатуру с основными кнопками
+     * @param int|string $chatId
+     */
+    protected function setMainKeyboard($chatId): void
+    {
+        try {
+            $response = $this->getTelegramClient()->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => ' ',
+                    'reply_markup' => $this->getMainKeyboard(),
+                ],
+            ]);
+            
+            $responseBody = (string) $response->getBody();
+            $responseData = json_decode($responseBody, true);
+            $messageId = $responseData['result']['message_id'] ?? null;
+            
+            if ($messageId !== null) {
+                // Удаляем служебное сообщение через небольшую задержку
+                sleep(1);
+                $this->getTelegramClient()->request('POST', 'deleteMessage', [
+                    'json' => [
+                        'chat_id' => $chatId,
+                        'message_id' => $messageId,
+                    ],
+                ]);
+            }
+        } catch (\Throwable $e) {
+            // Игнорируем ошибки при установке клавиатуры
+        }
+    }
 
     private function sendDuelQuestion(Duel $duel, DuelRound $round): void
     {
@@ -350,6 +401,7 @@ trait SendsDuelMessages
             $payload = [
                 'text' => implode("\n", $lines),
                 'parse_mode' => 'HTML',
+                'reply_markup' => $this->getMainKeyboard(),
             ];
 
             try {

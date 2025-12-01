@@ -165,18 +165,26 @@ final class MessageHandler
                 'chat_id' => $chatId,
                 'text' => $text,
                 'parse_mode' => 'HTML',
-                'reply_markup' => [
-                    'keyboard' => [
-                        [
-                            ['text' => '⚔️ Дуэль'],
-                            ['text' => '📊 Профиль'],
-                        ],
-                    ],
-                    'resize_keyboard' => true,
-                    'one_time_keyboard' => false,
-                ],
+                'reply_markup' => $this->getMainKeyboard(),
             ],
         ]);
+    }
+    
+    /**
+     * Возвращает клавиатуру с основными кнопками меню
+     */
+    private function getMainKeyboard(): array
+    {
+        return [
+            'keyboard' => [
+                [
+                    ['text' => '⚔️ Дуэль'],
+                    ['text' => '📊 Профиль'],
+                ],
+            ],
+            'resize_keyboard' => true,
+            'one_time_keyboard' => false,
+        ];
     }
 
     private function startsWith(string $haystack, string $needle): bool

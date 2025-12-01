@@ -135,6 +135,23 @@ final class CommandHandler
     }
 
     /**
+     * Возвращает клавиатуру с основными кнопками меню
+     */
+    private function getMainKeyboard(): array
+    {
+        return [
+            'keyboard' => [
+                [
+                    ['text' => '⚔️ Дуэль'],
+                    ['text' => '📊 Профиль'],
+                ],
+            ],
+            'resize_keyboard' => true,
+            'one_time_keyboard' => false,
+        ];
+    }
+
+    /**
      * @param int|string $chatId
      */
     private function sendStart($chatId): void
@@ -156,6 +173,7 @@ final class CommandHandler
                 'chat_id' => $chatId,
                 'text' => $text,
                 'parse_mode' => 'HTML',
+                'reply_markup' => $this->getMainKeyboard(),
             ],
         ]);
     }
@@ -321,6 +339,43 @@ final class CommandHandler
                 ],
             ],
         ]);
+        
+        // Устанавливаем постоянную клавиатуру через отдельное служебное сообщение
+        $this->setMainKeyboard($chatId);
+    }
+    
+    /**
+     * Устанавливает постоянную клавиатуру с основными кнопками
+     * @param int|string $chatId
+     */
+    private function setMainKeyboard($chatId): void
+    {
+        try {
+            $response = $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => ' ',
+                    'reply_markup' => $this->getMainKeyboard(),
+                ],
+            ]);
+            
+            $responseBody = (string) $response->getBody();
+            $responseData = json_decode($responseBody, true);
+            $messageId = $responseData['result']['message_id'] ?? null;
+            
+            if ($messageId !== null) {
+                // Удаляем служебное сообщение через небольшую задержку
+                sleep(1);
+                $this->telegramClient->request('POST', 'deleteMessage', [
+                    'json' => [
+                        'chat_id' => $chatId,
+                        'message_id' => $messageId,
+                    ],
+                ]);
+            }
+        } catch (\Throwable $e) {
+            // Игнорируем ошибки при установке клавиатуры
+        }
     }
 
     /**
@@ -341,6 +396,7 @@ final class CommandHandler
                 'chat_id' => $chatId,
                 'text' => $text,
                 'parse_mode' => 'HTML',
+                'reply_markup' => $this->getMainKeyboard(),
             ],
         ]);
     }
@@ -354,6 +410,7 @@ final class CommandHandler
             'json' => [
                 'chat_id' => $chatId,
                 'text' => '🤔 Не понимаю эту команду. Попробуйте /help.',
+                'reply_markup' => $this->getMainKeyboard(),
             ],
         ]);
     }
@@ -399,6 +456,7 @@ final class CommandHandler
                 'chat_id' => $chatId,
                 'text' => $text,
                 'parse_mode' => 'HTML',
+                'reply_markup' => $this->getMainKeyboard(),
             ],
         ]);
     }
