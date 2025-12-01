@@ -341,7 +341,13 @@ class DuelService
         $duel->finished_at = Carbon::now();
         $duel->save();
 
-        $this->updateProfiles($duel, $resultStatus);
+        $ratingChanges = $this->updateProfiles($duel, $resultStatus);
+
+        // Сохраняем изменения рейтинга в метаданных результата
+        $metadata = $result->metadata ?? [];
+        $metadata['rating_changes'] = $ratingChanges;
+        $result->metadata = $metadata;
+        $result->save();
 
         $this->logger->info(sprintf('Дуэль %s завершена, результат %s', $duel->code, $resultStatus));
 
@@ -605,20 +611,20 @@ class DuelService
         return true;
     }
 
-    private function updateProfiles(Duel $duel, string $resultStatus): void
+    private function updateProfiles(Duel $duel, string $resultStatus): array
     {
         $initiator = $duel->initiator;
         $opponent = $duel->opponent;
 
         if (!$initiator instanceof User || !$opponent instanceof User) {
-            return;
+            return ['initiator_rating_change' => 0, 'opponent_rating_change' => 0];
         }
 
         $initiator = $initiator->fresh(['profile']);
         $opponent = $opponent->fresh(['profile']);
 
         if (!$initiator?->profile instanceof UserProfile || !$opponent?->profile instanceof UserProfile) {
-            return;
+            return ['initiator_rating_change' => 0, 'opponent_rating_change' => 0];
         }
 
         $initiatorProfile = $initiator->profile;
@@ -632,22 +638,29 @@ class DuelService
         // Можно улучшить, учитывая разницу рейтингов
         $ratingChange = $this->calculateRatingChange($initiatorRating, $opponentRating);
 
+        $initiatorRatingChange = 0;
+        $opponentRatingChange = 0;
+
         switch ($resultStatus) {
             case 'initiator_win':
                 $initiatorProfile->duel_wins++;
+                $initiatorRatingChange = $ratingChange;
                 $initiatorProfile->rating = max(0, $initiatorRating + $ratingChange);
                 $initiatorProfile->streak_days = (int) $initiatorProfile->streak_days + 1;
 
                 $opponentProfile->duel_losses++;
+                $opponentRatingChange = -$ratingChange;
                 $opponentProfile->rating = max(0, $opponentRating - $ratingChange);
                 $opponentProfile->streak_days = 0;
                 break;
             case 'opponent_win':
                 $opponentProfile->duel_wins++;
+                $opponentRatingChange = $ratingChange;
                 $opponentProfile->rating = max(0, $opponentRating + $ratingChange);
                 $opponentProfile->streak_days = (int) $opponentProfile->streak_days + 1;
 
                 $initiatorProfile->duel_losses++;
+                $initiatorRatingChange = -$ratingChange;
                 $initiatorProfile->rating = max(0, $initiatorRating - $ratingChange);
                 $initiatorProfile->streak_days = 0;
                 break;
@@ -660,6 +673,11 @@ class DuelService
 
         $initiatorProfile->save();
         $opponentProfile->save();
+
+        return [
+            'initiator_rating_change' => $initiatorRatingChange,
+            'opponent_rating_change' => $opponentRatingChange,
+        ];
     }
 
     /**

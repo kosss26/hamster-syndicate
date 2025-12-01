@@ -281,38 +281,91 @@ trait SendsDuelMessages
             );
         }
 
-        $formatter = method_exists($this, 'getMessageFormatter') ? $this->getMessageFormatter() : null;
-
-        $lines = [];
-        
-        if ($formatter) {
-            $lines[] = $formatter->header('Дуэль завершена!', '🏁');
-        } else {
-            $lines[] = '🏁 <b>Дуэль завершена!</b>';
-        }
-        
-        $lines[] = '';
-        $lines[] = sprintf('⚔️ Итоговый счёт: <b>%d — %d</b>', $initiatorScore, $opponentScore);
-        $lines[] = '';
-
-        if ($result->winner_user_id === null) {
-            $lines[] = '🤝 <b>Ничья!</b> Оба игрока показали отличный результат!';
-        } else {
-            $lines[] = sprintf('🏆 <b>Победитель: %s</b>', $winnerName);
-            $lines[] = '🎉 Поздравляем с победой!';
-        }
-        
-        if ($formatter) {
-            $lines[] = '';
-            $lines[] = $formatter->separator();
-        }
-
-        $payload = [
-            'text' => implode("\n", $lines),
-            'parse_mode' => 'HTML',
+        // Получаем изменения рейтинга из метаданных
+        $metadata = $result->metadata ?? [];
+        $ratingChanges = $metadata['rating_changes'] ?? [
+            'initiator_rating_change' => 0,
+            'opponent_rating_change' => 0,
         ];
+        $initiatorRatingChange = (int) ($ratingChanges['initiator_rating_change'] ?? 0);
+        $opponentRatingChange = (int) ($ratingChanges['opponent_rating_change'] ?? 0);
 
-        $this->broadcastToParticipants($duel, $payload);
+        $formatter = method_exists($this, 'getMessageFormatter') ? $this->getMessageFormatter() : null;
+        $client = $this->getTelegramClient();
+
+        // Отправляем персональное сообщение каждому игроку
+        foreach ([$duel->initiator, $duel->opponent] as $participant) {
+            if (!$participant instanceof User) {
+                continue;
+            }
+
+            $chatId = $participant->telegram_id;
+            if ($chatId === null) {
+                continue;
+            }
+
+            // Определяем изменение рейтинга для этого игрока
+            $isInitiator = $participant->getKey() === $duel->initiator_user_id;
+            $ratingChange = $isInitiator ? $initiatorRatingChange : $opponentRatingChange;
+
+            $lines = [];
+            
+            if ($formatter) {
+                $lines[] = $formatter->header('Дуэль завершена!', '🏁');
+            } else {
+                $lines[] = '🏁 <b>Дуэль завершена!</b>';
+            }
+            
+            $lines[] = '';
+            $lines[] = sprintf('⚔️ Итоговый счёт: <b>%d — %d</b>', $initiatorScore, $opponentScore);
+            $lines[] = '';
+
+            if ($result->winner_user_id === null) {
+                $lines[] = '🤝 <b>Ничья!</b> Оба игрока показали отличный результат!';
+            } else {
+                $isWinner = $participant->getKey() === $result->winner_user_id;
+                if ($isWinner) {
+                    $lines[] = sprintf('🏆 <b>Победитель: %s</b>', $this->formatUserName($participant));
+                    $lines[] = '🎉 Поздравляем с победой!';
+                } else {
+                    $lines[] = sprintf('🏆 <b>Победитель: %s</b>', $winnerName);
+                }
+            }
+            
+            // Добавляем изменение рейтинга
+            $lines[] = '';
+            if ($ratingChange > 0) {
+                $lines[] = sprintf('⭐ Рейтинг: <b>+%d</b>', $ratingChange);
+            } elseif ($ratingChange < 0) {
+                $lines[] = sprintf('⭐ Рейтинг: <b>%d</b>', $ratingChange);
+            } else {
+                $lines[] = '⭐ Рейтинг: <b>0</b> (без изменений)';
+            }
+            
+            if ($formatter) {
+                $lines[] = '';
+                $lines[] = $formatter->separator();
+            }
+
+            $payload = [
+                'text' => implode("\n", $lines),
+                'parse_mode' => 'HTML',
+            ];
+
+            try {
+                $client->request('POST', 'sendMessage', [
+                    'json' => array_merge([
+                        'chat_id' => $chatId,
+                    ], $payload),
+                ]);
+            } catch (\Throwable $e) {
+                $this->getLogger()->error('Не удалось отправить финальный результат дуэли', [
+                    'error' => $e->getMessage(),
+                    'chat_id' => $chatId,
+                    'duel_id' => $duel->getKey(),
+                ]);
+            }
+        }
     }
 
     protected function sendDuelInvitationToUser(User $recipient, Duel $duel, User $initiator): void
