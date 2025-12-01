@@ -178,6 +178,7 @@ trait SendsDuelMessages
         $reflection = new \ReflectionClass($this);
         $basePath = dirname($reflection->getFileName(), 5); // Поднимаемся на 5 уровней до bot/
         $scriptPath = $basePath . '/bin/duel_question_timer.php';
+        $hasImage = !empty($question->image_url);
         $replyMarkupJson = json_encode($replyMarkup);
 
         foreach ($messageIds as $chatId => $messageId) {

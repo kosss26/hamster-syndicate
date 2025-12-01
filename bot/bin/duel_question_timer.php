@@ -42,6 +42,7 @@ $messageId = (int) ($argv[4] ?? 0);
 $startTime = (int) ($argv[5] ?? 0);
 $originalText = $argv[6] ?? '';
 $replyMarkup = $argv[7] ?? '{}';
+$hasImage = (int) ($argv[8] ?? 0) === 1;
 
 if ($duelId === 0 || $roundId === 0 || $chatId === 0 || $messageId === 0 || $startTime === 0) {
     $logger->error('Недостаточно аргументов для скрипта duel_question_timer.php');
@@ -650,15 +651,28 @@ for ($i = 0; $i <= $timeoutSeconds; $i += $updateInterval) {
         }
 
         try {
-            $response = $telegramClient->request('POST', 'editMessageText', [
-                'json' => [
-                    'chat_id' => $chatId,
-                    'message_id' => $messageId,
-                    'text' => $updatedText,
-                    'parse_mode' => 'HTML',
-                    'reply_markup' => json_decode($replyMarkup, true) ?: null,
-                ],
-            ]);
+            // Если сообщение было отправлено как фото, используем editMessageCaption
+            if ($hasImage) {
+                $response = $telegramClient->request('POST', 'editMessageCaption', [
+                    'json' => [
+                        'chat_id' => $chatId,
+                        'message_id' => $messageId,
+                        'caption' => $updatedText,
+                        'parse_mode' => 'HTML',
+                        'reply_markup' => json_decode($replyMarkup, true) ?: null,
+                    ],
+                ]);
+            } else {
+                $response = $telegramClient->request('POST', 'editMessageText', [
+                    'json' => [
+                        'chat_id' => $chatId,
+                        'message_id' => $messageId,
+                        'text' => $updatedText,
+                        'parse_mode' => 'HTML',
+                        'reply_markup' => json_decode($replyMarkup, true) ?: null,
+                    ],
+                ]);
+            }
             
             // Логируем успешное обновление каждые 10 секунд или в последние 5 секунд
             if ($remaining % 10 === 0 || $remaining <= 5) {
