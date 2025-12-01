@@ -52,7 +52,7 @@ class UserService
             $profile = new UserProfile([
                 'level' => 1,
                 'experience' => 0,
-                'rating' => 1000,
+                'rating' => 0,
                 'coins' => 0,
                 'lives' => 3,
                 'streak_days' => 0,

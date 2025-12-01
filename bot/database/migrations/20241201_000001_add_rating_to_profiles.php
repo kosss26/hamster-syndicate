@@ -15,7 +15,7 @@ return new class implements Migration {
     public function up(Builder $schema): void
     {
         $schema->table('user_profiles', function (Blueprint $table): void {
-            $table->integer('rating')->default(1000)->after('experience');
+            $table->integer('rating')->default(0)->after('experience');
         });
     }
 
