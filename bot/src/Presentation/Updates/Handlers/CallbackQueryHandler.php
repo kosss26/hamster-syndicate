@@ -1888,6 +1888,27 @@ final class CallbackQueryHandler
         }
     }
 
+    private function handleResetRatings($chatId): void
+    {
+        try {
+            $updated = $this->adminService->resetAllRatings();
+
+            $text = sprintf(
+                "✅ <b>Сброс рейтинга</b>\n\n" .
+                "Рейтинг сброшен до 0 у <b>%d</b> пользователей.",
+                $updated
+            );
+
+            $this->sendText($chatId, $text);
+        } catch (\Throwable $e) {
+            $this->logger->error('Ошибка при сбросе рейтинга', [
+                'error' => $e->getMessage(),
+                'exception' => $e,
+            ]);
+            $this->sendText($chatId, '❌ Ошибка при сбросе рейтинга: ' . $e->getMessage());
+        }
+    }
+
     private function handleAdminStats($chatId): void
     {
         try {
