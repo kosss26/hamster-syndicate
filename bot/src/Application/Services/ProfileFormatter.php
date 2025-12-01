@@ -62,8 +62,6 @@ class ProfileFormatter
         // Основная статистика
         $lines[] = '💎 <b>РЕСУРСЫ</b>';
         $lines[] = sprintf('💰 Монеты: %s', number_format((int) $profile->coins, 0, ',', ' '));
-        $lines[] = sprintf('📖 Прогресс: %s', number_format((int) $profile->story_progress_score, 0, ',', ' '));
-        $lines[] = sprintf('🔥 Серия побед: %d дней', (int) $profile->streak_days);
         $lines[] = '━━━━━━━━━━━━━━━━';
 
         // Статистика дуэлей
@@ -76,6 +74,10 @@ class ProfileFormatter
         $lines[] = sprintf('  ✅ Побед: <b>%d</b>', (int) $profile->duel_wins);
         $lines[] = sprintf('  ❌ Поражений: <b>%d</b>', (int) $profile->duel_losses);
         $lines[] = sprintf('  🤝 Ничьих: <b>%d</b>', (int) $profile->duel_draws);
+        
+        // Серия побед в дуэлях (используем streak_days для хранения серии побед)
+        $duelWinStreak = (int) $profile->streak_days;
+        $lines[] = sprintf('  🔥 Серия побед: <b>%d</b>', $duelWinStreak);
         
         if ($duelTotal > 0) {
             $winRateEmoji = $duelWinRate >= 70 ? '🔥' : ($duelWinRate >= 50 ? '👍' : '📈');

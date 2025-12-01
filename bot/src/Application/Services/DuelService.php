@@ -619,25 +619,38 @@ class DuelService
             }
 
             $profile = $participant->profile;
+            $isWinner = false;
 
             switch ($resultStatus) {
                 case 'initiator_win':
                     if ($participant->getKey() === $duel->initiator_user_id) {
                         $profile->duel_wins++;
+                        $isWinner = true;
                     } else {
                         $profile->duel_losses++;
+                        // Сбрасываем серию побед при поражении
+                        $profile->streak_days = 0;
                     }
                     break;
                 case 'opponent_win':
                     if ($participant->getKey() === $duel->opponent_user_id) {
                         $profile->duel_wins++;
+                        $isWinner = true;
                     } else {
                         $profile->duel_losses++;
+                        // Сбрасываем серию побед при поражении
+                        $profile->streak_days = 0;
                     }
                     break;
                 default:
                     $profile->duel_draws++;
+                    // Ничья не сбрасывает серию, но и не увеличивает её
                     break;
+            }
+
+            // Увеличиваем серию побед при победе
+            if ($isWinner) {
+                $profile->streak_days = (int) $profile->streak_days + 1;
             }
 
             $profile->save();
