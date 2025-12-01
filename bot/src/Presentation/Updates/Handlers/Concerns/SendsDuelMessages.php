@@ -582,6 +582,49 @@ trait SendsDuelMessages
     }
 
     /**
+     * Проверяет, является ли путь локальным файлом (не URL)
+     */
+    private function isLocalFile(string $path): bool
+    {
+        // Если путь начинается с http:// или https://, это URL
+        if (preg_match('/^https?:\/\//', $path)) {
+            return false;
+        }
+        
+        // Если путь начинается с /, это абсолютный путь к локальному файлу
+        if (strpos($path, '/') === 0) {
+            return true;
+        }
+        
+        // Если путь не содержит ://, это может быть относительный путь
+        // Проверяем, существует ли файл относительно корня проекта
+        return strpos($path, '://') === false;
+    }
+    
+    /**
+     * Преобразует путь к локальному файлу в абсолютный путь
+     */
+    private function resolveLocalPath(string $path): string
+    {
+        // Если путь уже абсолютный, возвращаем как есть
+        if (strpos($path, '/') === 0) {
+            return $path;
+        }
+        
+        // Определяем basePath через рефлексию
+        $reflection = new \ReflectionClass($this);
+        $basePath = dirname($reflection->getFileName(), 5); // Поднимаемся на 5 уровней до bot/
+        
+        // Если путь начинается с storage/ или public/, используем их
+        if (strpos($path, 'storage/') === 0 || strpos($path, 'public/') === 0) {
+            return $basePath . '/' . $path;
+        }
+        
+        // По умолчанию ищем в storage/images/
+        return $basePath . '/storage/images/' . ltrim($path, '/');
+    }
+
+    /**
      * @return array<int, string>
      */
     private function formatParticipantSummary(Duel $duel, DuelRound $round, bool $forInitiator): array
