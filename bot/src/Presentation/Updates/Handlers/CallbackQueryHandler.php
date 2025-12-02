@@ -2035,6 +2035,13 @@ final class CallbackQueryHandler
                 return;
             }
 
+            if ($this->startsWith($data, 'admin:reply:')) {
+                $targetUserId = (int) substr($data, strlen('admin:reply:'));
+                $this->handleAdminReply($chatId, $user, $targetUserId);
+
+                return;
+            }
+
             $this->logger->warning('Неизвестное админ-действие', ['data' => $data]);
             $this->sendText($chatId, '❌ Неизвестное админ-действие.');
         } catch (\Throwable $e) {

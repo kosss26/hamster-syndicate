@@ -128,5 +128,24 @@ final class AdminService
 
         return $updated;
     }
+
+    /**
+     * Получить всех админов по их telegram_id
+     *
+     * @return array<User>
+     */
+    public function getAdminUsers(): array
+    {
+        $adminIds = $this->getAdminTelegramIds();
+
+        if (empty($adminIds)) {
+            return [];
+        }
+
+        return User::query()
+            ->whereIn('telegram_id', $adminIds)
+            ->get()
+            ->all();
+    }
 }
 

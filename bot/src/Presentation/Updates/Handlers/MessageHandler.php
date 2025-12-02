@@ -212,12 +212,54 @@ final class MessageHandler
                 return;
             }
 
+            // Проверяем, ожидает ли админ ввода ответа пользователю
+            if ($user instanceof User && $this->adminService->isAdmin($user)) {
+                $cacheKey = sprintf('admin:reply_to_user:%d:', $user->getKey());
+                try {
+                    // Ищем ключ в кеше (формат: admin:reply_to_user:{admin_id}:{target_user_id})
+                    $found = false;
+                    $targetUserId = null;
+                    
+                    // Пробуем найти ключ через перебор возможных ID (не идеально, но работает)
+                    // В реальности лучше использовать более умный подход, но для простоты так
+                    for ($i = 1; $i <= 10000; $i++) {
+                        $testKey = $cacheKey . $i;
+                        try {
+                            $value = $this->cache->get($testKey, static function () {
+                                return null;
+                            });
+                            if ($value === true) {
+                                $found = true;
+                                $targetUserId = $i;
+                                break;
+                            }
+                        } catch (\Throwable $e) {
+                            // Продолжаем поиск
+                        }
+                    }
+                    
+                    if ($found && $targetUserId !== null) {
+                        $this->cache->delete($cacheKey . $targetUserId);
+                        $this->sendAdminReplyToUser($chatId, $user, $targetUserId, $text);
+                        return;
+                    }
+                } catch (\Throwable $e) {
+                    // Игнорируем ошибки поиска
+                }
+            }
+
             // Обычная обработка юзернейма для приглашения в дуэль
             if ($user instanceof User && $this->looksLikeUsernameInput($text)) {
                 if ($commandHandler->handleDuelUsernameInvite($chatId, $user, $text)) {
                     return;
                 }
             }
+        }
+
+        // Если сообщение не обработано и пользователь не админ - отправляем админам как обратную связь
+        if ($user instanceof User && !$this->adminService->isAdmin($user)) {
+            $this->sendFeedbackToAdmins($chatId, $user, $text);
+            return;
         }
 
         $this->sendWelcome($chatId);
