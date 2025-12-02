@@ -175,7 +175,8 @@ final class AppBootstrap
                 return new \QuizBot\Application\Services\AdminService(
                     $c->get(Config::class),
                     $c->get(Logger::class),
-                    $c->get(DuelService::class)
+                    $c->get(DuelService::class),
+                    $c->get(TelegramClientFactory::class)->create()
                 );
             },
             SampleDataSeeder::class => function (Container $c) {
