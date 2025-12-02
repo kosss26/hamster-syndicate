@@ -193,6 +193,12 @@ final class MessageHandler
             ]);
 
             // Проверяем, ожидает ли система сообщения от пользователя для тех.поддержки (ПЕРВЫМ, ДО создания CommandHandler!)
+            $this->logger->debug('Перед проверкой флага тех.поддержки', [
+                'user_is_instance' => ($user instanceof User),
+                'user_id' => $user?->getKey(),
+                'is_admin' => ($user instanceof User ? $this->adminService->isAdmin($user) : false),
+            ]);
+            
             if ($user instanceof User && !$this->adminService->isAdmin($user)) {
                 $supportCacheKey = sprintf('user:support_message:%d', $user->getKey());
                 $this->logger->debug('Проверка флага тех.поддержки', [
