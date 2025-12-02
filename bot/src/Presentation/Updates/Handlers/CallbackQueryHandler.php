@@ -2071,7 +2071,7 @@ final class CallbackQueryHandler
             'target_user_id' => $targetUserId,
         ]);
 
-        $targetUser = $this->userService->findById($targetUserId);
+        $targetUser = User::find($targetUserId);
         if (!$targetUser instanceof User) {
             $this->sendText($chatId, '❌ Не удалось найти пользователя для ответа.');
             return;
