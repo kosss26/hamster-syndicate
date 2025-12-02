@@ -7,18 +7,21 @@ namespace QuizBot\Application\Services;
 use QuizBot\Infrastructure\Config\Config;
 use QuizBot\Domain\Model\User;
 use Monolog\Logger;
+use GuzzleHttp\ClientInterface;
 
 final class AdminService
 {
     private Config $config;
     private Logger $logger;
     private DuelService $duelService;
+    private ClientInterface $telegramClient;
 
-    public function __construct(Config $config, Logger $logger, DuelService $duelService)
+    public function __construct(Config $config, Logger $logger, DuelService $duelService, ClientInterface $telegramClient)
     {
         $this->config = $config;
         $this->logger = $logger;
         $this->duelService = $duelService;
+        $this->telegramClient = $telegramClient;
     }
 
     public function isAdmin(User $user): bool
@@ -146,6 +149,72 @@ final class AdminService
             ->whereIn('telegram_id', $adminIds)
             ->get()
             ->all();
+    }
+
+    /**
+     * Отправляет сообщение от пользователя всем админам
+     */
+    public function sendFeedbackToAdmins(User $fromUser, string $messageText): void
+    {
+        $adminIds = $this->getAdminTelegramIds();
+        if (empty($adminIds)) {
+            $this->logger->warning('Нет настроенных админов для отправки обратной связи.');
+            return;
+        }
+
+        $senderName = $this->formatUserName($fromUser);
+        $feedbackMessage = sprintf(
+            "📩 <b>Новое сообщение от пользователя</b>\n\n" .
+            "От: %s (ID: %d)\n" .
+            "Сообщение:\n<i>%s</i>",
+            $senderName,
+            $fromUser->telegram_id,
+            htmlspecialchars($messageText, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
+        );
+
+        foreach ($adminIds as $adminTelegramId) {
+            try {
+                $this->telegramClient->request('POST', 'sendMessage', [
+                    'json' => [
+                        'chat_id' => $adminTelegramId,
+                        'text' => $feedbackMessage,
+                        'parse_mode' => 'HTML',
+                        'reply_markup' => [
+                            'inline_keyboard' => [
+                                [
+                                    [
+                                        'text' => '💬 Ответить',
+                                        'callback_data' => sprintf('admin:reply_to_user:%d', $fromUser->getKey()),
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ]);
+                $this->logger->info('Обратная связь отправлена админу', ['admin_id' => $adminTelegramId, 'from_user_id' => $fromUser->getKey()]);
+            } catch (\Throwable $e) {
+                $this->logger->error('Не удалось отправить обратную связь админу', [
+                    'admin_id' => $adminTelegramId,
+                    'from_user_id' => $fromUser->getKey(),
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+    }
+
+    /**
+     * Форматирует имя пользователя для отображения
+     */
+    private function formatUserName(User $user): string
+    {
+        if (!empty($user->first_name) && !empty($user->last_name)) {
+            return htmlspecialchars($user->first_name . ' ' . $user->last_name, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        } elseif (!empty($user->first_name)) {
+            return htmlspecialchars($user->first_name, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        } elseif (!empty($user->username)) {
+            return '@' . htmlspecialchars($user->username, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        }
+        return 'Пользователь #' . $user->getKey();
     }
 }
 
