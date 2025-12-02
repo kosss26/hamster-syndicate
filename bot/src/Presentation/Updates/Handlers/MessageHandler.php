@@ -198,46 +198,22 @@ final class MessageHandler
                 $this->adminService
             );
 
-            // Проверяем, ожидает ли админ ввода юзернейма для завершения дуэли
+            // Если это админ и он ввёл @username — сначала пробуем завершить дуэль по нику
+            if ($user instanceof User
+                && $this->adminService->isAdmin($user)
+                && $this->looksLikeUsernameInput($text)
+            ) {
+                $this->logger->debug('Админ ввёл юзернейм, пробуем завершить дуэль по нику', [
+                    'username' => $text,
+                    'user_id' => $user->getKey(),
+                ]);
+
+                $this->handleAdminFinishDuelByUsername($chatId, $user, $text);
+                return;
+            }
+
+            // Обычная обработка юзернейма для приглашения в дуэль
             if ($user instanceof User && $this->looksLikeUsernameInput($text)) {
-                $cacheKey = sprintf('admin:finish_duel_username:%d', $user->getKey());
-
-                $isAdminFinishRequest = false;
-                try {
-                    // Получаем значение из кеша
-                    // Если ключ существует и значение === true, значит это админ-запрос
-                    $value = $this->cache->get($cacheKey, static function () {
-                        return null;
-                    });
-                    
-                    $this->logger->debug('Проверка админ-флага завершения дуэли', [
-                        'cache_key' => $cacheKey,
-                        'value' => $value,
-                        'value_type' => gettype($value),
-                        'is_true' => ($value === true),
-                    ]);
-                    
-                    $isAdminFinishRequest = ($value === true);
-                } catch (\Throwable $e) {
-                    $this->logger->warning('Ошибка при проверке админ-флага', [
-                        'error' => $e->getMessage(),
-                        'cache_key' => $cacheKey,
-                    ]);
-                    $isAdminFinishRequest = false;
-                }
-
-                if ($isAdminFinishRequest) {
-                    // Это запрос на завершение дуэли по нику
-                    $this->logger->debug('Обработка админ-запроса на завершение дуэли', [
-                        'username' => $text,
-                        'user_id' => $user->getKey(),
-                    ]);
-                    $this->cache->delete($cacheKey);
-                    $this->handleAdminFinishDuelByUsername($chatId, $user, $text);
-                    return;
-                }
-
-                // Обычная обработка приглашения в дуэль
                 if ($commandHandler->handleDuelUsernameInvite($chatId, $user, $text)) {
                     return;
                 }
