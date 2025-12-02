@@ -281,7 +281,11 @@ final class MessageHandler
 
             // Проверяем, ожидает ли админ ввода ответа пользователю
             if ($user instanceof User && $this->adminService->isAdmin($user)) {
-                $cacheKey = sprintf('admin:reply_to_user:%d:', $user->getKey());
+                $this->logger->debug('Проверка флага ответа админа', [
+                    'admin_id' => $user->getKey(),
+                    'text' => $text,
+                ]);
+                $cacheKeyPrefix = sprintf('admin:reply_to_user:%d:', $user->getKey());
                 try {
                     // Ищем ключ в кеше (формат: admin:reply_to_user:{admin_id}:{target_user_id})
                     $found = false;
@@ -290,28 +294,54 @@ final class MessageHandler
                     // Пробуем найти ключ через перебор возможных ID (не идеально, но работает)
                     // В реальности лучше использовать более умный подход, но для простоты так
                     for ($i = 1; $i <= 10000; $i++) {
-                        $testKey = $cacheKey . $i;
+                        $testKey = $cacheKeyPrefix . $i;
                         try {
                             $value = $this->cache->get($testKey, static function () {
                                 return null;
                             });
+                            $this->logger->debug('Проверка ключа кеша для ответа админа', [
+                                'test_key' => $testKey,
+                                'value' => $value,
+                                'is_true' => ($value === true),
+                            ]);
                             if ($value === true) {
                                 $found = true;
                                 $targetUserId = $i;
+                                $this->logger->info('Найден флаг ответа админа', [
+                                    'cache_key' => $testKey,
+                                    'target_user_id' => $targetUserId,
+                                ]);
                                 break;
                             }
                         } catch (\Throwable $e) {
+                            $this->logger->debug('Ошибка при проверке ключа кеша', [
+                                'test_key' => $testKey,
+                                'error' => $e->getMessage(),
+                            ]);
                             // Продолжаем поиск
                         }
                     }
                     
                     if ($found && $targetUserId !== null) {
-                        $this->cache->delete($cacheKey . $targetUserId);
+                        $this->cache->delete($cacheKeyPrefix . $targetUserId);
+                        $this->logger->info('Отправка ответа админа пользователю', [
+                            'admin_id' => $user->getKey(),
+                            'target_user_id' => $targetUserId,
+                            'text' => $text,
+                        ]);
                         $this->sendAdminReplyToUser($chatId, $user, $targetUserId, $text);
                         return;
+                    } else {
+                        $this->logger->debug('Флаг ответа админа не найден', [
+                            'admin_id' => $user->getKey(),
+                            'searched_keys' => '1-10000',
+                        ]);
                     }
                 } catch (\Throwable $e) {
-                    // Игнорируем ошибки поиска
+                    $this->logger->error('Ошибка при поиске флага ответа админа', [
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString(),
+                    ]);
                 }
             }
 
