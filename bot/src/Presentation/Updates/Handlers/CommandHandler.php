@@ -452,83 +452,104 @@ final class CommandHandler
                 return;
             }
 
-        $lines = [
-            '🏆 <b>ГЛОБАЛЬНЫЙ РЕЙТИНГ</b>',
-            '',
-        ];
+            $lines = [
+                '🏆 <b>ГЛОБАЛЬНЫЙ РЕЙТИНГ</b>',
+                '',
+            ];
 
-        // Медали для топ-3
-        $medals = ['🥇', '🥈', '🥉'];
+            // Медали для топ-3
+            $medals = ['🥇', '🥈', '🥉'];
 
-        foreach ($topPlayers as $entry) {
-            $position = $entry['position'];
-            $playerUser = $entry['user'];
-            $rating = $entry['rating'];
-            $rank = $this->profileFormatter->getRankByRating($rating);
+            foreach ($topPlayers as $entry) {
+                $position = $entry['position'];
+                $playerUser = $entry['user'];
+                $rating = $entry['rating'];
+                $rank = $this->profileFormatter->getRankByRating($rating);
 
-            // Имя пользователя
-            $userName = $this->formatUserName($playerUser);
+                // Имя пользователя
+                $userName = $this->formatUserName($playerUser);
 
-            // Медаль для топ-3, иначе номер
-            if ($position <= 3) {
-                $positionDisplay = $medals[$position - 1];
-            } else {
-                $positionDisplay = sprintf('%d.', $position);
+                // Медаль для топ-3, иначе номер
+                if ($position <= 3) {
+                    $positionDisplay = $medals[$position - 1];
+                } else {
+                    $positionDisplay = sprintf('%d.', $position);
+                }
+
+                $lines[] = sprintf(
+                    '%s <b>%s</b> %s %s',
+                    $positionDisplay,
+                    $userName,
+                    $rank['emoji'],
+                    $rank['name']
+                );
+                $lines[] = sprintf('   ⭐ Рейтинг: <b>%d</b>', $rating);
+                $lines[] = '';
             }
 
-            $lines[] = sprintf(
-                '%s <b>%s</b> %s %s',
-                $positionDisplay,
-                $userName,
-                $rank['emoji'],
-                $rank['name']
-            );
-            $lines[] = sprintf('   ⭐ Рейтинг: <b>%d</b>', $rating);
-            $lines[] = '';
-        }
-
-        // Показываем позицию текущего пользователя, если он не в топе
-        if ($user !== null) {
-            $userPosition = $this->userService->getUserRatingPosition($user);
-            
-            if ($userPosition !== null) {
-                $user = $this->userService->ensureProfile($user);
-                $userProfile = $user->profile;
+            // Показываем позицию текущего пользователя, если он не в топе
+            if ($user !== null) {
+                $userPosition = $this->userService->getUserRatingPosition($user);
                 
-                if ($userProfile instanceof \QuizBot\Domain\Model\UserProfile) {
-                    $userRating = (int) $userProfile->rating;
-                    $userRank = $this->profileFormatter->getRankByRating($userRating);
+                if ($userPosition !== null) {
+                    $user = $this->userService->ensureProfile($user);
+                    $userProfile = $user->profile;
                     
-                    // Проверяем, есть ли пользователь уже в топе
-                    $inTop = false;
-                    foreach ($topPlayers as $entry) {
-                        if ($entry['user']->getKey() === $user->getKey()) {
-                            $inTop = true;
-                            break;
+                    if ($userProfile instanceof \QuizBot\Domain\Model\UserProfile) {
+                        $userRating = (int) $userProfile->rating;
+                        $userRank = $this->profileFormatter->getRankByRating($userRating);
+                        
+                        // Проверяем, есть ли пользователь уже в топе
+                        $inTop = false;
+                        foreach ($topPlayers as $entry) {
+                            if ($entry['user']->getKey() === $user->getKey()) {
+                                $inTop = true;
+                                break;
+                            }
                         }
-                    }
-                    
-                    if (!$inTop && $userPosition <= 100) {
-                        $lines[] = '━━━━━━━━━━━━━━━━';
-                        $lines[] = sprintf('📍 <b>Твоя позиция: %d</b>', $userPosition);
-                        $lines[] = sprintf('%s %s | ⭐ <b>%d</b>', $userRank['emoji'], $userRank['name'], $userRating);
-                    } elseif (!$inTop) {
-                        $lines[] = '━━━━━━━━━━━━━━━━';
-                        $lines[] = sprintf('📍 <b>Твоя позиция: %d+</b>', $userPosition);
-                        $lines[] = sprintf('%s %s | ⭐ <b>%d</b>', $userRank['emoji'], $userRank['name'], $userRating);
+                        
+                        if (!$inTop && $userPosition <= 100) {
+                            $lines[] = '━━━━━━━━━━━━━━━━';
+                            $lines[] = sprintf('📍 <b>Твоя позиция: %d</b>', $userPosition);
+                            $lines[] = sprintf('%s %s | ⭐ <b>%d</b>', $userRank['emoji'], $userRank['name'], $userRating);
+                        } elseif (!$inTop) {
+                            $lines[] = '━━━━━━━━━━━━━━━━';
+                            $lines[] = sprintf('📍 <b>Твоя позиция: %d+</b>', $userPosition);
+                            $lines[] = sprintf('%s %s | ⭐ <b>%d</b>', $userRank['emoji'], $userRank['name'], $userRating);
+                        }
                     }
                 }
             }
-        }
 
-        $this->telegramClient->request('POST', 'sendMessage', [
-            'json' => [
-                'chat_id' => $chatId,
-                'text' => implode("\n", $lines),
-                'parse_mode' => 'HTML',
-                'reply_markup' => $this->getMainKeyboard(),
-            ],
-        ]);
+            $this->logger->debug('Отправка рейтинга', [
+                'lines_count' => count($lines),
+                'text_length' => strlen(implode("\n", $lines)),
+            ]);
+
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => implode("\n", $lines),
+                    'parse_mode' => 'HTML',
+                    'reply_markup' => $this->getMainKeyboard(),
+                ],
+            ]);
+
+            $this->logger->debug('Рейтинг отправлен успешно');
+        } catch (\Throwable $exception) {
+            $this->logger->error('Ошибка при отправке рейтинга', [
+                'error' => $exception->getMessage(),
+                'trace' => $exception->getTraceAsString(),
+            ]);
+
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => '⚠️ Не удалось загрузить рейтинг. Попробуй позже.',
+                    'reply_markup' => $this->getMainKeyboard(),
+                ],
+            ]);
+        }
     }
 
     private function formatUserName(\QuizBot\Domain\Model\User $user): string
