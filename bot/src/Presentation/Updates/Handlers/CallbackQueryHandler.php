@@ -881,7 +881,14 @@ final class CallbackQueryHandler
         if ($question instanceof StoryQuestion) {
             // Сохраняем время начала вопроса в кеше для расчета очков
             $cacheKey = sprintf('story_question_start_%d_%d', $progress->user_id, $step->getKey());
-            $this->cache->set($cacheKey, time(), 60); // Храним 60 секунд
+            try {
+                $this->cache->delete($cacheKey);
+                $this->cache->get($cacheKey, static function () {
+                    return time();
+                });
+            } catch (\Throwable $e) {
+                // Если не удалось сохранить время, продолжаем без кеша
+            }
 
             // Показываем контекст, если есть
             if (!empty($question->context_text)) {
@@ -1742,14 +1749,25 @@ final class CallbackQueryHandler
                 case 'time_boost':
                     $profile->coins = max(0, $profile->coins - $hintCost);
                     $profile->save();
-                    $this->cache->set($cacheKey, true, 60);
+                    try {
+                        $this->cache->delete($cacheKey);
+                        $this->cache->get($cacheKey, static function () {
+                            return true;
+                        });
+                    } catch (\Throwable $e) {
+                        // Игнорируем ошибки кеша
+                    }
                     // Увеличиваем время в кеше
                     $timeKey = sprintf('story_question_start_%d_%d', $user->getKey(), $step->getKey());
                     try {
-                        $currentTime = $this->cache->get($timeKey, function () {
+                        $currentTime = $this->cache->get($timeKey, static function () {
                             return time();
                         });
-                        $this->cache->set($timeKey, $currentTime - 15, 60); // Вычитаем 15 секунд из начала
+                        $newTime = $currentTime - 15;
+                        $this->cache->delete($timeKey);
+                        $this->cache->get($timeKey, static function () use ($newTime) {
+                            return $newTime;
+                        });
                     } catch (\Throwable $e) {
                         // Продолжаем
                     }
@@ -1808,7 +1826,14 @@ final class CallbackQueryHandler
 
         // Отмечаем подсказку как использованную
         $cacheKey = sprintf('story_hint_used_%d_%d', $user->getKey(), $step->getKey());
-        $this->cache->set($cacheKey, true, 60);
+        try {
+            $this->cache->delete($cacheKey);
+            $this->cache->get($cacheKey, static function () {
+                return true;
+            });
+        } catch (\Throwable $e) {
+            // Игнорируем ошибки кеша
+        }
 
         // Отправляем обновленное сообщение
         $textLines = [
