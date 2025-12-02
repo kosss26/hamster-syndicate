@@ -133,29 +133,42 @@ class UserService
      */
     public function getTopPlayersByRating(int $limit = 10): array
     {
-        $users = User::query()
-            ->join('user_profiles', 'users.id', '=', 'user_profiles.user_id')
-            ->whereNotNull('user_profiles.rating')
-            ->orderByDesc('user_profiles.rating')
-            ->limit($limit)
-            ->select('users.*', 'user_profiles.rating')
-            ->get();
+        try {
+            $profiles = UserProfile::query()
+                ->whereNotNull('rating')
+                ->orderByDesc('rating')
+                ->limit($limit)
+                ->with('user')
+                ->get();
 
-        $result = [];
-        $position = 1;
+            $result = [];
+            $position = 1;
 
-        foreach ($users as $user) {
-            $user->loadMissing('profile');
-            $rating = (int) ($user->profile?->rating ?? 0);
-            
-            $result[] = [
-                'position' => $position++,
-                'user' => $user,
-                'rating' => $rating,
-            ];
+            foreach ($profiles as $profile) {
+                $user = $profile->user;
+                
+                if ($user === null) {
+                    continue;
+                }
+
+                $rating = (int) ($profile->rating ?? 0);
+                $user->setRelation('profile', $profile);
+                
+                $result[] = [
+                    'position' => $position++,
+                    'user' => $user,
+                    'rating' => $rating,
+                ];
+            }
+
+            return $result;
+        } catch (\Throwable $exception) {
+            $this->logger->error('Ошибка при получении топ игроков', [
+                'error' => $exception->getMessage(),
+                'trace' => $exception->getTraceAsString(),
+            ]);
+            throw $exception;
         }
-
-        return $result;
     }
 
     /**
@@ -166,22 +179,30 @@ class UserService
      */
     public function getUserRatingPosition(User $user): ?int
     {
-        $user = $this->ensureProfile($user);
-        $profile = $user->profile;
+        try {
+            $user = $this->ensureProfile($user);
+            $profile = $user->profile;
 
-        if ($profile === null) {
+            if ($profile === null) {
+                return null;
+            }
+
+            $rating = (int) $profile->rating;
+
+            // Подсчитываем количество пользователей с рейтингом выше текущего
+            $usersAbove = UserProfile::query()
+                ->where('rating', '>', $rating)
+                ->count();
+
+            return $usersAbove + 1;
+        } catch (\Throwable $exception) {
+            $this->logger->error('Ошибка при получении позиции пользователя в рейтинге', [
+                'error' => $exception->getMessage(),
+                'user_id' => $user->getKey(),
+                'trace' => $exception->getTraceAsString(),
+            ]);
             return null;
         }
-
-        $rating = (int) $profile->rating;
-
-        // Подсчитываем количество пользователей с рейтингом выше текущего
-        $usersAbove = User::query()
-            ->join('user_profiles', 'users.id', '=', 'user_profiles.user_id')
-            ->where('user_profiles.rating', '>', $rating)
-            ->count();
-
-        return $usersAbove + 1;
     }
 }
 
