@@ -124,5 +124,64 @@ class UserService
 
         return $user;
     }
+
+    /**
+     * Получить топ игроков по рейтингу
+     * 
+     * @param int $limit
+     * @return array<int, array{position: int, user: User, rating: int}>
+     */
+    public function getTopPlayersByRating(int $limit = 10): array
+    {
+        $users = User::query()
+            ->join('user_profiles', 'users.id', '=', 'user_profiles.user_id')
+            ->whereNotNull('user_profiles.rating')
+            ->orderByDesc('user_profiles.rating')
+            ->limit($limit)
+            ->select('users.*', 'user_profiles.rating')
+            ->get();
+
+        $result = [];
+        $position = 1;
+
+        foreach ($users as $user) {
+            $user->loadMissing('profile');
+            $rating = (int) ($user->profile?->rating ?? 0);
+            
+            $result[] = [
+                'position' => $position++,
+                'user' => $user,
+                'rating' => $rating,
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Получить позицию пользователя в глобальном рейтинге
+     * 
+     * @param User $user
+     * @return int|null Позиция в рейтинге или null, если пользователь не найден
+     */
+    public function getUserRatingPosition(User $user): ?int
+    {
+        $user = $this->ensureProfile($user);
+        $profile = $user->profile;
+
+        if ($profile === null) {
+            return null;
+        }
+
+        $rating = (int) $profile->rating;
+
+        // Подсчитываем количество пользователей с рейтингом выше текущего
+        $usersAbove = User::query()
+            ->join('user_profiles', 'users.id', '=', 'user_profiles.user_id')
+            ->where('user_profiles.rating', '>', $rating)
+            ->count();
+
+        return $usersAbove + 1;
+    }
 }
 
