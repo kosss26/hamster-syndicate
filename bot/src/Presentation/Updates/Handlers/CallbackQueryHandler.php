@@ -1958,43 +1958,68 @@ final class CallbackQueryHandler
 
     private function handleAdminAction($chatId, string $data, ?User $user): void
     {
+        $this->logger->debug('handleAdminAction вызван', [
+            'data' => $data,
+            'user_id' => $user?->getKey(),
+            'chat_id' => $chatId,
+        ]);
+
         if ($user === null) {
+            $this->logger->warning('Админ-действие без пользователя', ['data' => $data]);
             $this->sendText($chatId, '❌ Ошибка: не удалось определить пользователя.');
 
             return;
         }
 
         if (!$this->adminService->isAdmin($user)) {
+            $this->logger->warning('Попытка админ-действия без прав', [
+                'user_id' => $user->getKey(),
+                'data' => $data,
+            ]);
             $this->sendText($chatId, '❌ У вас нет прав администратора.');
 
             return;
         }
 
-        if ($data === 'admin:finish_all_duels') {
-            $this->handleFinishAllDuels($chatId);
+        try {
+            if ($data === 'admin:finish_all_duels') {
+                $this->logger->debug('Завершение всех дуэлей');
+                $this->handleFinishAllDuels($chatId);
 
-            return;
+                return;
+            }
+
+            if ($data === 'admin:finish_duel_by_username') {
+                $this->logger->debug('Запрос завершения дуэли по нику');
+                $this->handleFinishDuelByUsernameRequest($chatId, $user);
+
+                return;
+            }
+
+            if ($data === 'admin:reset_ratings') {
+                $this->logger->debug('Сброс рейтинга');
+                $this->handleResetRatings($chatId);
+
+                return;
+            }
+
+            if ($data === 'admin:stats') {
+                $this->logger->debug('Получение статистики');
+                $this->handleAdminStats($chatId);
+
+                return;
+            }
+
+            $this->logger->warning('Неизвестное админ-действие', ['data' => $data]);
+            $this->sendText($chatId, '❌ Неизвестное админ-действие.');
+        } catch (\Throwable $e) {
+            $this->logger->error('Ошибка в handleAdminAction', [
+                'error' => $e->getMessage(),
+                'data' => $data,
+                'trace' => $e->getTraceAsString(),
+            ]);
+            $this->sendText($chatId, '❌ Произошла ошибка: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
         }
-
-        if ($data === 'admin:finish_duel_by_username') {
-            $this->handleFinishDuelByUsernameRequest($chatId, $user);
-
-            return;
-        }
-
-        if ($data === 'admin:reset_ratings') {
-            $this->handleResetRatings($chatId);
-
-            return;
-        }
-
-        if ($data === 'admin:stats') {
-            $this->handleAdminStats($chatId);
-
-            return;
-        }
-
-        $this->sendText($chatId, '❌ Неизвестное админ-действие.');
     }
 
     private function handleFinishAllDuels($chatId): void
