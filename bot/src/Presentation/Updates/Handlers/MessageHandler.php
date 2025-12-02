@@ -215,10 +215,19 @@ final class MessageHandler
                         'cache_key' => $supportCacheKey,
                         'is_support_request' => $isSupportRequest,
                         'is_true' => ($isSupportRequest === true),
+                        'is_strict_true' => ($isSupportRequest === true),
                         'type' => gettype($isSupportRequest),
+                        'var_export' => var_export($isSupportRequest, true),
+                    ]);
+                    
+                    $this->logger->debug('Проверка условия if', [
+                        'isSupportRequest' => $isSupportRequest,
+                        'isSupportRequest === true' => ($isSupportRequest === true),
+                        'isSupportRequest == true' => ($isSupportRequest == true),
                     ]);
                     
                     if ($isSupportRequest === true) {
+                        $this->logger->debug('Условие if выполнено, входим в блок обработки');
                         // Пользователь отправил сообщение в тех.поддержку
                         $this->logger->info('Обработка сообщения тех.поддержки', [
                             'user_id' => $user->getKey(),
