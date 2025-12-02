@@ -36,6 +36,9 @@ trait SendsDuelMessages
                     ['text' => '📊 Профиль'],
                     ['text' => '🏆 Рейтинг'],
                 ],
+                [
+                    ['text' => '🆘 Тех.поддержка'],
+                ],
             ],
             'resize_keyboard' => true,
             'one_time_keyboard' => false,

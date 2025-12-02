@@ -178,6 +178,12 @@ final class MessageHandler
                 ]);
                 return;
             }
+
+            if ($text === '🆘 Тех.поддержка' || $text === 'Тех.поддержка' || $text === 'Техподдержка') {
+                $this->logger->debug('Обработка кнопки Тех.поддержка');
+                $this->handleSupportRequest($chatId, $user);
+                return;
+            }
             
             $this->logger->debug('Текст не соответствует кнопкам клавиатуры', [
                 'text' => $text,
@@ -248,6 +254,32 @@ final class MessageHandler
                 }
             }
 
+            // Проверяем, ожидает ли система сообщения от пользователя для тех.поддержки
+            if ($user instanceof User && !$this->adminService->isAdmin($user)) {
+                $supportCacheKey = sprintf('user:support_message:%d', $user->getKey());
+                try {
+                    $isSupportRequest = $this->cache->get($supportCacheKey, static function () {
+                        return null;
+                    });
+                    
+                    if ($isSupportRequest === true) {
+                        // Пользователь отправил сообщение в тех.поддержку
+                        $this->cache->delete($supportCacheKey);
+                        $this->adminService->sendFeedbackToAdmins($user, $text);
+                        $this->telegramClient->request('POST', 'sendMessage', [
+                            'json' => [
+                                'chat_id' => $chatId,
+                                'text' => '✅ Ваше сообщение отправлено администраторам. Спасибо за обратную связь!',
+                                'reply_markup' => $this->getMainKeyboard(),
+                            ],
+                        ]);
+                        return;
+                    }
+                } catch (\Throwable $e) {
+                    // Игнорируем ошибки кеша
+                }
+            }
+
             // Обычная обработка юзернейма для приглашения в дуэль
             if ($user instanceof User && $this->looksLikeUsernameInput($text)) {
                 if ($commandHandler->handleDuelUsernameInvite($chatId, $user, $text)) {
@@ -256,12 +288,7 @@ final class MessageHandler
             }
         }
 
-        // Если сообщение не обработано и пользователь не админ - отправляем админам как обратную связь
-        if ($user instanceof User && !$this->adminService->isAdmin($user)) {
-            $this->sendFeedbackToAdmins($chatId, $user, $text);
-            return;
-        }
-
+        // Если сообщение не обработано - показываем приветствие
         $this->sendWelcome($chatId);
     }
 
@@ -300,10 +327,55 @@ final class MessageHandler
                     ['text' => '📊 Профиль'],
                     ['text' => '🏆 Рейтинг'],
                 ],
+                [
+                    ['text' => '🆘 Тех.поддержка'],
+                ],
             ],
             'resize_keyboard' => true,
             'one_time_keyboard' => false,
         ];
+    }
+
+    /**
+     * Обрабатывает запрос на тех.поддержку
+     */
+    private function handleSupportRequest($chatId, ?User $user): void
+    {
+        if ($user === null) {
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => '❌ Не удалось определить пользователя. Попробуйте /start.',
+                ],
+            ]);
+            return;
+        }
+
+        // Устанавливаем флаг ожидания сообщения от пользователя
+        $supportCacheKey = sprintf('user:support_message:%d', $user->getKey());
+        try {
+            $this->cache->delete($supportCacheKey);
+            $this->cache->get($supportCacheKey, static function () {
+                return true;
+            });
+        } catch (\Throwable $e) {
+            $this->logger->error('Ошибка при установке флага тех.поддержки', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        $text = "🆘 <b>Техническая поддержка</b>\n\n" .
+                "Опишите вашу проблему или вопрос, и мы обязательно поможем!\n\n" .
+                "Напишите сообщение, и оно будет отправлено администраторам.";
+
+        $this->telegramClient->request('POST', 'sendMessage', [
+            'json' => [
+                'chat_id' => $chatId,
+                'text' => $text,
+                'parse_mode' => 'HTML',
+                'reply_markup' => $this->getMainKeyboard(),
+            ],
+        ]);
     }
 
     private function startsWith(string $haystack, string $needle): bool
