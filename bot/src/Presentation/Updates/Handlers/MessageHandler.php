@@ -204,6 +204,35 @@ final class MessageHandler
                 $this->adminService
             );
 
+            // Проверяем, ожидает ли система сообщения от пользователя для тех.поддержки (ПЕРВЫМ!)
+            if ($user instanceof User && !$this->adminService->isAdmin($user)) {
+                $supportCacheKey = sprintf('user:support_message:%d', $user->getKey());
+                try {
+                    $isSupportRequest = $this->cache->get($supportCacheKey, static function () {
+                        return null;
+                    });
+                    
+                    if ($isSupportRequest === true) {
+                        // Пользователь отправил сообщение в тех.поддержку
+                        $this->cache->delete($supportCacheKey);
+                        $this->adminService->sendFeedbackToAdmins($user, $text);
+                        $this->telegramClient->request('POST', 'sendMessage', [
+                            'json' => [
+                                'chat_id' => $chatId,
+                                'text' => '✅ Ваше сообщение отправлено администраторам. Спасибо за обратную связь!',
+                                'reply_markup' => $this->getMainKeyboard(),
+                            ],
+                        ]);
+                        return;
+                    }
+                } catch (\Throwable $e) {
+                    $this->logger->error('Ошибка при проверке флага тех.поддержки', [
+                        'error' => $e->getMessage(),
+                        'cache_key' => $supportCacheKey,
+                    ]);
+                }
+            }
+
             // Если это админ и он ввёл @username — сначала пробуем завершить дуэль по нику
             if ($user instanceof User
                 && $this->adminService->isAdmin($user)
@@ -251,32 +280,6 @@ final class MessageHandler
                     }
                 } catch (\Throwable $e) {
                     // Игнорируем ошибки поиска
-                }
-            }
-
-            // Проверяем, ожидает ли система сообщения от пользователя для тех.поддержки
-            if ($user instanceof User && !$this->adminService->isAdmin($user)) {
-                $supportCacheKey = sprintf('user:support_message:%d', $user->getKey());
-                try {
-                    $isSupportRequest = $this->cache->get($supportCacheKey, static function () {
-                        return null;
-                    });
-                    
-                    if ($isSupportRequest === true) {
-                        // Пользователь отправил сообщение в тех.поддержку
-                        $this->cache->delete($supportCacheKey);
-                        $this->adminService->sendFeedbackToAdmins($user, $text);
-                        $this->telegramClient->request('POST', 'sendMessage', [
-                            'json' => [
-                                'chat_id' => $chatId,
-                                'text' => '✅ Ваше сообщение отправлено администраторам. Спасибо за обратную связь!',
-                                'reply_markup' => $this->getMainKeyboard(),
-                            ],
-                        ]);
-                        return;
-                    }
-                } catch (\Throwable $e) {
-                    // Игнорируем ошибки кеша
                 }
             }
 
@@ -355,12 +358,18 @@ final class MessageHandler
         $supportCacheKey = sprintf('user:support_message:%d', $user->getKey());
         try {
             $this->cache->delete($supportCacheKey);
+            // Устанавливаем флаг через get с callback
             $this->cache->get($supportCacheKey, static function () {
                 return true;
             });
+            $this->logger->debug('Флаг тех.поддержки установлен', [
+                'cache_key' => $supportCacheKey,
+                'user_id' => $user->getKey(),
+            ]);
         } catch (\Throwable $e) {
             $this->logger->error('Ошибка при установке флага тех.поддержки', [
                 'error' => $e->getMessage(),
+                'cache_key' => $supportCacheKey,
             ]);
         }
 
