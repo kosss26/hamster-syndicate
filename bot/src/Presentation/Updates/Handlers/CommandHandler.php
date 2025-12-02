@@ -483,8 +483,8 @@ final class CommandHandler
                     $userName
                 );
                 
-                // Звание на отдельной строке
-                $lines[] = sprintf('%s %s', $rank['emoji'], $rank['name']);
+                // Звание на отдельной строке (без эмодзи)
+                $lines[] = $rank['name'];
                 
                 // Рейтинг на отдельной строке
                 $lines[] = sprintf('   ⭐ Рейтинг: <b>%d</b>', $rating);
@@ -515,11 +515,11 @@ final class CommandHandler
                         if (!$inTop && $userPosition <= 100) {
                             $lines[] = '━━━━━━━━━━━━━━━━';
                             $lines[] = sprintf('📍 <b>Твоя позиция: %d</b>', $userPosition);
-                            $lines[] = sprintf('%s %s | ⭐ <b>%d</b>', $userRank['emoji'], $userRank['name'], $userRating);
+                            $lines[] = sprintf('%s | ⭐ <b>%d</b>', $userRank['name'], $userRating);
                         } elseif (!$inTop) {
                             $lines[] = '━━━━━━━━━━━━━━━━';
                             $lines[] = sprintf('📍 <b>Твоя позиция: %d+</b>', $userPosition);
-                            $lines[] = sprintf('%s %s | ⭐ <b>%d</b>', $userRank['emoji'], $userRank['name'], $userRating);
+                            $lines[] = sprintf('%s | ⭐ <b>%d</b>', $userRank['name'], $userRating);
                         }
                     }
                 }
