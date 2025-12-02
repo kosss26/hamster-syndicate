@@ -856,6 +856,12 @@ final class CommandHandler
                         ],
                         [
                             [
+                                'text' => '🎯 Завершить дуэль по нику',
+                                'callback_data' => 'admin:finish_duel_by_username',
+                            ],
+                        ],
+                        [
+                            [
                                 'text' => '🔄 Сбросить рейтинг всех до 0',
                                 'callback_data' => 'admin:reset_ratings',
                             ],

@@ -196,7 +196,17 @@ final class MessageHandler
                 $this->adminService
             );
 
+            // Проверяем, ожидает ли админ ввода юзернейма для завершения дуэли
             if ($user instanceof User && $this->looksLikeUsernameInput($text)) {
+                $cacheKey = sprintf('admin:finish_duel_username:%d', $user->getKey());
+                if ($this->cache->hasItem($cacheKey)) {
+                    // Это запрос на завершение дуэли по нику
+                    $this->cache->delete($cacheKey);
+                    $this->handleAdminFinishDuelByUsername($chatId, $user, $text);
+                    return;
+                }
+
+                // Обычная обработка приглашения в дуэль
                 if ($commandHandler->handleDuelUsernameInvite($chatId, $user, $text)) {
                     return;
                 }
@@ -255,6 +265,79 @@ final class MessageHandler
     private function looksLikeUsernameInput(string $text): bool
     {
         return (bool) preg_match('/^@[A-Za-z0-9_]{5,}$/', $text);
+    }
+
+    private function handleAdminFinishDuelByUsername($chatId, User $admin, string $usernameInput): void
+    {
+        if (!$this->adminService->isAdmin($admin)) {
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => '❌ У вас нет прав администратора.',
+                ],
+            ]);
+            return;
+        }
+
+        $username = ltrim(trim($usernameInput), '@');
+        $targetUser = $this->userService->findByUsername($username);
+
+        if ($targetUser === null) {
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => sprintf('❌ Не найден игрок с ником <b>@%s</b>.', htmlspecialchars($username, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')),
+                    'parse_mode' => 'HTML',
+                ],
+            ]);
+            return;
+        }
+
+        // Ищем активную дуэль этого игрока
+        $activeDuel = $this->duelService->findActiveDuelForUser($targetUser);
+
+        if ($activeDuel === null) {
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => sprintf('❌ У игрока <b>@%s</b> нет активных дуэлей.', htmlspecialchars($username, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')),
+                    'parse_mode' => 'HTML',
+                ],
+            ]);
+            return;
+        }
+
+        try {
+            // Завершаем дуэль (это автоматически отправит результаты обоим игрокам)
+            $result = $this->duelService->finalizeDuel($activeDuel);
+
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => sprintf(
+                        "✅ <b>Дуэль завершена</b>\n\n" .
+                        "Дуэль <b>%s</b> успешно завершена.\n" .
+                        "Результаты отправлены обоим игрокам.",
+                        htmlspecialchars($activeDuel->code, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
+                    ),
+                    'parse_mode' => 'HTML',
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            $this->logger->error('Ошибка при завершении дуэли по нику', [
+                'error' => $e->getMessage(),
+                'username' => $username,
+                'duel_id' => $activeDuel->getKey(),
+                'exception' => $e,
+            ]);
+
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => sprintf('❌ Ошибка при завершении дуэли: %s', htmlspecialchars($e->getMessage(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')),
+                ],
+            ]);
+        }
     }
 }
 

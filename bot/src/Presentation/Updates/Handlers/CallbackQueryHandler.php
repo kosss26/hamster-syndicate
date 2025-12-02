@@ -1957,6 +1957,12 @@ final class CallbackQueryHandler
             return;
         }
 
+        if ($data === 'admin:finish_duel_by_username') {
+            $this->handleFinishDuelByUsernameRequest($chatId, $user);
+
+            return;
+        }
+
         if ($data === 'admin:reset_ratings') {
             $this->handleResetRatings($chatId);
 
