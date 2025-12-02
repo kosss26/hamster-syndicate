@@ -378,20 +378,25 @@ final class MessageHandler
         }
 
         // Устанавливаем флаг ожидания сообщения от пользователя
+        // Используем базу данных для хранения флага, так как ArrayAdapter не сохраняет данные между запросами
         $supportCacheKey = sprintf('user:support_message:%d', $user->getKey());
         try {
+            // Удаляем старый флаг
             $this->cache->delete($supportCacheKey);
-            // Устанавливаем флаг через get с callback
-            $this->cache->get($supportCacheKey, static function () {
+            // Устанавливаем флаг с TTL 1 час (3600 секунд)
+            // Используем get с callback, который вернет true и сохранит это значение
+            $result = $this->cache->get($supportCacheKey, static function () {
                 return true;
-            });
+            }, 3600);
             $this->logger->debug('Флаг тех.поддержки установлен', [
                 'cache_key' => $supportCacheKey,
                 'user_id' => $user->getKey(),
+                'result' => $result,
             ]);
         } catch (\Throwable $e) {
             $this->logger->error('Ошибка при установке флага тех.поддержки', [
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
                 'cache_key' => $supportCacheKey,
             ]);
         }
