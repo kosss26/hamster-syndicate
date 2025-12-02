@@ -2029,6 +2029,25 @@ final class CallbackQueryHandler
         }
     }
 
+    private function handleFinishDuelByUsernameRequest($chatId, ?User $user): void
+    {
+        if ($user === null) {
+            $this->sendText($chatId, '❌ Ошибка: не удалось определить пользователя.');
+            return;
+        }
+
+        // Сохраняем состояние ожидания ввода юзернейма
+        $cacheKey = sprintf('admin:finish_duel_username:%d', $user->getKey());
+        $this->cache->set($cacheKey, true, 300); // 5 минут на ввод
+
+        $text = "🎯 <b>Завершение дуэли по нику</b>\n\n" .
+                "Отправь мне юзернейм игрока в формате <b>@username</b>.\n" .
+                "Будет найдена и завершена активная дуэль этого игрока.\n\n" .
+                "Результаты будут отправлены обоим участникам дуэли.";
+
+        $this->sendText($chatId, $text);
+    }
+
     private function handleAdminStats($chatId): void
     {
         try {
