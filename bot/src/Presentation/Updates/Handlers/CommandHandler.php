@@ -79,6 +79,11 @@ final class CommandHandler
         $chatId = $command['chat_id'] ?? null;
         $commandText = $command['command'] ?? null;
 
+        $this->logger->debug('CommandHandler::handle вызван', [
+            'chat_id' => $chatId,
+            'command' => $commandText,
+        ]);
+
         if ($chatId === null || $commandText === null) {
             $this->logger->warning('Некорректная команда', $command);
 
@@ -88,6 +93,11 @@ final class CommandHandler
         $user = $this->resolveUser($command);
 
         $normalized = strtolower($commandText);
+        
+        $this->logger->debug('Обработка команды', [
+            'normalized' => $normalized,
+            'user_id' => $user?->getKey(),
+        ]);
 
         if ($this->startsWith($normalized, '/start')) {
             $this->sendStart($chatId);
@@ -108,6 +118,7 @@ final class CommandHandler
         }
 
         if ($this->startsWith($normalized, '/leaderboard') || $this->startsWith($normalized, '/rating') || $this->startsWith($normalized, '/top')) {
+            $this->logger->debug('Вызов sendLeaderboard');
             $this->sendLeaderboard($chatId, $user);
 
             return;

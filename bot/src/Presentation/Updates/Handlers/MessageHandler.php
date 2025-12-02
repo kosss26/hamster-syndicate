@@ -107,8 +107,15 @@ final class MessageHandler
         if (isset($message['text'])) {
             $text = trim($message['text']);
             
+            $this->logger->debug('Обработка текстового сообщения', [
+                'text' => $text,
+                'text_length' => strlen($text),
+                'chat_id' => $chatId,
+            ]);
+            
             // Обработка кнопок клавиатуры (проверяем первыми, до создания CommandHandler)
             if ($text === '⚔️ Дуэль' || $text === 'Дуэль') {
+                $this->logger->debug('Обработка кнопки Дуэль');
                 $commandHandler = new CommandHandler(
                     $this->telegramClient,
                     $this->logger,
@@ -129,6 +136,7 @@ final class MessageHandler
             }
 
             if ($text === '📊 Профиль' || $text === 'Профиль') {
+                $this->logger->debug('Обработка кнопки Профиль');
                 $commandHandler = new CommandHandler(
                     $this->telegramClient,
                     $this->logger,
@@ -149,6 +157,7 @@ final class MessageHandler
             }
 
             if ($text === '🏆 Рейтинг' || $text === 'Рейтинг') {
+                $this->logger->debug('Обработка кнопки Рейтинг');
                 $commandHandler = new CommandHandler(
                     $this->telegramClient,
                     $this->logger,
@@ -167,6 +176,13 @@ final class MessageHandler
                 ]);
                 return;
             }
+            
+            $this->logger->debug('Текст не соответствует кнопкам клавиатуры', [
+                'text' => $text,
+                'is_duel' => ($text === '⚔️ Дуэль' || $text === 'Дуэль'),
+                'is_profile' => ($text === '📊 Профиль' || $text === 'Профиль'),
+                'is_rating' => ($text === '🏆 Рейтинг' || $text === 'Рейтинг'),
+            ]);
 
             // Обработка других текстовых сообщений
             $commandHandler = new CommandHandler(
