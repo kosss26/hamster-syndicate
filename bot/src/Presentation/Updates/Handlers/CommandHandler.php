@@ -395,6 +395,7 @@ final class CommandHandler
             '/play — быстрые раунды по категориям.',
             '/duel — дуэль с друзьями (по нику @username или случайным соперником).',
             '/profile — твоя статистика.',
+            '/leaderboard — глобальный рейтинг игроков.',
         ]);
 
         $this->telegramClient->request('POST', 'sendMessage', [
@@ -438,7 +439,7 @@ final class CommandHandler
             $position = $entry['position'];
             $playerUser = $entry['user'];
             $rating = $entry['rating'];
-            $rank = $entry['rank'];
+            $rank = $this->profileFormatter->getRankByRating($rating);
 
             // Имя пользователя
             $userName = $this->formatUserName($playerUser);
