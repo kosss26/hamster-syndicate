@@ -21,7 +21,7 @@ class ProfileFormatter
     /**
      * Получает звание на основе рейтинга
      */
-    private function getRankByRating(int $rating): array
+    public function getRankByRating(int $rating): array
     {
         if ($rating < 400) {
             return ['emoji' => '🥉', 'name' => 'Новичок'];
