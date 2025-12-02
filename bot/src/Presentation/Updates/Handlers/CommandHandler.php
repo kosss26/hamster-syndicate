@@ -427,19 +427,30 @@ final class CommandHandler
      */
     private function sendLeaderboard($chatId, ?User $user): void
     {
-        $topPlayers = $this->userService->getTopPlayersByRating(10);
+        $this->logger->debug('sendLeaderboard вызван', [
+            'chat_id' => $chatId,
+            'user_id' => $user?->getKey(),
+        ]);
         
-        if (empty($topPlayers)) {
-            $this->telegramClient->request('POST', 'sendMessage', [
-                'json' => [
-                    'chat_id' => $chatId,
-                    'text' => '📊 Рейтинг пока пуст. Сыграй в дуэль, чтобы попасть в топ!',
-                    'parse_mode' => 'HTML',
-                    'reply_markup' => $this->getMainKeyboard(),
-                ],
+        try {
+            $topPlayers = $this->userService->getTopPlayersByRating(10);
+            
+            $this->logger->debug('Получены топ игроки', [
+                'count' => count($topPlayers),
             ]);
-            return;
-        }
+            
+            if (empty($topPlayers)) {
+                $this->logger->debug('Топ игроков пуст, отправка сообщения');
+                $this->telegramClient->request('POST', 'sendMessage', [
+                    'json' => [
+                        'chat_id' => $chatId,
+                        'text' => '📊 Рейтинг пока пуст. Сыграй в дуэль, чтобы попасть в топ!',
+                        'parse_mode' => 'HTML',
+                        'reply_markup' => $this->getMainKeyboard(),
+                    ],
+                ]);
+                return;
+            }
 
         $lines = [
             '🏆 <b>ГЛОБАЛЬНЫЙ РЕЙТИНГ</b>',
