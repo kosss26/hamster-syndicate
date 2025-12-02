@@ -106,6 +106,69 @@ final class MessageHandler
 
         if (isset($message['text'])) {
             $text = trim($message['text']);
+            
+            // Обработка кнопок клавиатуры (проверяем первыми, до создания CommandHandler)
+            if ($text === '⚔️ Дуэль' || $text === 'Дуэль') {
+                $commandHandler = new CommandHandler(
+                    $this->telegramClient,
+                    $this->logger,
+                    $this->userService,
+                    $this->duelService,
+                    $this->gameSessionService,
+                    $this->storyService,
+                    $this->profileFormatter,
+                    $this->adminService
+                );
+                $commandHandler->handle([
+                    'chat_id' => $chatId,
+                    'command' => '/duel',
+                    'from' => $from,
+                    'user' => $user,
+                ]);
+                return;
+            }
+
+            if ($text === '📊 Профиль' || $text === 'Профиль') {
+                $commandHandler = new CommandHandler(
+                    $this->telegramClient,
+                    $this->logger,
+                    $this->userService,
+                    $this->duelService,
+                    $this->gameSessionService,
+                    $this->storyService,
+                    $this->profileFormatter,
+                    $this->adminService
+                );
+                $commandHandler->handle([
+                    'chat_id' => $chatId,
+                    'command' => '/profile',
+                    'from' => $from,
+                    'user' => $user,
+                ]);
+                return;
+            }
+
+            if ($text === '🏆 Рейтинг' || $text === 'Рейтинг') {
+                $commandHandler = new CommandHandler(
+                    $this->telegramClient,
+                    $this->logger,
+                    $this->userService,
+                    $this->duelService,
+                    $this->gameSessionService,
+                    $this->storyService,
+                    $this->profileFormatter,
+                    $this->adminService
+                );
+                $commandHandler->handle([
+                    'chat_id' => $chatId,
+                    'command' => '/leaderboard',
+                    'from' => $from,
+                    'user' => $user,
+                ]);
+                return;
+            }
+
+            // Обработка других текстовых сообщений
             $commandHandler = new CommandHandler(
                 $this->telegramClient,
                 $this->logger,
@@ -121,39 +184,6 @@ final class MessageHandler
                 if ($commandHandler->handleDuelUsernameInvite($chatId, $user, $text)) {
                     return;
                 }
-            }
-
-            if ($text === '⚔️ Дуэль' || $text === 'Дуэль') {
-                $commandHandler->handle([
-                    'chat_id' => $chatId,
-                    'command' => '/duel',
-                    'from' => $from,
-                    'user' => $user,
-                ]);
-
-                return;
-            }
-
-            if ($text === '📊 Профиль' || $text === 'Профиль') {
-                $commandHandler->handle([
-                    'chat_id' => $chatId,
-                    'command' => '/profile',
-                    'from' => $from,
-                    'user' => $user,
-                ]);
-
-                return;
-            }
-
-            if ($text === '🏆 Рейтинг' || $text === 'Рейтинг') {
-                $commandHandler->handle([
-                    'chat_id' => $chatId,
-                    'command' => '/leaderboard',
-                    'from' => $from,
-                    'user' => $user,
-                ]);
-
-                return;
             }
         }
 
