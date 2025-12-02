@@ -151,6 +151,9 @@ final class CommandHandler
                     ['text' => '⚔️ Дуэль'],
                     ['text' => '📊 Профиль'],
                 ],
+                [
+                    ['text' => '🏆 Рейтинг'],
+                ],
             ],
             'resize_keyboard' => true,
             'one_time_keyboard' => false,

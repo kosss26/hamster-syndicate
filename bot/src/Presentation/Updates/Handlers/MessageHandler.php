@@ -144,6 +144,17 @@ final class MessageHandler
 
                 return;
             }
+
+            if ($text === '🏆 Рейтинг' || $text === 'Рейтинг') {
+                $commandHandler->handle([
+                    'chat_id' => $chatId,
+                    'command' => '/leaderboard',
+                    'from' => $from,
+                    'user' => $user,
+                ]);
+
+                return;
+            }
         }
 
         $this->sendWelcome($chatId);
@@ -180,6 +191,9 @@ final class MessageHandler
                 [
                     ['text' => '⚔️ Дуэль'],
                     ['text' => '📊 Профиль'],
+                ],
+                [
+                    ['text' => '🏆 Рейтинг'],
                 ],
             ],
             'resize_keyboard' => true,
