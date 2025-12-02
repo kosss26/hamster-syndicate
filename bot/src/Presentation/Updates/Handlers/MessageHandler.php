@@ -207,13 +207,28 @@ final class MessageHandler
             // Проверяем, ожидает ли система сообщения от пользователя для тех.поддержки (ПЕРВЫМ!)
             if ($user instanceof User && !$this->adminService->isAdmin($user)) {
                 $supportCacheKey = sprintf('user:support_message:%d', $user->getKey());
+                $this->logger->debug('Проверка флага тех.поддержки', [
+                    'cache_key' => $supportCacheKey,
+                    'user_id' => $user->getKey(),
+                    'text' => $text,
+                ]);
                 try {
                     $isSupportRequest = $this->cache->get($supportCacheKey, static function () {
                         return null;
                     });
                     
+                    $this->logger->debug('Значение флага тех.поддержки', [
+                        'cache_key' => $supportCacheKey,
+                        'is_support_request' => $isSupportRequest,
+                        'is_true' => ($isSupportRequest === true),
+                    ]);
+                    
                     if ($isSupportRequest === true) {
                         // Пользователь отправил сообщение в тех.поддержку
+                        $this->logger->info('Обработка сообщения тех.поддержки', [
+                            'user_id' => $user->getKey(),
+                            'text' => $text,
+                        ]);
                         $this->cache->delete($supportCacheKey);
                         $this->adminService->sendFeedbackToAdmins($user, $text);
                         $this->telegramClient->request('POST', 'sendMessage', [
@@ -228,6 +243,7 @@ final class MessageHandler
                 } catch (\Throwable $e) {
                     $this->logger->error('Ошибка при проверке флага тех.поддержки', [
                         'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString(),
                         'cache_key' => $supportCacheKey,
                     ]);
                 }
