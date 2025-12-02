@@ -2061,6 +2061,59 @@ final class CallbackQueryHandler
         }
     }
 
+    /**
+     * Обрабатывает запрос админа на ответ пользователю
+     */
+    private function handleAdminReply($chatId, User $adminUser, int $targetUserId): void
+    {
+        $this->logger->debug('Админ хочет ответить пользователю', [
+            'admin_id' => $adminUser->getKey(),
+            'target_user_id' => $targetUserId,
+        ]);
+
+        $targetUser = $this->userService->findById($targetUserId);
+        if (!$targetUser instanceof User) {
+            $this->sendText($chatId, '❌ Не удалось найти пользователя для ответа.');
+            return;
+        }
+
+        // Устанавливаем флаг в кеше, что админ хочет ответить пользователю
+        $cacheKey = sprintf('admin:reply_to_user:%d:%d', $adminUser->getKey(), $targetUserId);
+        try {
+            $this->cache->delete($cacheKey);
+            $this->cache->get($cacheKey, static function () {
+                return true;
+            });
+        } catch (\Throwable $e) {
+            $this->logger->error('Ошибка при установке флага ответа админа', [
+                'error' => $e->getMessage(),
+                'cache_key' => $cacheKey,
+            ]);
+        }
+
+        $targetUserName = $this->formatUserName($targetUser);
+        $text = sprintf(
+            "💬 <b>Ответ пользователю</b>\n\n" .
+            "Пользователь: %s\n" .
+            "Напишите ответ, и он будет отправлен пользователю.",
+            $targetUserName
+        );
+
+        $this->sendText($chatId, $text);
+    }
+
+    private function formatUserName(User $user): string
+    {
+        if (!empty($user->first_name) && !empty($user->last_name)) {
+            return htmlspecialchars($user->first_name . ' ' . $user->last_name, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        } elseif (!empty($user->first_name)) {
+            return htmlspecialchars($user->first_name, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        } elseif (!empty($user->username)) {
+            return '@' . htmlspecialchars($user->username, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        }
+        return 'Пользователь #' . $user->getKey();
+    }
+
     private function handleFinishAllDuels($chatId): void
     {
         try {
