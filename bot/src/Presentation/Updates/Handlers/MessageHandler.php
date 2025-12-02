@@ -464,6 +464,80 @@ final class MessageHandler
         return (bool) preg_match('/^@[A-Za-z0-9_]{5,}$/', $text);
     }
 
+    /**
+     * Отправляет ответ админа пользователю
+     */
+    private function sendAdminReplyToUser($adminChatId, User $adminUser, int $targetUserId, string $replyText): void
+    {
+        $targetUser = User::find($targetUserId);
+        if (!$targetUser instanceof User || $targetUser->telegram_id === null) {
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $adminChatId,
+                    'text' => '❌ Не удалось найти пользователя для ответа или у него нет Telegram ID.',
+                ],
+            ]);
+            $this->logger->warning('Не удалось найти пользователя для ответа админа', ['target_user_id' => $targetUserId]);
+            return;
+        }
+
+        $adminName = $this->formatUserName($adminUser);
+        $messageToUser = sprintf(
+            "📩 <b>Ответ от администратора</b>\n\n" .
+            "От: %s\n" .
+            "Сообщение:\n<i>%s</i>",
+            $adminName,
+            htmlspecialchars($replyText, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
+        );
+
+        try {
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $targetUser->telegram_id,
+                    'text' => $messageToUser,
+                    'parse_mode' => 'HTML',
+                    'reply_markup' => $this->getMainKeyboard(),
+                ],
+            ]);
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $adminChatId,
+                    'text' => sprintf('✅ Ответ отправлен пользователю %s.', $this->formatUserName($targetUser)),
+                    'reply_markup' => $this->getMainKeyboard(),
+                ],
+            ]);
+            $this->logger->info('Админ ответил пользователю', [
+                'admin_id' => $adminUser->getKey(),
+                'target_user_id' => $targetUserId,
+            ]);
+        } catch (\Throwable $e) {
+            $this->logger->error('Ошибка при отправке ответа пользователю от админа', [
+                'admin_id' => $adminUser->getKey(),
+                'target_user_id' => $targetUserId,
+                'error' => $e->getMessage(),
+                'exception' => $e,
+            ]);
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $adminChatId,
+                    'text' => '❌ Ошибка при отправке ответа: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                ],
+            ]);
+        }
+    }
+
+    private function formatUserName(User $user): string
+    {
+        if (!empty($user->first_name) && !empty($user->last_name)) {
+            return htmlspecialchars($user->first_name . ' ' . $user->last_name, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        } elseif (!empty($user->first_name)) {
+            return htmlspecialchars($user->first_name, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        } elseif (!empty($user->username)) {
+            return '@' . htmlspecialchars($user->username, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        }
+        return 'Пользователь #' . $user->getKey();
+    }
+
     protected function getTelegramClient(): ClientInterface
     {
         return $this->telegramClient;
