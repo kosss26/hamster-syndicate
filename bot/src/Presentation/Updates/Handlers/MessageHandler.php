@@ -14,9 +14,11 @@ use QuizBot\Application\Services\ProfileFormatter;
 use QuizBot\Application\Services\StoryService;
 use QuizBot\Application\Services\AdminService;
 use QuizBot\Domain\Model\User;
+use QuizBot\Presentation\Updates\Handlers\Concerns\SendsDuelMessages;
 
 final class MessageHandler
 {
+    use SendsDuelMessages;
     private ClientInterface $telegramClient;
 
     private Logger $logger;
@@ -265,6 +267,27 @@ final class MessageHandler
     private function looksLikeUsernameInput(string $text): bool
     {
         return (bool) preg_match('/^@[A-Za-z0-9_]{5,}$/', $text);
+    }
+
+    protected function getTelegramClient(): ClientInterface
+    {
+        return $this->telegramClient;
+    }
+
+    protected function getLogger(): Logger
+    {
+        return $this->logger;
+    }
+
+    protected function getDuelService(): DuelService
+    {
+        return $this->duelService;
+    }
+
+    protected function getMessageFormatter(): ?\QuizBot\Application\Services\MessageFormatter
+    {
+        // MessageHandler не имеет MessageFormatter, возвращаем null
+        return null;
     }
 
     private function handleAdminFinishDuelByUsername($chatId, User $admin, string $usernameInput): void
