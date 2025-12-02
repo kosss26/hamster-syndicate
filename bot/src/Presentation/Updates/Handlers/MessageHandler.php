@@ -192,19 +192,7 @@ final class MessageHandler
                 'is_rating' => ($text === '🏆 Рейтинг' || $text === 'Рейтинг'),
             ]);
 
-            // Обработка других текстовых сообщений
-            $commandHandler = new CommandHandler(
-                $this->telegramClient,
-                $this->logger,
-                $this->userService,
-                $this->duelService,
-                $this->gameSessionService,
-                $this->storyService,
-                $this->profileFormatter,
-                $this->adminService
-            );
-
-            // Проверяем, ожидает ли система сообщения от пользователя для тех.поддержки (ПЕРВЫМ!)
+            // Проверяем, ожидает ли система сообщения от пользователя для тех.поддержки (ПЕРВЫМ, ДО создания CommandHandler!)
             if ($user instanceof User && !$this->adminService->isAdmin($user)) {
                 $supportCacheKey = sprintf('user:support_message:%d', $user->getKey());
                 $this->logger->debug('Проверка флага тех.поддержки', [
@@ -221,6 +209,7 @@ final class MessageHandler
                         'cache_key' => $supportCacheKey,
                         'is_support_request' => $isSupportRequest,
                         'is_true' => ($isSupportRequest === true),
+                        'type' => gettype($isSupportRequest),
                     ]);
                     
                     if ($isSupportRequest === true) {
@@ -248,6 +237,18 @@ final class MessageHandler
                     ]);
                 }
             }
+
+            // Обработка других текстовых сообщений
+            $commandHandler = new CommandHandler(
+                $this->telegramClient,
+                $this->logger,
+                $this->userService,
+                $this->duelService,
+                $this->gameSessionService,
+                $this->storyService,
+                $this->profileFormatter,
+                $this->adminService
+            );
 
             // Если это админ и он ввёл @username — сначала пробуем завершить дуэль по нику
             if ($user instanceof User
