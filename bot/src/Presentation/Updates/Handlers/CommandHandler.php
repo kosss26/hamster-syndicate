@@ -476,13 +476,17 @@ final class CommandHandler
                     $positionDisplay = sprintf('%d.', $position);
                 }
 
+                // Позиция и имя на одной строке
                 $lines[] = sprintf(
-                    '%s <b>%s</b> %s %s',
+                    '%s <b>%s</b>',
                     $positionDisplay,
-                    $userName,
-                    $rank['emoji'],
-                    $rank['name']
+                    $userName
                 );
+                
+                // Звание на отдельной строке
+                $lines[] = sprintf('%s %s', $rank['emoji'], $rank['name']);
+                
+                // Рейтинг на отдельной строке
                 $lines[] = sprintf('   ⭐ Рейтинг: <b>%d</b>', $rating);
                 $lines[] = '';
             }
