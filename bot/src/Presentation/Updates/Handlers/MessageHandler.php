@@ -204,18 +204,34 @@ final class MessageHandler
 
                 $isAdminFinishRequest = false;
                 try {
-                    // Если ключ не существует, callback вернёт null и установит значение,
-                    // поэтому считаем признаком только точное значение true
+                    // Получаем значение из кеша
+                    // Если ключ существует и значение === true, значит это админ-запрос
                     $value = $this->cache->get($cacheKey, static function () {
                         return null;
                     });
+                    
+                    $this->logger->debug('Проверка админ-флага завершения дуэли', [
+                        'cache_key' => $cacheKey,
+                        'value' => $value,
+                        'value_type' => gettype($value),
+                        'is_true' => ($value === true),
+                    ]);
+                    
                     $isAdminFinishRequest = ($value === true);
                 } catch (\Throwable $e) {
+                    $this->logger->warning('Ошибка при проверке админ-флага', [
+                        'error' => $e->getMessage(),
+                        'cache_key' => $cacheKey,
+                    ]);
                     $isAdminFinishRequest = false;
                 }
 
                 if ($isAdminFinishRequest) {
                     // Это запрос на завершение дуэли по нику
+                    $this->logger->debug('Обработка админ-запроса на завершение дуэли', [
+                        'username' => $text,
+                        'user_id' => $user->getKey(),
+                    ]);
                     $this->cache->delete($cacheKey);
                     $this->handleAdminFinishDuelByUsername($chatId, $user, $text);
                     return;

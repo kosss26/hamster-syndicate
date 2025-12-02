@@ -2108,15 +2108,24 @@ final class CallbackQueryHandler
         // Сохраняем состояние ожидания ввода юзернейма
         $cacheKey = sprintf('admin:finish_duel_username:%d', $user->getKey());
         try {
-            // Обновляем флаг через CacheInterface::get (это же сохранит значение)
+            // Удаляем старый флаг, если есть
             $this->cache->delete($cacheKey);
-            $this->cache->get($cacheKey, static function () {
+            // Устанавливаем новый флаг через get с callback
+            // Это установит значение true в кеш
+            $result = $this->cache->get($cacheKey, static function () {
                 return true;
             });
+            
+            $this->logger->debug('Установлен админ-флаг завершения дуэли', [
+                'cache_key' => $cacheKey,
+                'result' => $result,
+                'user_id' => $user->getKey(),
+            ]);
         } catch (\Throwable $e) {
-            $this->logger->warning('Не удалось сохранить состояние ожидания юзернейма для завершения дуэли', [
+            $this->logger->error('Не удалось сохранить состояние ожидания юзернейма для завершения дуэли', [
                 'cache_key' => $cacheKey,
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
         }
 
