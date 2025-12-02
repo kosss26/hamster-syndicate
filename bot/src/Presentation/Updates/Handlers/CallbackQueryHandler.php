@@ -250,12 +250,19 @@ final class CallbackQueryHandler
         $data = $callback['data'] ?? null;
         $message = $callback['message'] ?? null;
 
+        $this->logger->debug('Обработка callback query', [
+            'callback_id' => $callbackId,
+            'data' => $data,
+            'has_message' => $message !== null,
+        ]);
+
         if ($callbackId === null || $data === null || $message === null) {
             $this->logger->warning('Некорректный callback_query', $callback);
 
             return;
         }
 
+        // Отвечаем на callback query сразу, чтобы убрать индикатор загрузки
         try {
             $this->telegramClient->request('POST', 'answerCallbackQuery', [
                 'json' => [
@@ -263,9 +270,10 @@ final class CallbackQueryHandler
                 ],
             ]);
         } catch (\Throwable $e) {
-            $this->logger->warning('Не удалось ответить на callback query', [
+            $this->logger->error('Не удалось ответить на callback query', [
                 'error' => $e->getMessage(),
                 'callback_id' => $callbackId,
+                'trace' => $e->getTraceAsString(),
             ]);
             // Продолжаем обработку даже если не удалось ответить на callback
         }
@@ -281,9 +289,20 @@ final class CallbackQueryHandler
         $from = $callback['from'] ?? null;
         $user = $this->resolveUser($from);
 
-        if ($this->startsWith($data, 'admin:')) {
-            $this->handleAdminAction($chatId, $data, $user);
+        try {
+            if ($this->startsWith($data, 'admin:')) {
+                $this->logger->debug('Обработка админ-действия', ['data' => $data]);
+                $this->handleAdminAction($chatId, $data, $user);
 
+                return;
+            }
+        } catch (\Throwable $e) {
+            $this->logger->error('Ошибка при обработке админ-действия', [
+                'error' => $e->getMessage(),
+                'data' => $data,
+                'trace' => $e->getTraceAsString(),
+            ]);
+            $this->sendText($chatId, '❌ Произошла ошибка при обработке действия. Попробуйте позже.');
             return;
         }
 
