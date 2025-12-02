@@ -2082,7 +2082,18 @@ final class CallbackQueryHandler
 
         // Сохраняем состояние ожидания ввода юзернейма
         $cacheKey = sprintf('admin:finish_duel_username:%d', $user->getKey());
-        $this->cache->set($cacheKey, true, 300); // 5 минут на ввод
+        try {
+            // Обновляем флаг через CacheInterface::get (это же сохранит значение)
+            $this->cache->delete($cacheKey);
+            $this->cache->get($cacheKey, static function () {
+                return true;
+            });
+        } catch (\Throwable $e) {
+            $this->logger->warning('Не удалось сохранить состояние ожидания юзернейма для завершения дуэли', [
+                'cache_key' => $cacheKey,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         $text = "🎯 <b>Завершение дуэли по нику</b>\n\n" .
                 "Отправь мне юзернейм игрока в формате <b>@username</b>.\n" .

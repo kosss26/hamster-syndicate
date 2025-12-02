@@ -201,7 +201,20 @@ final class MessageHandler
             // Проверяем, ожидает ли админ ввода юзернейма для завершения дуэли
             if ($user instanceof User && $this->looksLikeUsernameInput($text)) {
                 $cacheKey = sprintf('admin:finish_duel_username:%d', $user->getKey());
-                if ($this->cache->hasItem($cacheKey)) {
+
+                $isAdminFinishRequest = false;
+                try {
+                    // Если ключ не существует, callback вернёт null и установит значение,
+                    // поэтому считаем признаком только точное значение true
+                    $value = $this->cache->get($cacheKey, static function () {
+                        return null;
+                    });
+                    $isAdminFinishRequest = ($value === true);
+                } catch (\Throwable $e) {
+                    $isAdminFinishRequest = false;
+                }
+
+                if ($isAdminFinishRequest) {
                     // Это запрос на завершение дуэли по нику
                     $this->cache->delete($cacheKey);
                     $this->handleAdminFinishDuelByUsername($chatId, $user, $text);
