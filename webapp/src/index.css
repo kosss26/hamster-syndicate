@@ -69,9 +69,13 @@ body {
 }
 
 .btn-answer {
-  @apply w-full p-4 rounded-xl text-left transition-all duration-200 active:scale-98;
+  @apply w-full p-4 rounded-xl text-left transition-all duration-200;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.btn-answer:active {
+  transform: scale(0.98);
 }
 
 .btn-answer:hover {
