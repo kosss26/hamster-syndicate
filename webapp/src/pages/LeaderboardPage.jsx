@@ -1,34 +1,7 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTelegram, showBackButton, hapticFeedback } from '../hooks/useTelegram'
-
-// Моковые данные рейтинга
-const MOCK_LEADERBOARD = {
-  duel: [
-    { position: 1, name: 'Александр', username: 'alex_quiz', rating: 2150, rank: '🌟 Иммортал' },
-    { position: 2, name: 'Мария', username: 'masha_brain', rating: 1890, rank: '👑 Легенда' },
-    { position: 3, name: 'Дмитрий', username: 'dima_smart', rating: 1720, rank: '💎 Элита' },
-    { position: 4, name: 'Елена', username: 'lena_quiz', rating: 1580, rank: '⭐⭐⭐ Гранд-мастер' },
-    { position: 5, name: 'Иван', username: 'ivan123', rating: 1450, rank: '⭐⭐ Мастер' },
-    { position: 6, name: 'Анна', username: 'anna_genius', rating: 1380, rank: '⭐⭐ Мастер' },
-    { position: 7, name: 'Сергей', username: 'sergey_pro', rating: 1250, rank: '⭐ Эксперт' },
-    { position: 8, name: 'Ольга', username: 'olga_wise', rating: 1180, rank: '⭐ Эксперт' },
-    { position: 9, name: 'Николай', username: 'kolya_fast', rating: 1050, rank: '⭐ Эксперт' },
-    { position: 10, name: 'Татьяна', username: 'tanya_quiz', rating: 980, rank: '🎓 Студент' },
-  ],
-  truefalse: [
-    { position: 1, name: 'Мария', username: 'masha_brain', record: 28 },
-    { position: 2, name: 'Александр', username: 'alex_quiz', record: 25 },
-    { position: 3, name: 'Елена', username: 'lena_quiz', record: 22 },
-    { position: 4, name: 'Дмитрий', username: 'dima_smart', record: 19 },
-    { position: 5, name: 'Иван', username: 'ivan123', record: 17 },
-    { position: 6, name: 'Анна', username: 'anna_genius', record: 15 },
-    { position: 7, name: 'Сергей', username: 'sergey_pro', record: 14 },
-    { position: 8, name: 'Ольга', username: 'olga_wise', record: 12 },
-    { position: 9, name: 'Николай', username: 'kolya_fast', record: 11 },
-    { position: 10, name: 'Татьяна', username: 'tanya_quiz', record: 10 },
-  ]
-}
+import api from '../api/client'
 
 const TABS = [
   { id: 'duel', label: 'Дуэли', icon: '⚔️' },
@@ -38,10 +11,30 @@ const TABS = [
 function LeaderboardPage() {
   const { user } = useTelegram()
   const [activeTab, setActiveTab] = useState('duel')
+  const [leaderboard, setLeaderboard] = useState({ duel: [], truefalse: [] })
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     showBackButton(true)
+    loadLeaderboard('duel')
+    loadLeaderboard('truefalse')
   }, [])
+
+  const loadLeaderboard = async (type) => {
+    try {
+      const response = await api.getLeaderboard(type)
+      if (response.success) {
+        setLeaderboard(prev => ({
+          ...prev,
+          [type]: response.data.players
+        }))
+      }
+    } catch (err) {
+      console.error('Failed to load leaderboard:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleTabChange = (tabId) => {
     setActiveTab(tabId)
@@ -74,7 +67,7 @@ function LeaderboardPage() {
     }
   }
 
-  const data = activeTab === 'duel' ? MOCK_LEADERBOARD.duel : MOCK_LEADERBOARD.truefalse
+  const data = activeTab === 'duel' ? leaderboard.duel : leaderboard.truefalse
 
   return (
     <div className="min-h-screen p-4 pb-8">

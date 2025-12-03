@@ -15,6 +15,7 @@ use QuizBot\Application\Services\AdminService;
 use QuizBot\Application\Services\HintService;
 use QuizBot\Application\Services\TrueFalseService;
 use QuizBot\Application\Services\ProfileFormatter;
+use QuizBot\Application\Services\StatisticsService;
 use QuizBot\Domain\Model\User;
 use QuizBot\Domain\Model\Question;
 use QuizBot\Domain\Model\GameSession;
@@ -56,6 +57,8 @@ final class CallbackQueryHandler
 
     private ProfileFormatter $profileFormatter;
 
+    private StatisticsService $statisticsService;
+
     private string $basePath;
 
     public function __construct(
@@ -70,7 +73,8 @@ final class CallbackQueryHandler
         AdminService $adminService,
         HintService $hintService,
         TrueFalseService $trueFalseService,
-        ProfileFormatter $profileFormatter
+        ProfileFormatter $profileFormatter,
+        StatisticsService $statisticsService
     ) {
         $this->telegramClient = $telegramClient;
         $this->logger = $logger;
@@ -84,6 +88,7 @@ final class CallbackQueryHandler
         $this->hintService = $hintService;
         $this->trueFalseService = $trueFalseService;
         $this->profileFormatter = $profileFormatter;
+        $this->statisticsService = $statisticsService;
         $this->basePath = dirname(__DIR__, 4);
     }
 
@@ -433,6 +438,110 @@ final class CallbackQueryHandler
 
             return;
         }
+
+        if ($data === 'stats:full') {
+            $this->handleFullStatistics($chatId, $user);
+
+            return;
+        }
+    }
+
+    /**
+     * Обработка запроса полной статистики
+     */
+    private function handleFullStatistics($chatId, ?User $user): void
+    {
+        if ($user === null) {
+            $this->sendText($chatId, 'Не удалось загрузить статистику. Попробуйте /start.');
+            return;
+        }
+
+        try {
+            $stats = $this->statisticsService->getFullStatistics($user);
+            $text = $this->formatStatisticsText($stats);
+        } catch (\Throwable $exception) {
+            $this->logger->error('Не удалось загрузить статистику', [
+                'error' => $exception->getMessage(),
+                'user_id' => $user->getKey(),
+            ]);
+
+            $this->sendText($chatId, "📊 <b>Статистика</b>\n\nНедостаточно данных. Сыграй несколько дуэлей, чтобы собрать статистику!");
+            return;
+        }
+
+        $this->sendText($chatId, $text);
+    }
+
+    /**
+     * Форматирование текста статистики
+     */
+    private function formatStatisticsText(array $stats): string
+    {
+        $overview = $stats['overview'] ?? [];
+        $strengths = $stats['strengths'] ?? [];
+        $weaknesses = $stats['weaknesses'] ?? [];
+        $bestDay = $stats['best_day'] ?? null;
+
+        $lines = [
+            '📊 <b>ТВОЯ СТАТИСТИКА</b>',
+            '',
+        ];
+
+        // Общие показатели
+        $lines[] = '🎯 <b>Общие показатели</b>';
+        $accuracy = $overview['accuracy'] ?? 0;
+        $avgTime = $overview['average_time'] ?? 0;
+        $lines[] = sprintf('├ Точность: <b>%s%%</b>', $accuracy);
+        $lines[] = sprintf('├ Среднее время: <b>%sс</b>', $avgTime);
+        $lines[] = sprintf('├ Всего вопросов: <b>%d</b>', $overview['total_questions'] ?? 0);
+        $lines[] = sprintf('├ Правильных: <b>%d</b>', $overview['correct_answers'] ?? 0);
+        $lines[] = sprintf('└ Лучшая серия: <b>%d</b>', $overview['best_streak'] ?? 0);
+        $lines[] = '';
+
+        // Сильные стороны
+        if (!empty($strengths)) {
+            $lines[] = '💪 <b>Сильные стороны</b>';
+            foreach ($strengths as $cat) {
+                $icon = $cat['category_icon'] ?? '📚';
+                $name = $cat['category_name'] ?? 'Неизвестно';
+                $catAccuracy = $cat['accuracy'] ?? 0;
+                $lines[] = sprintf('├ %s %s: <b>%s%%</b>', $icon, $name, $catAccuracy);
+            }
+            $lines[] = '';
+        }
+
+        // Слабые стороны
+        if (!empty($weaknesses)) {
+            $lines[] = '📚 <b>Нужно подтянуть</b>';
+            foreach ($weaknesses as $cat) {
+                $icon = $cat['category_icon'] ?? '📚';
+                $name = $cat['category_name'] ?? 'Неизвестно';
+                $catAccuracy = $cat['accuracy'] ?? 0;
+                $lines[] = sprintf('├ %s %s: <b>%s%%</b>', $icon, $name, $catAccuracy);
+            }
+            $lines[] = '';
+        }
+
+        // Лучший день
+        if ($bestDay !== null) {
+            $dayName = $bestDay['day_name'] ?? $bestDay['day'] ?? '';
+            $dayAccuracy = $bestDay['accuracy'] ?? 0;
+            $baseAccuracy = $overview['accuracy'] ?? 0;
+            $diff = round($dayAccuracy - $baseAccuracy);
+            $diffStr = $diff > 0 ? "+{$diff}%" : "{$diff}%";
+            
+            $lines[] = '⏰ <b>Лучшее время для игры</b>';
+            $lines[] = sprintf('└ 📅 %s (%s к точности)', $dayName, $diffStr);
+            $lines[] = '';
+        }
+
+        // Серия побед в дуэлях
+        $duelStreak = $overview['best_duel_win_streak'] ?? 0;
+        if ($duelStreak > 0) {
+            $lines[] = sprintf('🔥 <b>Лучшая серия побед в дуэлях: %d</b>', $duelStreak);
+        }
+
+        return implode("\n", $lines);
     }
 
     private function handleDuelAccept($chatId, int $duelId, ?User $user): void

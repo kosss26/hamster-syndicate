@@ -14,6 +14,7 @@ use QuizBot\Application\Services\ProfileFormatter;
 use QuizBot\Application\Services\StoryService;
 use QuizBot\Application\Services\AdminService;
 use QuizBot\Application\Services\TrueFalseService;
+use QuizBot\Application\Services\StatisticsService;
 use QuizBot\Domain\Model\User;
 use QuizBot\Presentation\Updates\Handlers\Concerns\SendsDuelMessages;
 
@@ -40,6 +41,8 @@ final class MessageHandler
 
     private TrueFalseService $trueFalseService;
 
+    private StatisticsService $statisticsService;
+
     public function __construct(
         ClientInterface $telegramClient,
         Logger $logger,
@@ -50,7 +53,8 @@ final class MessageHandler
         StoryService $storyService,
         ProfileFormatter $profileFormatter,
         AdminService $adminService,
-        TrueFalseService $trueFalseService
+        TrueFalseService $trueFalseService,
+        StatisticsService $statisticsService
     ) {
         $this->telegramClient = $telegramClient;
         $this->logger = $logger;
@@ -62,6 +66,7 @@ final class MessageHandler
         $this->profileFormatter = $profileFormatter;
         $this->adminService = $adminService;
         $this->trueFalseService = $trueFalseService;
+        $this->statisticsService = $statisticsService;
     }
 
     /**
@@ -101,6 +106,7 @@ final class MessageHandler
                 $this->profileFormatter,
                 $this->adminService,
                 $this->trueFalseService,
+                $this->statisticsService,
                 $this->cache
             );
             $commandHandler->handle([
@@ -133,13 +139,14 @@ final class MessageHandler
                     $this->gameSessionService,
                     $this->storyService,
                     $this->profileFormatter,
-                    $this->adminService,
-                    $this->trueFalseService,
-                    $this->cache
-                );
-                $commandHandler->handle([
-                    'chat_id' => $chatId,
-                    'command' => '/duel',
+                $this->adminService,
+                $this->trueFalseService,
+                $this->statisticsService,
+                $this->cache
+            );
+            $commandHandler->handle([
+                'chat_id' => $chatId,
+                'command' => '/duel',
                     'from' => $from,
                     'user' => $user,
                 ]);
@@ -156,13 +163,14 @@ final class MessageHandler
                     $this->gameSessionService,
                     $this->storyService,
                     $this->profileFormatter,
-                    $this->adminService,
-                    $this->trueFalseService,
-                    $this->cache
-                );
-                $commandHandler->handle([
-                    'chat_id' => $chatId,
-                    'command' => '/profile',
+                $this->adminService,
+                $this->trueFalseService,
+                $this->statisticsService,
+                $this->cache
+            );
+            $commandHandler->handle([
+                'chat_id' => $chatId,
+                'command' => '/profile',
                     'from' => $from,
                     'user' => $user,
                 ]);
@@ -201,13 +209,14 @@ final class MessageHandler
                     $this->gameSessionService,
                     $this->storyService,
                     $this->profileFormatter,
-                    $this->adminService,
-                    $this->trueFalseService,
-                    $this->cache
-                );
-                $commandHandler->handle([
-                    'chat_id' => $chatId,
-                    'command' => '/truth',
+                $this->adminService,
+                $this->trueFalseService,
+                $this->statisticsService,
+                $this->cache
+            );
+            $commandHandler->handle([
+                'chat_id' => $chatId,
+                'command' => '/truth',
                     'from' => $from,
                     'user' => $user,
                 ]);
@@ -299,6 +308,7 @@ final class MessageHandler
                 $this->profileFormatter,
                 $this->adminService,
                 $this->trueFalseService,
+                $this->statisticsService,
                 $this->cache
             );
 

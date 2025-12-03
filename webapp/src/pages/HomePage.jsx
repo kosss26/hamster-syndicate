@@ -1,7 +1,8 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useTelegram, showBackButton, hapticFeedback } from '../hooks/useTelegram'
+import api from '../api/client'
 
 const menuItems = [
   {
@@ -40,10 +41,23 @@ const menuItems = [
 
 function HomePage() {
   const { user } = useTelegram()
+  const [stats, setStats] = useState(null)
 
   useEffect(() => {
     showBackButton(false)
+    loadStats()
   }, [])
+
+  const loadStats = async () => {
+    try {
+      const response = await api.getProfile()
+      if (response.success) {
+        setStats(response.data)
+      }
+    } catch (err) {
+      console.error('Failed to load stats:', err)
+    }
+  }
 
   const handleMenuClick = () => {
     hapticFeedback('light')
@@ -59,6 +73,7 @@ function HomePage() {
       >
         <div className="text-5xl mb-3">⚔️</div>
         <h1 className="text-2xl font-bold mb-1">Битва знаний</h1>
+        <p className="text-xs text-red-500">v3 - {new Date().toLocaleTimeString()}</p>
         {user && (
           <p className="text-telegram-hint">
             Привет, {user.first_name}! 👋
@@ -100,7 +115,7 @@ function HomePage() {
         className="mt-6"
       >
         <Link to="/duel?mode=random" onClick={handleMenuClick}>
-          <button className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-game-primary to-purple-600 text-white font-semibold text-lg shadow-lg shadow-game-primary/30 hover:shadow-xl hover:shadow-game-primary/40 transition-all active:scale-98">
+          <button className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-game-primary to-purple-600 text-white font-semibold text-lg shadow-lg shadow-game-primary/30 hover:shadow-xl hover:shadow-game-primary/40 transition-all active:scale-95">
             <span className="flex items-center justify-center gap-2">
               <span>🎲</span>
               <span>Случайная дуэль</span>
@@ -119,15 +134,15 @@ function HomePage() {
         <h3 className="text-sm text-telegram-hint mb-3">Твоя статистика</h3>
         <div className="grid grid-cols-3 gap-4 text-center">
           <div>
-            <div className="text-2xl font-bold text-game-primary">—</div>
+            <div className="text-2xl font-bold text-game-primary">{stats?.rating ?? '—'}</div>
             <div className="text-xs text-telegram-hint">Рейтинг</div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-game-success">—</div>
+            <div className="text-2xl font-bold text-game-success">{stats?.stats?.duel_wins ?? '—'}</div>
             <div className="text-xs text-telegram-hint">Победы</div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-game-warning">—</div>
+            <div className="text-2xl font-bold text-game-warning">{stats?.win_streak ?? '—'}</div>
             <div className="text-xs text-telegram-hint">Серия</div>
           </div>
         </div>

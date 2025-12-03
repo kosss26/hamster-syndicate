@@ -17,6 +17,7 @@ use QuizBot\Application\Services\ProfileFormatter;
 use QuizBot\Application\Services\StoryService;
 use QuizBot\Application\Services\MessageFormatter;
 use QuizBot\Application\Services\TrueFalseService;
+use QuizBot\Application\Services\StatisticsService;
 use Psr\Container\ContainerInterface;
 
 final class WebhookHandler
@@ -100,7 +101,8 @@ final class WebhookHandler
             $this->messageFormatter,
             $this->container->get(\QuizBot\Application\Services\AdminService::class),
             $this->container->get(\QuizBot\Application\Services\HintService::class),
-            $this->container->get(TrueFalseService::class)
+            $this->container->get(TrueFalseService::class),
+            $this->container->get(StatisticsService::class)
         );
 
         $updateRouter->route($payload);

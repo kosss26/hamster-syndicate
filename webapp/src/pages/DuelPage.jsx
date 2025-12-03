@@ -162,7 +162,7 @@ function DuelPage() {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             onClick={startSearch}
-            className="glass rounded-2xl p-6 text-left hover:bg-white/10 transition-colors active:scale-98"
+            className="glass rounded-2xl p-6 text-left hover:bg-white/10 transition-colors active:scale-95"
           >
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-game-primary to-purple-600 flex items-center justify-center text-2xl">
@@ -179,7 +179,7 @@ function DuelPage() {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.1 }}
-            className="glass rounded-2xl p-6 text-left hover:bg-white/10 transition-colors active:scale-98"
+            className="glass rounded-2xl p-6 text-left hover:bg-white/10 transition-colors active:scale-95"
           >
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-2xl">
