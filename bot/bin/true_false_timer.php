@@ -12,10 +12,10 @@ require_once __DIR__ . '/../vendor/autoload.php';
 
 use QuizBot\Bootstrap\AppBootstrap;
 use QuizBot\Infrastructure\Telegram\TelegramClientFactory;
+use QuizBot\Infrastructure\Cache\CacheFactory;
 use QuizBot\Application\Services\TrueFalseService;
 use QuizBot\Domain\Model\User;
 use QuizBot\Domain\Model\TrueFalseFact;
-use Symfony\Contracts\Cache\CacheInterface;
 
 // Логирование
 $logDir = __DIR__ . '/../storage/logs';
@@ -59,8 +59,9 @@ try {
     $clientFactory = $container->get(TelegramClientFactory::class);
     $telegramClient = $clientFactory->create();
 
-    /** @var CacheInterface $cache */
-    $cache = $container->get(CacheInterface::class);
+    /** @var CacheFactory $cacheFactory */
+    $cacheFactory = $container->get(CacheFactory::class);
+    $cache = $cacheFactory->create();
 
     /** @var TrueFalseService $trueFalseService */
     $trueFalseService = $container->get(TrueFalseService::class);
