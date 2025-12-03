@@ -13,6 +13,7 @@ use QuizBot\Application\Services\GameSessionService;
 use QuizBot\Application\Services\ProfileFormatter;
 use QuizBot\Application\Services\StoryService;
 use QuizBot\Application\Services\AdminService;
+use QuizBot\Application\Services\TrueFalseService;
 use QuizBot\Domain\Model\User;
 use QuizBot\Presentation\Updates\Handlers\Concerns\SendsDuelMessages;
 
@@ -37,6 +38,8 @@ final class MessageHandler
 
     private AdminService $adminService;
 
+    private TrueFalseService $trueFalseService;
+
     public function __construct(
         ClientInterface $telegramClient,
         Logger $logger,
@@ -46,7 +49,8 @@ final class MessageHandler
         GameSessionService $gameSessionService,
         StoryService $storyService,
         ProfileFormatter $profileFormatter,
-        AdminService $adminService
+        AdminService $adminService,
+        TrueFalseService $trueFalseService
     ) {
         $this->telegramClient = $telegramClient;
         $this->logger = $logger;
@@ -57,6 +61,7 @@ final class MessageHandler
         $this->storyService = $storyService;
         $this->profileFormatter = $profileFormatter;
         $this->adminService = $adminService;
+        $this->trueFalseService = $trueFalseService;
     }
 
     /**
@@ -94,7 +99,8 @@ final class MessageHandler
                 $this->gameSessionService,
                 $this->storyService,
                 $this->profileFormatter,
-                $this->adminService
+                $this->adminService,
+                $this->trueFalseService
             );
             $commandHandler->handle([
                 'chat_id' => $chatId,
@@ -126,7 +132,8 @@ final class MessageHandler
                     $this->gameSessionService,
                     $this->storyService,
                     $this->profileFormatter,
-                    $this->adminService
+                    $this->adminService,
+                    $this->trueFalseService
                 );
                 $commandHandler->handle([
                     'chat_id' => $chatId,
@@ -147,7 +154,8 @@ final class MessageHandler
                     $this->gameSessionService,
                     $this->storyService,
                     $this->profileFormatter,
-                    $this->adminService
+                    $this->adminService,
+                    $this->trueFalseService
                 );
                 $commandHandler->handle([
                     'chat_id' => $chatId,
@@ -168,11 +176,34 @@ final class MessageHandler
                     $this->gameSessionService,
                     $this->storyService,
                     $this->profileFormatter,
-                    $this->adminService
+                    $this->adminService,
+                    $this->trueFalseService
                 );
                 $commandHandler->handle([
                     'chat_id' => $chatId,
                     'command' => '/leaderboard',
+                    'from' => $from,
+                    'user' => $user,
+                ]);
+                return;
+            }
+
+            if ($text === '🧠 Правда или ложь' || $text === 'Правда или ложь') {
+                $this->logger->debug('Обработка кнопки Правда или ложь');
+                $commandHandler = new CommandHandler(
+                    $this->telegramClient,
+                    $this->logger,
+                    $this->userService,
+                    $this->duelService,
+                    $this->gameSessionService,
+                    $this->storyService,
+                    $this->profileFormatter,
+                    $this->adminService,
+                    $this->trueFalseService
+                );
+                $commandHandler->handle([
+                    'chat_id' => $chatId,
+                    'command' => '/truth',
                     'from' => $from,
                     'user' => $user,
                 ]);
@@ -262,7 +293,8 @@ final class MessageHandler
                 $this->gameSessionService,
                 $this->storyService,
                 $this->profileFormatter,
-                $this->adminService
+                $this->adminService,
+                $this->trueFalseService
             );
 
             // Если это админ и он ввёл @username — сначала пробуем завершить дуэль по нику
@@ -364,8 +396,8 @@ final class MessageHandler
     {
         $text = implode("\n", [
             '👋 Привет! Это викторина «Битва знаний».',
-            'Доступны дуэли с друзьями и подробный профиль.',
-            'Команды: /duel, /profile, /help.',
+            'Доступны дуэли, мини-игры и подробный профиль.',
+            'Команды: /duel, /profile, /truth, /help.',
         ]);
 
         $this->telegramClient->request('POST', 'sendMessage', [
@@ -394,6 +426,9 @@ final class MessageHandler
                 ],
                 [
                     ['text' => '🆘 Тех.поддержка'],
+                ],
+                [
+                    ['text' => '🧠 Правда или ложь'],
                 ],
             ],
             'resize_keyboard' => true,

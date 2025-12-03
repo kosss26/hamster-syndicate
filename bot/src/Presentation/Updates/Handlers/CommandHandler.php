@@ -12,8 +12,10 @@ use QuizBot\Application\Services\GameSessionService;
 use QuizBot\Application\Services\ProfileFormatter;
 use QuizBot\Application\Services\StoryService;
 use QuizBot\Application\Services\AdminService;
+use QuizBot\Application\Services\TrueFalseService;
 use QuizBot\Domain\Model\User;
 use QuizBot\Domain\Model\Duel;
+use QuizBot\Domain\Model\TrueFalseFact;
 use QuizBot\Presentation\Updates\Handlers\Concerns\SendsDuelMessages;
 
 final class CommandHandler
@@ -36,6 +38,8 @@ final class CommandHandler
 
     private AdminService $adminService;
 
+    private TrueFalseService $trueFalseService;
+
     public function __construct(
         ClientInterface $telegramClient,
         Logger $logger,
@@ -44,7 +48,8 @@ final class CommandHandler
         GameSessionService $gameSessionService,
         StoryService $storyService,
         ProfileFormatter $profileFormatter,
-        AdminService $adminService
+        AdminService $adminService,
+        TrueFalseService $trueFalseService
     ) {
         $this->telegramClient = $telegramClient;
         $this->logger = $logger;
@@ -54,6 +59,7 @@ final class CommandHandler
         $this->storyService = $storyService;
         $this->profileFormatter = $profileFormatter;
         $this->adminService = $adminService;
+        $this->trueFalseService = $trueFalseService;
     }
 
     protected function getTelegramClient(): ClientInterface
@@ -124,6 +130,12 @@ final class CommandHandler
             return;
         }
 
+        if ($this->startsWith($normalized, '/truth') || $this->startsWith($normalized, '/truefalse')) {
+            $this->startTrueFalseMode($chatId, $user);
+
+            return;
+        }
+
         if ($this->startsWith($normalized, '/duel')) {
             $this->handleDuel($chatId, $commandText, $user);
 
@@ -168,6 +180,9 @@ final class CommandHandler
                 [
                     ['text' => '🆘 Тех.поддержка'],
                 ],
+                [
+                    ['text' => '🧠 Правда или ложь'],
+                ],
             ],
             'resize_keyboard' => true,
             'one_time_keyboard' => false,
@@ -187,6 +202,7 @@ final class CommandHandler
             '🎯 Что можно делать:',
             '<b>/duel</b> — сражайся в дуэлях 1 на 1',
             '<b>/profile</b> — смотри свою статистику и прогресс',
+            '<b>/truth</b> — играй в быстрый режим «Правда или ложь»',
             '',
             'Удачи в битве! 🚀',
         ]);
@@ -318,6 +334,97 @@ final class CommandHandler
         ]);
     }
 
+    private function startTrueFalseMode($chatId, ?User $user): void
+    {
+        if (!$user instanceof User) {
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => 'Не удалось определить профиль. Нажми /start, чтобы синхронизировать данные и попробовать снова.',
+                ],
+            ]);
+
+            return;
+        }
+
+        $this->telegramClient->request('POST', 'sendMessage', [
+            'json' => [
+                'chat_id' => $chatId,
+                'text' => implode("\n", [
+                    '🧠 <b>Правда или ложь</b>',
+                    '',
+                    'Читайте утверждение и нажимайте «Правда» или «Ложь».',
+                    'Каждый правильный ответ увеличивает серию — побей свой рекорд!',
+                ]),
+                'parse_mode' => 'HTML',
+                'reply_markup' => $this->getMainKeyboard(),
+            ],
+        ]);
+
+        $fact = $this->trueFalseService->startSession($user);
+
+        if (!$fact instanceof TrueFalseFact) {
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => '⚠️ Не удалось загрузить факты. Попробуйте позже.',
+                ],
+            ]);
+
+            return;
+        }
+
+        $this->sendTrueFalseFactMessage($chatId, $fact, 0);
+    }
+
+    private function sendTrueFalseFactMessage($chatId, TrueFalseFact $fact, int $streak): void
+    {
+        $lines = [
+            '🧠 <b>Правда или ложь</b>',
+        ];
+
+        if ($streak > 0) {
+            $lines[] = sprintf('Серия: %d', $streak);
+        } else {
+            $lines[] = 'Собери серию правильных ответов!';
+        }
+
+        $lines[] = '';
+        $lines[] = htmlspecialchars($fact->statement, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $lines[] = '';
+        $lines[] = 'Выбери ответ:';
+
+        $keyboard = [
+            [
+                [
+                    'text' => '✅ Правда',
+                    'callback_data' => sprintf('tf:answer:%d:1', $fact->getKey()),
+                ],
+                [
+                    'text' => '❌ Ложь',
+                    'callback_data' => sprintf('tf:answer:%d:0', $fact->getKey()),
+                ],
+            ],
+            [
+                [
+                    'text' => '⏭ Пропустить',
+                    'callback_data' => 'tf:skip',
+                ],
+            ],
+        ];
+
+        $this->telegramClient->request('POST', 'sendMessage', [
+            'json' => [
+                'chat_id' => $chatId,
+                'text' => implode("\n", $lines),
+                'parse_mode' => 'HTML',
+                'reply_markup' => [
+                    'inline_keyboard' => $keyboard,
+                ],
+            ],
+        ]);
+    }
+
     /**
      * @param int|string $chatId
      */
@@ -413,6 +520,7 @@ final class CommandHandler
             '/duel — дуэль с друзьями (по нику @username или случайным соперником).',
             '/profile — твоя статистика.',
             '/leaderboard — глобальный рейтинг игроков.',
+            '/truth — режим «Правда или ложь» с короткими фактами.',
         ]);
 
         $this->telegramClient->request('POST', 'sendMessage', [

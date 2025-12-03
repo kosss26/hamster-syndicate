@@ -39,6 +39,9 @@ trait SendsDuelMessages
                 [
                     ['text' => '🆘 Тех.поддержка'],
                 ],
+                [
+                    ['text' => '🧠 Правда или ложь'],
+                ],
             ],
             'resize_keyboard' => true,
             'one_time_keyboard' => false,

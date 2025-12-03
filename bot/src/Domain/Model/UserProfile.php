@@ -25,6 +25,7 @@ class UserProfile extends BaseModel
         'duel_losses',
         'duel_draws',
         'story_progress_score',
+        'true_false_record',
         'settings',
     ];
 
@@ -42,6 +43,7 @@ class UserProfile extends BaseModel
         'duel_losses' => 'int',
         'duel_draws' => 'int',
         'story_progress_score' => 'int',
+        'true_false_record' => 'int',
         'settings' => 'array',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',

@@ -60,6 +60,7 @@ class UserService
                 'duel_losses' => 0,
                 'duel_draws' => 0,
                 'story_progress_score' => 0,
+                'true_false_record' => 0,
                 'settings' => [],
             ]);
 
@@ -116,6 +117,7 @@ class UserService
             'duel_losses' => 0,
             'duel_draws' => 0,
             'story_progress_score' => 0,
+            'true_false_record' => 0,
             'settings' => [],
         ]);
 
