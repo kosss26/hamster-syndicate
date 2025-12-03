@@ -416,6 +416,18 @@ final class CallbackQueryHandler
 
             return;
         }
+
+        if ($data === 'rating:duel') {
+            $this->handleDuelLeaderboard($chatId, $user);
+
+            return;
+        }
+
+        if ($data === 'rating:tf') {
+            $this->handleTrueFalseLeaderboard($chatId, $user);
+
+            return;
+        }
     }
 
     private function handleDuelAccept($chatId, int $duelId, ?User $user): void
@@ -2545,6 +2557,222 @@ final class CallbackQueryHandler
                 'exception' => $e,
             ]);
             $this->sendText($chatId, '❌ Ошибка при получении статистики: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Показывает рейтинг дуэлей
+     */
+    private function handleDuelLeaderboard($chatId, ?User $user): void
+    {
+        try {
+            $topPlayers = $this->userService->getTopPlayersByRating(10);
+            
+            // Фильтруем игроков с 0 рейтингом
+            $topPlayers = array_values(array_filter($topPlayers, fn($entry) => $entry['rating'] > 0));
+            
+            if (empty($topPlayers)) {
+                $this->telegramClient->request('POST', 'sendMessage', [
+                    'json' => [
+                        'chat_id' => $chatId,
+                        'text' => '📊 Рейтинг дуэлей пока пуст. Сыграй в дуэль, чтобы попасть в топ!',
+                        'parse_mode' => 'HTML',
+                        'reply_markup' => $this->getMainKeyboard(),
+                    ],
+                ]);
+                return;
+            }
+
+            $lines = [
+                '⚔️ <b>РЕЙТИНГ ДУЭЛЕЙ</b>',
+                '',
+            ];
+
+            $medals = ['🥇', '🥈', '🥉'];
+            $position = 0;
+
+            foreach ($topPlayers as $entry) {
+                $position++;
+                $playerUser = $entry['user'];
+                $rating = $entry['rating'];
+                $rank = $this->profileFormatter->getRankByRating($rating);
+
+                $userName = $this->formatUserName($playerUser);
+
+                if ($position <= 3) {
+                    $positionDisplay = $medals[$position - 1];
+                } else {
+                    $positionDisplay = sprintf('%d.', $position);
+                }
+
+                $lines[] = sprintf(
+                    '%s <b>%s</b>',
+                    $positionDisplay,
+                    $userName
+                );
+                
+                $lines[] = $rank['name'];
+                $lines[] = sprintf('   ⭐ Рейтинг: <b>%d</b>', $rating);
+                $lines[] = '';
+            }
+
+            // Показываем позицию текущего пользователя, если он не в топе
+            if ($user !== null) {
+                $userPosition = $this->userService->getUserRatingPosition($user);
+                
+                if ($userPosition !== null) {
+                    $user = $this->userService->ensureProfile($user);
+                    $userProfile = $user->profile;
+                    
+                    if ($userProfile instanceof \QuizBot\Domain\Model\UserProfile) {
+                        $userRating = (int) $userProfile->rating;
+                        
+                        if ($userRating > 0) {
+                            $userRank = $this->profileFormatter->getRankByRating($userRating);
+                            
+                            $inTop = false;
+                            foreach ($topPlayers as $entry) {
+                                if ($entry['user']->getKey() === $user->getKey()) {
+                                    $inTop = true;
+                                    break;
+                                }
+                            }
+                            
+                            if (!$inTop) {
+                                $lines[] = '━━━━━━━━━━━━━━━━';
+                                $lines[] = sprintf('📍 <b>Твоя позиция: %d</b>', $userPosition);
+                                $lines[] = sprintf('%s | ⭐ <b>%d</b>', $userRank['name'], $userRating);
+                            }
+                        }
+                    }
+                }
+            }
+
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => implode("\n", $lines),
+                    'parse_mode' => 'HTML',
+                    'reply_markup' => $this->getMainKeyboard(),
+                ],
+            ]);
+        } catch (\Throwable $exception) {
+            $this->logger->error('Ошибка при отправке рейтинга дуэлей', [
+                'error' => $exception->getMessage(),
+                'trace' => $exception->getTraceAsString(),
+            ]);
+
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => '⚠️ Не удалось загрузить рейтинг. Попробуй позже.',
+                    'reply_markup' => $this->getMainKeyboard(),
+                ],
+            ]);
+        }
+    }
+
+    /**
+     * Показывает рейтинг "Правда или ложь" по лучшей серии
+     */
+    private function handleTrueFalseLeaderboard($chatId, ?User $user): void
+    {
+        try {
+            $topPlayers = $this->userService->getTopPlayersByTrueFalseRecord(10);
+            
+            if (empty($topPlayers)) {
+                $this->telegramClient->request('POST', 'sendMessage', [
+                    'json' => [
+                        'chat_id' => $chatId,
+                        'text' => '🧠 Рейтинг «Правда или ложь» пока пуст. Сыграй, чтобы попасть в топ!',
+                        'parse_mode' => 'HTML',
+                        'reply_markup' => $this->getMainKeyboard(),
+                    ],
+                ]);
+                return;
+            }
+
+            $lines = [
+                '🧠 <b>РЕЙТИНГ «ПРАВДА ИЛИ ЛОЖЬ»</b>',
+                '<i>Лучшие серии правильных ответов</i>',
+                '',
+            ];
+
+            $medals = ['🥇', '🥈', '🥉'];
+
+            foreach ($topPlayers as $entry) {
+                $position = $entry['position'];
+                $playerUser = $entry['user'];
+                $record = $entry['record'];
+
+                $userName = $this->formatUserName($playerUser);
+
+                if ($position <= 3) {
+                    $positionDisplay = $medals[$position - 1];
+                } else {
+                    $positionDisplay = sprintf('%d.', $position);
+                }
+
+                $lines[] = sprintf(
+                    '%s <b>%s</b>',
+                    $positionDisplay,
+                    $userName
+                );
+                $lines[] = sprintf('   🔥 Серия: <b>%d</b>', $record);
+                $lines[] = '';
+            }
+
+            // Показываем позицию текущего пользователя, если он не в топе
+            if ($user !== null) {
+                $userPosition = $this->userService->getUserTrueFalsePosition($user);
+                
+                if ($userPosition !== null) {
+                    $user = $this->userService->ensureProfile($user);
+                    $userProfile = $user->profile;
+                    
+                    if ($userProfile instanceof \QuizBot\Domain\Model\UserProfile) {
+                        $userRecord = (int) ($userProfile->true_false_record ?? 0);
+                        
+                        if ($userRecord > 0) {
+                            $inTop = false;
+                            foreach ($topPlayers as $entry) {
+                                if ($entry['user']->getKey() === $user->getKey()) {
+                                    $inTop = true;
+                                    break;
+                                }
+                            }
+                            
+                            if (!$inTop) {
+                                $lines[] = '━━━━━━━━━━━━━━━━';
+                                $lines[] = sprintf('📍 <b>Твоя позиция: %d</b>', $userPosition);
+                                $lines[] = sprintf('🔥 Серия: <b>%d</b>', $userRecord);
+                            }
+                        }
+                    }
+                }
+            }
+
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => implode("\n", $lines),
+                    'parse_mode' => 'HTML',
+                    'reply_markup' => $this->getMainKeyboard(),
+                ],
+            ]);
+        } catch (\Throwable $exception) {
+            $this->logger->error('Ошибка при отправке рейтинга Правда/Ложь', [
+                'error' => $exception->getMessage(),
+                'trace' => $exception->getTraceAsString(),
+            ]);
+
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => '⚠️ Не удалось загрузить рейтинг. Попробуй позже.',
+                    'reply_markup' => $this->getMainKeyboard(),
+                ],
+            ]);
         }
     }
 }

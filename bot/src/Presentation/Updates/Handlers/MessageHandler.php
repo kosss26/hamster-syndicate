@@ -171,23 +171,22 @@ final class MessageHandler
 
             if ($text === '🏆 Рейтинг' || $text === 'Рейтинг') {
                 $this->logger->debug('Обработка кнопки Рейтинг');
-                $commandHandler = new CommandHandler(
-                    $this->telegramClient,
-                    $this->logger,
-                    $this->userService,
-                    $this->duelService,
-                    $this->gameSessionService,
-                    $this->storyService,
-                    $this->profileFormatter,
-                    $this->adminService,
-                    $this->trueFalseService,
-                    $this->cache
-                );
-                $commandHandler->handle([
-                    'chat_id' => $chatId,
-                    'command' => '/leaderboard',
-                    'from' => $from,
-                    'user' => $user,
+                $this->telegramClient->request('POST', 'sendMessage', [
+                    'json' => [
+                        'chat_id' => $chatId,
+                        'text' => "🏆 <b>Выбери рейтинг</b>\n\nКакой рейтинг ты хочешь посмотреть?",
+                        'parse_mode' => 'HTML',
+                        'reply_markup' => [
+                            'inline_keyboard' => [
+                                [
+                                    ['text' => '⚔️ Дуэли', 'callback_data' => 'rating:duel'],
+                                ],
+                                [
+                                    ['text' => '🧠 Правда или ложь', 'callback_data' => 'rating:tf'],
+                                ],
+                            ],
+                        ],
+                    ],
                 ]);
                 return;
             }

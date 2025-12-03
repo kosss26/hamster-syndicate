@@ -557,6 +557,9 @@ final class CommandHandler
         try {
             $topPlayers = $this->userService->getTopPlayersByRating(10);
             
+            // Фильтруем игроков с 0 рейтингом
+            $topPlayers = array_values(array_filter($topPlayers, fn($entry) => $entry['rating'] > 0));
+            
             $this->logger->debug('Получены топ игроки', [
                 'count' => count($topPlayers),
             ]);
@@ -581,9 +584,10 @@ final class CommandHandler
 
             // Медали для топ-3
             $medals = ['🥇', '🥈', '🥉'];
+            $position = 0;
 
             foreach ($topPlayers as $entry) {
-                $position = $entry['position'];
+                $position++;
                 $playerUser = $entry['user'];
                 $rating = $entry['rating'];
                 $rank = $this->profileFormatter->getRankByRating($rating);
@@ -623,25 +627,29 @@ final class CommandHandler
                     
                     if ($userProfile instanceof \QuizBot\Domain\Model\UserProfile) {
                         $userRating = (int) $userProfile->rating;
-                        $userRank = $this->profileFormatter->getRankByRating($userRating);
                         
-                        // Проверяем, есть ли пользователь уже в топе
-                        $inTop = false;
-                        foreach ($topPlayers as $entry) {
-                            if ($entry['user']->getKey() === $user->getKey()) {
-                                $inTop = true;
-                                break;
+                        // Не показываем позицию, если рейтинг = 0
+                        if ($userRating > 0) {
+                            $userRank = $this->profileFormatter->getRankByRating($userRating);
+                            
+                            // Проверяем, есть ли пользователь уже в топе
+                            $inTop = false;
+                            foreach ($topPlayers as $entry) {
+                                if ($entry['user']->getKey() === $user->getKey()) {
+                                    $inTop = true;
+                                    break;
+                                }
                             }
-                        }
-                        
-                        if (!$inTop && $userPosition <= 100) {
-                            $lines[] = '━━━━━━━━━━━━━━━━';
-                            $lines[] = sprintf('📍 <b>Твоя позиция: %d</b>', $userPosition);
-                            $lines[] = sprintf('%s | ⭐ <b>%d</b>', $userRank['name'], $userRating);
-                        } elseif (!$inTop) {
-                            $lines[] = '━━━━━━━━━━━━━━━━';
-                            $lines[] = sprintf('📍 <b>Твоя позиция: %d+</b>', $userPosition);
-                            $lines[] = sprintf('%s | ⭐ <b>%d</b>', $userRank['name'], $userRating);
+                            
+                            if (!$inTop && $userPosition <= 100) {
+                                $lines[] = '━━━━━━━━━━━━━━━━';
+                                $lines[] = sprintf('📍 <b>Твоя позиция: %d</b>', $userPosition);
+                                $lines[] = sprintf('%s | ⭐ <b>%d</b>', $userRank['name'], $userRating);
+                            } elseif (!$inTop) {
+                                $lines[] = '━━━━━━━━━━━━━━━━';
+                                $lines[] = sprintf('📍 <b>Твоя позиция: %d+</b>', $userPosition);
+                                $lines[] = sprintf('%s | ⭐ <b>%d</b>', $userRank['name'], $userRating);
+                            }
                         }
                     }
                 }

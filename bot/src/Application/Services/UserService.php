@@ -206,5 +206,86 @@ class UserService
             return null;
         }
     }
+
+    /**
+     * Получает топ игроков по лучшей серии в режиме "Правда или ложь"
+     *
+     * @return array<int, array{position: int, user: User, record: int}>
+     */
+    public function getTopPlayersByTrueFalseRecord(int $limit = 10): array
+    {
+        try {
+            $profiles = UserProfile::query()
+                ->whereNotNull('true_false_record')
+                ->where('true_false_record', '>', 0)
+                ->orderByDesc('true_false_record')
+                ->limit($limit)
+                ->with('user')
+                ->get();
+
+            $result = [];
+            $position = 1;
+
+            foreach ($profiles as $profile) {
+                $user = $profile->user;
+                
+                if ($user === null) {
+                    continue;
+                }
+
+                $record = (int) ($profile->true_false_record ?? 0);
+                $user->setRelation('profile', $profile);
+                
+                $result[] = [
+                    'position' => $position++,
+                    'user' => $user,
+                    'record' => $record,
+                ];
+            }
+
+            return $result;
+        } catch (\Throwable $exception) {
+            $this->logger->error('Ошибка при получении топа игроков по Правда/Ложь', [
+                'error' => $exception->getMessage(),
+                'trace' => $exception->getTraceAsString(),
+            ]);
+            return [];
+        }
+    }
+
+    /**
+     * Получает позицию пользователя в рейтинге "Правда или ложь"
+     */
+    public function getUserTrueFalsePosition(User $user): ?int
+    {
+        try {
+            $user = $this->ensureProfile($user);
+            $profile = $user->profile;
+
+            if ($profile === null) {
+                return null;
+            }
+
+            $record = (int) ($profile->true_false_record ?? 0);
+
+            if ($record === 0) {
+                return null;
+            }
+
+            // Подсчитываем количество пользователей с рекордом выше текущего
+            $usersAbove = UserProfile::query()
+                ->where('true_false_record', '>', $record)
+                ->count();
+
+            return $usersAbove + 1;
+        } catch (\Throwable $exception) {
+            $this->logger->error('Ошибка при получении позиции в рейтинге Правда/Ложь', [
+                'error' => $exception->getMessage(),
+                'user_id' => $user->getKey(),
+                'trace' => $exception->getTraceAsString(),
+            ]);
+            return null;
+        }
+    }
 }
 
