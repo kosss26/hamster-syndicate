@@ -128,7 +128,8 @@ final class UpdateRouter
                 $this->storyService,
                 $this->profileFormatter,
                 $this->adminService,
-                $this->trueFalseService
+                $this->trueFalseService,
+                $this->cache
             );
             $commandHandler->handle($update['command']);
         }

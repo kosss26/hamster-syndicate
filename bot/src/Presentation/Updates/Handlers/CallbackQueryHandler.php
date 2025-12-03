@@ -1824,7 +1824,28 @@ final class CallbackQueryHandler
         $factId = (int) $matches[1];
         $answer = $matches[2] === '1';
 
-        $result = $this->trueFalseService->handleAnswer($user, $factId, $answer);
+        // Проверяем таймаут (15 секунд)
+        $timeoutSeconds = 15;
+        $cacheKey = sprintf('tf_question_start:%d', $user->getKey());
+        $startTime = $this->cache->get($cacheKey, static fn () => null);
+        
+        $timedOut = false;
+        if ($startTime !== null) {
+            $elapsed = time() - $startTime;
+            if ($elapsed > $timeoutSeconds) {
+                $timedOut = true;
+            }
+        }
+
+        if ($timedOut) {
+            // Время истекло - засчитываем как неверный ответ
+            $result = $this->trueFalseService->handleAnswer($user, $factId, !$this->trueFalseService->getCurrentFact($user)?->is_true);
+            $result['is_correct'] = false;
+            $result['timed_out'] = true;
+        } else {
+            $result = $this->trueFalseService->handleAnswer($user, $factId, $answer);
+            $result['timed_out'] = false;
+        }
 
         if (!$result['fact'] instanceof TrueFalseFact) {
             $this->sendText($chatId, '⚠️ Факт не найден. Нажми /truth, чтобы начать заново.');
@@ -1834,8 +1855,11 @@ final class CallbackQueryHandler
 
         $this->sendTrueFalseResultMessage($chatId, $result);
 
+        // Задержка 3 секунды перед следующим вопросом
+        sleep(3);
+
         if ($result['next_fact'] instanceof TrueFalseFact) {
-            $this->sendTrueFalseFactMessage($chatId, $result['next_fact'], $result['streak']);
+            $this->sendTrueFalseFactMessage($chatId, $result['next_fact'], $result['streak'], $user);
         } else {
             $this->sendText($chatId, 'Факты закончились. Нажми /truth, чтобы сыграть снова.');
         }
@@ -1858,13 +1882,22 @@ final class CallbackQueryHandler
         }
 
         $this->sendText($chatId, '⏭ Факт пропущен. Серия сброшена.');
-        $this->sendTrueFalseFactMessage($chatId, $fact, 0);
+        $this->sendTrueFalseFactMessage($chatId, $fact, 0, $user);
     }
 
-    private function sendTrueFalseFactMessage($chatId, TrueFalseFact $fact, int $streak): void
+    private function sendTrueFalseFactMessage($chatId, TrueFalseFact $fact, int $streak, ?User $user = null): void
     {
+        // Сохраняем время начала вопроса для проверки таймаута
+        if ($user instanceof User) {
+            $cacheKey = sprintf('tf_question_start:%d', $user->getKey());
+            $this->cache->delete($cacheKey);
+            $startTime = time();
+            $this->cache->get($cacheKey, static fn () => $startTime);
+        }
+
         $lines = [
             '🧠 <b>Правда или ложь</b>',
+            '⏱ <b>15 сек.</b>',
         ];
 
         if ($streak > 0) {
@@ -1917,7 +1950,8 @@ final class CallbackQueryHandler
      *  correct_answer: bool,
      *  streak: int,
      *  record: int,
-     *  record_updated: bool
+     *  record_updated: bool,
+     *  timed_out?: bool
      * } $result
      */
     private function sendTrueFalseResultMessage($chatId, array $result): void
@@ -1930,7 +1964,16 @@ final class CallbackQueryHandler
         }
 
         $lines = [];
-        $lines[] = $result['is_correct'] ? '✅ <b>Правильно!</b>' : '❌ <b>Неверно.</b>';
+        $timedOut = $result['timed_out'] ?? false;
+        
+        if ($timedOut) {
+            $lines[] = '⏱ <b>Время истекло!</b>';
+        } elseif ($result['is_correct']) {
+            $lines[] = '✅ <b>Правильно!</b>';
+        } else {
+            $lines[] = '❌ <b>Неверно.</b>';
+        }
+        
         $lines[] = '';
         $lines[] = '<b>Утверждение:</b>';
         $lines[] = htmlspecialchars($fact->statement, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');

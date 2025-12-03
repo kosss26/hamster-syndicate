@@ -100,7 +100,8 @@ final class MessageHandler
                 $this->storyService,
                 $this->profileFormatter,
                 $this->adminService,
-                $this->trueFalseService
+                $this->trueFalseService,
+                $this->cache
             );
             $commandHandler->handle([
                 'chat_id' => $chatId,
@@ -133,7 +134,8 @@ final class MessageHandler
                     $this->storyService,
                     $this->profileFormatter,
                     $this->adminService,
-                    $this->trueFalseService
+                    $this->trueFalseService,
+                    $this->cache
                 );
                 $commandHandler->handle([
                     'chat_id' => $chatId,
@@ -155,7 +157,8 @@ final class MessageHandler
                     $this->storyService,
                     $this->profileFormatter,
                     $this->adminService,
-                    $this->trueFalseService
+                    $this->trueFalseService,
+                    $this->cache
                 );
                 $commandHandler->handle([
                     'chat_id' => $chatId,
@@ -177,7 +180,8 @@ final class MessageHandler
                     $this->storyService,
                     $this->profileFormatter,
                     $this->adminService,
-                    $this->trueFalseService
+                    $this->trueFalseService,
+                    $this->cache
                 );
                 $commandHandler->handle([
                     'chat_id' => $chatId,
@@ -199,7 +203,8 @@ final class MessageHandler
                     $this->storyService,
                     $this->profileFormatter,
                     $this->adminService,
-                    $this->trueFalseService
+                    $this->trueFalseService,
+                    $this->cache
                 );
                 $commandHandler->handle([
                     'chat_id' => $chatId,
@@ -294,7 +299,8 @@ final class MessageHandler
                 $this->storyService,
                 $this->profileFormatter,
                 $this->adminService,
-                $this->trueFalseService
+                $this->trueFalseService,
+                $this->cache
             );
 
             // Если это админ и он ввёл @username — сначала пробуем завершить дуэль по нику

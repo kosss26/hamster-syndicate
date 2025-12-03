@@ -17,6 +17,7 @@ use QuizBot\Domain\Model\User;
 use QuizBot\Domain\Model\Duel;
 use QuizBot\Domain\Model\TrueFalseFact;
 use QuizBot\Presentation\Updates\Handlers\Concerns\SendsDuelMessages;
+use Symfony\Contracts\Cache\CacheInterface;
 
 final class CommandHandler
 {
@@ -40,6 +41,8 @@ final class CommandHandler
 
     private TrueFalseService $trueFalseService;
 
+    private CacheInterface $cache;
+
     public function __construct(
         ClientInterface $telegramClient,
         Logger $logger,
@@ -49,7 +52,8 @@ final class CommandHandler
         StoryService $storyService,
         ProfileFormatter $profileFormatter,
         AdminService $adminService,
-        TrueFalseService $trueFalseService
+        TrueFalseService $trueFalseService,
+        CacheInterface $cache
     ) {
         $this->telegramClient = $telegramClient;
         $this->logger = $logger;
@@ -60,6 +64,7 @@ final class CommandHandler
         $this->profileFormatter = $profileFormatter;
         $this->adminService = $adminService;
         $this->trueFalseService = $trueFalseService;
+        $this->cache = $cache;
     }
 
     protected function getTelegramClient(): ClientInterface
@@ -374,13 +379,22 @@ final class CommandHandler
             return;
         }
 
-        $this->sendTrueFalseFactMessage($chatId, $fact, 0);
+        $this->sendTrueFalseFactMessage($chatId, $fact, 0, $user);
     }
 
-    private function sendTrueFalseFactMessage($chatId, TrueFalseFact $fact, int $streak): void
+    private function sendTrueFalseFactMessage($chatId, TrueFalseFact $fact, int $streak, ?User $user = null): void
     {
+        // Сохраняем время начала вопроса для проверки таймаута
+        if ($user instanceof User) {
+            $cacheKey = sprintf('tf_question_start:%d', $user->getKey());
+            $this->cache->delete($cacheKey);
+            $startTime = time();
+            $this->cache->get($cacheKey, static fn () => $startTime);
+        }
+
         $lines = [
             '🧠 <b>Правда или ложь</b>',
+            '⏱ <b>15 сек.</b>',
         ];
 
         if ($streak > 0) {
