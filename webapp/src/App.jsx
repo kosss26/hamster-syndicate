@@ -5,6 +5,7 @@ import HomePage from './pages/HomePage'
 import DuelPage from './pages/DuelPage'
 import ProfilePage from './pages/ProfilePage'
 import LeaderboardPage from './pages/LeaderboardPage'
+import StatsPage from './pages/StatsPage'
 
 function App() {
   const [tg, setTg] = useState(null)
@@ -65,6 +66,7 @@ function App() {
             <Route path="/duel" element={<DuelPage />} />
             <Route path="/duel/:id" element={<DuelPage />} />
             <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/stats" element={<StatsPage />} />
             <Route path="/leaderboard" element={<LeaderboardPage />} />
           </Routes>
         </div>

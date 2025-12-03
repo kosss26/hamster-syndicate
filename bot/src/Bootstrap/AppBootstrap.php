@@ -24,6 +24,7 @@ use QuizBot\Application\Services\StoryService;
 use QuizBot\Application\Services\ProfileFormatter;
 use QuizBot\Application\Services\HintService;
 use QuizBot\Application\Services\TrueFalseService;
+use QuizBot\Application\Services\StatisticsService;
 use QuizBot\Database\Seeders\SampleDataSeeder;
 
 final class AppBootstrap
@@ -168,6 +169,11 @@ final class AppBootstrap
                     $c->get(CacheFactory::class)->create(),
                     $c->get(Logger::class),
                     $c->get(UserService::class)
+                );
+            },
+            StatisticsService::class => function (Container $c) {
+                return new StatisticsService(
+                    $c->get(Logger::class)
                 );
             },
             MessageFormatter::class => function (Container $c) {

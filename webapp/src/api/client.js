@@ -67,6 +67,10 @@ export const api = {
 
   // Рейтинг
   getLeaderboard: (type = 'duel') => request(`/leaderboard?type=${type}`),
+
+  // Статистика
+  getStatistics: () => request('/statistics'),
+  getQuickStatistics: () => request('/statistics/quick'),
 }
 
 export default api

@@ -12,11 +12,11 @@ declare(strict_types=1);
 use DI\ContainerBuilder;
 use Psr\Http\Message\ResponseInterface;
 use QuizBot\Bootstrap\AppBootstrap;
-use QuizBot\Domain\Repository\UserRepositoryInterface;
 use QuizBot\Application\Services\UserService;
 use QuizBot\Application\Services\DuelService;
 use QuizBot\Application\Services\ProfileFormatter;
 use QuizBot\Application\Services\TrueFalseService;
+use QuizBot\Application\Services\StatisticsService;
 
 // Загрузка автолоадера
 require dirname(__DIR__) . '/vendor/autoload.php';
@@ -102,6 +102,16 @@ try {
             handleGetLeaderboard($container, $_GET['type'] ?? 'duel');
             break;
 
+        // GET /statistics - получить расширенную статистику
+        case $path === '/statistics' && $requestMethod === 'GET':
+            handleGetStatistics($container, $telegramUser);
+            break;
+
+        // GET /statistics/quick - получить краткую статистику
+        case $path === '/statistics/quick' && $requestMethod === 'GET':
+            handleGetQuickStatistics($container, $telegramUser);
+            break;
+
         default:
             jsonError('Маршрут не найден', 404);
     }
@@ -165,21 +175,21 @@ function handleGetUser($container, ?array $telegramUser): void
         jsonError('Не авторизован', 401);
     }
 
-    /** @var UserRepositoryInterface $userRepo */
-    $userRepo = $container->get(UserRepositoryInterface::class);
+    /** @var UserService $userService */
+    $userService = $container->get(UserService::class);
     
-    $user = $userRepo->findByTelegramId((int) $telegramUser['id']);
+    $user = $userService->findByTelegramId((int) $telegramUser['id']);
     
     if (!$user) {
         jsonError('Пользователь не найден', 404);
     }
 
     jsonResponse([
-        'id' => $user->getId(),
-        'telegram_id' => $user->getTelegramId(),
-        'username' => $user->getUsername(),
-        'first_name' => $user->getFirstName(),
-        'last_name' => $user->getLastName(),
+        'id' => $user->getKey(),
+        'telegram_id' => $user->telegram_id,
+        'username' => $user->username,
+        'first_name' => $user->first_name,
+        'last_name' => $user->last_name,
     ]);
 }
 
@@ -198,34 +208,32 @@ function handleGetProfile($container, ?array $telegramUser): void
     /** @var ProfileFormatter $profileFormatter */
     $profileFormatter = $container->get(ProfileFormatter::class);
     
-    /** @var UserRepositoryInterface $userRepo */
-    $userRepo = $container->get(UserRepositoryInterface::class);
-    
-    $user = $userRepo->findByTelegramId((int) $telegramUser['id']);
+    $user = $userService->findByTelegramId((int) $telegramUser['id']);
     
     if (!$user) {
         jsonError('Пользователь не найден', 404);
     }
 
-    $profile = $userService->getProfileByUserId($user->getId());
+    $user = $userService->ensureProfile($user);
+    $profile = $user->profile;
     
     if (!$profile) {
         jsonError('Профиль не найден', 404);
     }
 
-    $rank = $profileFormatter->getRankByRating($profile->getRating());
+    $rank = $profileFormatter->getRankByRating((int) $profile->rating);
 
     jsonResponse([
-        'rating' => $profile->getRating(),
+        'rating' => (int) $profile->rating,
         'rank' => $rank,
-        'coins' => $profile->getCoins(),
-        'win_streak' => $profile->getWinStreak(),
-        'true_false_record' => $profile->getTrueFalseRecord(),
+        'coins' => (int) $profile->coins,
+        'win_streak' => (int) $profile->streak_days,
+        'true_false_record' => (int) $profile->true_false_record,
         'stats' => [
-            'duel_wins' => $profile->getDuelWins(),
-            'duel_losses' => $profile->getDuelLosses(),
-            'duel_draws' => $profile->getDuelDraws(),
-            'total_games' => $profile->getDuelWins() + $profile->getDuelLosses() + $profile->getDuelDraws(),
+            'duel_wins' => (int) $profile->duel_wins,
+            'duel_losses' => (int) $profile->duel_losses,
+            'duel_draws' => (int) $profile->duel_draws,
+            'total_games' => (int) ($profile->duel_wins + $profile->duel_losses + $profile->duel_draws),
         ],
     ]);
 }
@@ -239,10 +247,10 @@ function handleCreateDuel($container, ?array $telegramUser, array $body): void
         jsonError('Не авторизован', 401);
     }
 
-    /** @var UserRepositoryInterface $userRepo */
-    $userRepo = $container->get(UserRepositoryInterface::class);
+    /** @var UserService $userService */
+    $userService = $container->get(UserService::class);
     
-    $user = $userRepo->findByTelegramId((int) $telegramUser['id']);
+    $user = $userService->findByTelegramId((int) $telegramUser['id']);
     
     if (!$user) {
         jsonError('Пользователь не найден', 404);
@@ -253,15 +261,15 @@ function handleCreateDuel($container, ?array $telegramUser, array $body): void
     
     $mode = $body['mode'] ?? 'random';
     
-    // Создаём или находим дуэль
-    $duel = $duelService->createOrJoinDuel($user);
+    // Создаём дуэль через matchmaking
+    $duel = $duelService->createMatchmakingTicket($user);
     
     jsonResponse([
-        'duel_id' => $duel->getId(),
-        'status' => $duel->getStatus(),
-        'challenger_id' => $duel->getChallengerId(),
-        'opponent_id' => $duel->getOpponentId(),
-        'current_round' => $duel->getCurrentRound(),
+        'duel_id' => $duel->getKey(),
+        'status' => $duel->status,
+        'code' => $duel->code,
+        'initiator_id' => $duel->initiator_user_id,
+        'opponent_id' => $duel->opponent_user_id,
     ]);
 }
 
@@ -283,39 +291,48 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
         jsonError('Дуэль не найдена', 404);
     }
 
+    $duel->loadMissing('rounds.question.answers', 'rounds.question.category');
+
     // Получаем текущий раунд с вопросом
     $currentRound = $duelService->getCurrentRound($duel);
     $question = null;
     
     if ($currentRound) {
-        $q = $currentRound->getQuestion();
+        $q = $currentRound->question;
         $answers = [];
         
-        foreach ($q->getAnswers() as $answer) {
-            $answers[] = [
-                'id' => $answer->getId(),
-                'text' => $answer->getText(),
-            ];
+        if ($q && $q->answers) {
+            foreach ($q->answers as $answer) {
+                $answers[] = [
+                    'id' => $answer->getKey(),
+                    'text' => $answer->text,
+                ];
+            }
         }
         
         // Перемешиваем ответы
         shuffle($answers);
         
         $question = [
-            'id' => $q->getId(),
-            'text' => $q->getText(),
-            'category' => $q->getCategory()?->getName() ?? 'Общие знания',
+            'id' => $q?->getKey(),
+            'text' => $q?->text,
+            'category' => $q?->category?->title ?? 'Общие знания',
             'answers' => $answers,
         ];
     }
 
+    // Подсчитываем очки
+    $initiatorScore = $duel->rounds->sum('initiator_score');
+    $opponentScore = $duel->rounds->sum('opponent_score');
+    $completedRounds = $duel->rounds->whereNotNull('closed_at')->count();
+
     jsonResponse([
-        'duel_id' => $duel->getId(),
-        'status' => $duel->getStatus(),
-        'current_round' => $duel->getCurrentRound(),
-        'total_rounds' => 10,
-        'challenger_score' => $duel->getChallengerScore(),
-        'opponent_score' => $duel->getOpponentScore(),
+        'duel_id' => $duel->getKey(),
+        'status' => $duel->status,
+        'current_round' => $completedRounds + 1,
+        'total_rounds' => $duel->rounds_to_win * 2,
+        'initiator_score' => $initiatorScore,
+        'opponent_score' => $opponentScore,
         'question' => $question,
     ]);
 }
@@ -330,17 +347,16 @@ function handleDuelAnswer($container, ?array $telegramUser, array $body): void
     }
 
     $duelId = $body['duelId'] ?? null;
-    $roundId = $body['roundId'] ?? null;
     $answerId = $body['answerId'] ?? null;
 
     if (!$duelId || !$answerId) {
         jsonError('Не указаны обязательные параметры', 400);
     }
 
-    /** @var UserRepositoryInterface $userRepo */
-    $userRepo = $container->get(UserRepositoryInterface::class);
+    /** @var UserService $userService */
+    $userService = $container->get(UserService::class);
     
-    $user = $userRepo->findByTelegramId((int) $telegramUser['id']);
+    $user = $userService->findByTelegramId((int) $telegramUser['id']);
     
     if (!$user) {
         jsonError('Пользователь не найден', 404);
@@ -349,14 +365,29 @@ function handleDuelAnswer($container, ?array $telegramUser, array $body): void
     /** @var DuelService $duelService */
     $duelService = $container->get(DuelService::class);
     
+    $duel = $duelService->findById((int) $duelId);
+    
+    if (!$duel) {
+        jsonError('Дуэль не найдена', 404);
+    }
+
+    $currentRound = $duelService->getCurrentRound($duel);
+    
+    if (!$currentRound) {
+        jsonError('Нет активного раунда', 400);
+    }
+
     // Обрабатываем ответ
-    $result = $duelService->processAnswer($user, (int) $duelId, (int) $answerId);
+    $round = $duelService->submitAnswer($currentRound, $user, (int) $answerId);
+    
+    // Определяем результат для текущего пользователя
+    $isInitiator = $duel->initiator_user_id === $user->getKey();
+    $payload = $isInitiator ? $round->initiator_payload : $round->opponent_payload;
 
     jsonResponse([
-        'is_correct' => $result['is_correct'],
-        'correct_answer_id' => $result['correct_answer_id'],
-        'points_earned' => $result['points_earned'] ?? 0,
-        'time_taken' => $result['time_taken'] ?? 0,
+        'is_correct' => $payload['is_correct'] ?? false,
+        'points_earned' => $payload['score'] ?? 0,
+        'time_taken' => $payload['time_elapsed'] ?? 0,
     ]);
 }
 
@@ -369,18 +400,33 @@ function handleGetTrueFalseQuestion($container, ?array $telegramUser): void
         jsonError('Не авторизован', 401);
     }
 
+    /** @var UserService $userService */
+    $userService = $container->get(UserService::class);
+    
+    $user = $userService->findByTelegramId((int) $telegramUser['id']);
+    
+    if (!$user) {
+        jsonError('Пользователь не найден', 404);
+    }
+
     /** @var TrueFalseService $trueFalseService */
     $trueFalseService = $container->get(TrueFalseService::class);
     
-    $fact = $trueFalseService->getRandomFact();
+    // Проверяем, есть ли текущий факт
+    $fact = $trueFalseService->getCurrentFact($user);
+    
+    if (!$fact) {
+        // Начинаем новую сессию
+        $fact = $trueFalseService->startSession($user);
+    }
     
     if (!$fact) {
         jsonError('Не удалось загрузить факт', 500);
     }
 
     jsonResponse([
-        'id' => $fact->getId(),
-        'statement' => $fact->getStatement(),
+        'id' => $fact->getKey(),
+        'statement' => $fact->statement,
     ]);
 }
 
@@ -400,10 +446,10 @@ function handleTrueFalseAnswer($container, ?array $telegramUser, array $body): v
         jsonError('Не указаны обязательные параметры', 400);
     }
 
-    /** @var UserRepositoryInterface $userRepo */
-    $userRepo = $container->get(UserRepositoryInterface::class);
+    /** @var UserService $userService */
+    $userService = $container->get(UserService::class);
     
-    $user = $userRepo->findByTelegramId((int) $telegramUser['id']);
+    $user = $userService->findByTelegramId((int) $telegramUser['id']);
     
     if (!$user) {
         jsonError('Пользователь не найден', 404);
@@ -412,7 +458,7 @@ function handleTrueFalseAnswer($container, ?array $telegramUser, array $body): v
     /** @var TrueFalseService $trueFalseService */
     $trueFalseService = $container->get(TrueFalseService::class);
     
-    $result = $trueFalseService->checkAnswer($user, (int) $factId, (bool) $answer);
+    $result = $trueFalseService->handleAnswer($user, (int) $factId, (bool) $answer);
 
     jsonResponse([
         'is_correct' => $result['is_correct'],
@@ -420,6 +466,10 @@ function handleTrueFalseAnswer($container, ?array $telegramUser, array $body): v
         'explanation' => $result['explanation'],
         'streak' => $result['streak'],
         'record' => $result['record'],
+        'next_fact' => $result['next_fact'] ? [
+            'id' => $result['next_fact']->getKey(),
+            'statement' => $result['next_fact']->statement,
+        ] : null,
     ]);
 }
 
@@ -439,24 +489,26 @@ function handleGetLeaderboard($container, string $type): void
     if ($type === 'duel') {
         $topPlayers = $userService->getTopPlayersByRating(20);
         
-        foreach ($topPlayers as $index => $player) {
+        foreach ($topPlayers as $playerData) {
+            $user = $playerData['user'];
             $players[] = [
-                'position' => $index + 1,
-                'name' => $player['first_name'] ?? 'Игрок',
-                'username' => $player['username'] ?? '',
-                'rating' => $player['rating'],
-                'rank' => $profileFormatter->getRankByRating($player['rating']),
+                'position' => $playerData['position'],
+                'name' => $user->first_name ?? 'Игрок',
+                'username' => $user->username ?? '',
+                'rating' => $playerData['rating'],
+                'rank' => $profileFormatter->getRankByRating($playerData['rating']),
             ];
         }
     } else {
         $topPlayers = $userService->getTopPlayersByTrueFalseRecord(20);
         
-        foreach ($topPlayers as $index => $player) {
+        foreach ($topPlayers as $playerData) {
+            $user = $playerData['user'];
             $players[] = [
-                'position' => $index + 1,
-                'name' => $player['first_name'] ?? 'Игрок',
-                'username' => $player['username'] ?? '',
-                'record' => $player['true_false_record'],
+                'position' => $playerData['position'],
+                'name' => $user->first_name ?? 'Игрок',
+                'username' => $user->username ?? '',
+                'record' => $playerData['record'],
             ];
         }
     }
@@ -465,6 +517,58 @@ function handleGetLeaderboard($container, string $type): void
         'type' => $type,
         'players' => $players,
     ]);
+}
+
+/**
+ * Получение расширенной статистики пользователя
+ */
+function handleGetStatistics($container, ?array $telegramUser): void
+{
+    if (!$telegramUser) {
+        jsonError('Не авторизован', 401);
+    }
+
+    /** @var UserService $userService */
+    $userService = $container->get(UserService::class);
+    
+    $user = $userService->findByTelegramId((int) $telegramUser['id']);
+    
+    if (!$user) {
+        jsonError('Пользователь не найден', 404);
+    }
+
+    /** @var StatisticsService $statisticsService */
+    $statisticsService = $container->get(StatisticsService::class);
+    
+    $statistics = $statisticsService->getFullStatistics($user);
+
+    jsonResponse($statistics);
+}
+
+/**
+ * Получение краткой статистики пользователя
+ */
+function handleGetQuickStatistics($container, ?array $telegramUser): void
+{
+    if (!$telegramUser) {
+        jsonError('Не авторизован', 401);
+    }
+
+    /** @var UserService $userService */
+    $userService = $container->get(UserService::class);
+    
+    $user = $userService->findByTelegramId((int) $telegramUser['id']);
+    
+    if (!$user) {
+        jsonError('Пользователь не найден', 404);
+    }
+
+    /** @var StatisticsService $statisticsService */
+    $statisticsService = $container->get(StatisticsService::class);
+    
+    $statistics = $statisticsService->getQuickStats($user);
+
+    jsonResponse($statistics);
 }
 
 /**
