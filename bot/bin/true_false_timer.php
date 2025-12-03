@@ -67,9 +67,13 @@ try {
     $trueFalseService = $container->get(TrueFalseService::class);
 
     $replyMarkup = json_decode($replyMarkupJson, true);
+    if ($replyMarkup === null) {
+        tfLog("ОШИБКА: Не удалось декодировать reply_markup: $replyMarkupJson");
+        $replyMarkup = ['inline_keyboard' => []];
+    }
     $startTime = time();
 
-    tfLog("Начинаем цикл таймера, startTime=$startTime");
+    tfLog("Начинаем цикл таймера, startTime=$startTime, replyMarkup=" . json_encode($replyMarkup));
 
     for ($elapsed = 0; $elapsed < $timeoutSeconds; $elapsed++) {
         sleep(1);
@@ -109,14 +113,20 @@ try {
 
         // Обновляем сообщение
         try {
+            $requestData = [
+                'chat_id' => $chatId,
+                'message_id' => $messageId,
+                'text' => $updatedText,
+                'parse_mode' => 'HTML',
+            ];
+            
+            // Добавляем reply_markup только если он валидный и не пустой
+            if (!empty($replyMarkup) && isset($replyMarkup['inline_keyboard']) && !empty($replyMarkup['inline_keyboard'])) {
+                $requestData['reply_markup'] = $replyMarkup;
+            }
+            
             $telegramClient->request('POST', 'editMessageText', [
-                'json' => [
-                    'chat_id' => $chatId,
-                    'message_id' => $messageId,
-                    'text' => $updatedText,
-                    'parse_mode' => 'HTML',
-                    'reply_markup' => $replyMarkup,
-                ],
+                'json' => $requestData,
             ]);
             tfLog("Сообщение обновлено успешно");
         } catch (\Throwable $e) {
