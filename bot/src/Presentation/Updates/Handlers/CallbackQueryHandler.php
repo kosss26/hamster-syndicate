@@ -1880,14 +1880,18 @@ final class CallbackQueryHandler
 
         $this->sendTrueFalseResultMessage($chatId, $result);
 
-        // Задержка 3 секунды перед следующим вопросом
-        sleep(3);
+        // Если ответ правильный - продолжаем игру, если нет - конец игры
+        if ($result['is_correct']) {
+            // Задержка 3 секунды перед следующим вопросом
+            sleep(3);
 
-        if ($result['next_fact'] instanceof TrueFalseFact) {
-            $this->sendTrueFalseFactMessage($chatId, $result['next_fact'], $result['streak'], $user);
-        } else {
-            $this->sendText($chatId, 'Факты закончились. Нажми /truth, чтобы сыграть снова.');
+            if ($result['next_fact'] instanceof TrueFalseFact) {
+                $this->sendTrueFalseFactMessage($chatId, $result['next_fact'], $result['streak'], $user);
+            } else {
+                $this->sendText($chatId, '🎉 Поздравляем! Ты ответил на все вопросы! Нажми /truth, чтобы сыграть снова.');
+            }
         }
+        // Если ответ неверный или время истекло - игра закончена, итоги уже показаны в sendTrueFalseResultMessage
     }
 
     private function handleTrueFalseSkip($chatId, ?User $user): void
@@ -1898,16 +1902,54 @@ final class CallbackQueryHandler
             return;
         }
 
-        $fact = $this->trueFalseService->skip($user);
+        // Получаем текущий факт для показа ответа
+        $currentFact = $this->trueFalseService->getCurrentFact($user);
+        
+        // Сбрасываем серию
+        $this->trueFalseService->skip($user);
+        
+        $record = $user->profile?->true_false_record ?? 0;
 
-        if (!$fact instanceof TrueFalseFact) {
-            $this->sendText($chatId, '⚠️ Не удалось загрузить новый факт. Попробуйте позже.');
+        $lines = [
+            '⏭ <b>Пропущено</b>',
+            '',
+            '━━━━━━━━━━━━━━━━',
+            '🏁 <b>ИГРА ОКОНЧЕНА</b>',
+            '━━━━━━━━━━━━━━━━',
+        ];
 
-            return;
+        if ($currentFact instanceof TrueFalseFact) {
+            $lines[] = '';
+            $lines[] = '<b>Утверждение:</b>';
+            $lines[] = htmlspecialchars($currentFact->statement, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            $lines[] = '';
+            $lines[] = sprintf('Правильный ответ: <b>%s</b>', $currentFact->is_true ? 'Правда' : 'Ложь');
+
+            if (!empty($currentFact->explanation)) {
+                $lines[] = '';
+                $lines[] = htmlspecialchars($currentFact->explanation, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            }
         }
 
-        $this->sendText($chatId, '⏭ Факт пропущен. Серия сброшена.');
-        $this->sendTrueFalseFactMessage($chatId, $fact, 0, $user);
+        $lines[] = '';
+        $lines[] = '━━━━━━━━━━━━━━━━';
+        $lines[] = '📊 Твоя серия: <b>0</b>';
+        $lines[] = sprintf('🏆 Лучший результат: <b>%d</b>', $record);
+
+        $this->telegramClient->request('POST', 'sendMessage', [
+            'json' => [
+                'chat_id' => $chatId,
+                'text' => implode("\n", $lines),
+                'parse_mode' => 'HTML',
+                'reply_markup' => [
+                    'inline_keyboard' => [
+                        [
+                            ['text' => '🔄 Играть снова', 'callback_data' => 'tf:start'],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
     }
 
     private function sendTrueFalseFactMessage($chatId, TrueFalseFact $fact, int $streak, ?User $user = null): void
@@ -2063,42 +2105,80 @@ final class CallbackQueryHandler
 
         $lines = [];
         $timedOut = $result['timed_out'] ?? false;
+        $isCorrect = $result['is_correct'] ?? false;
         
-        if ($timedOut) {
-            $lines[] = '⏱ <b>Время истекло!</b>';
-        } elseif ($result['is_correct']) {
+        if ($isCorrect) {
+            // Правильный ответ - продолжаем игру
             $lines[] = '✅ <b>Правильно!</b>';
-        } else {
-            $lines[] = '❌ <b>Неверно.</b>';
-        }
-        
-        $lines[] = '';
-        $lines[] = '<b>Утверждение:</b>';
-        $lines[] = htmlspecialchars($fact->statement, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-        $lines[] = '';
-        $lines[] = sprintf('Правильный ответ: <b>%s</b>', $result['correct_answer'] ? 'Правда' : 'Ложь');
-
-        if (!empty($result['explanation'])) {
             $lines[] = '';
-            $lines[] = htmlspecialchars((string) $result['explanation'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            $lines[] = '<b>Утверждение:</b>';
+            $lines[] = htmlspecialchars($fact->statement, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            $lines[] = '';
+            $lines[] = sprintf('Правильный ответ: <b>%s</b>', $result['correct_answer'] ? 'Правда' : 'Ложь');
+
+            if (!empty($result['explanation'])) {
+                $lines[] = '';
+                $lines[] = htmlspecialchars((string) $result['explanation'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            }
+
+            $lines[] = '';
+            $lines[] = sprintf('🔥 Серия: <b>%d</b>', (int) $result['streak']);
+
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => implode("\n", $lines),
+                    'parse_mode' => 'HTML',
+                ],
+            ]);
+        } else {
+            // Неверный ответ или время истекло - КОНЕЦ ИГРЫ
+            if ($timedOut) {
+                $lines[] = '⏱ <b>Время истекло!</b>';
+            } else {
+                $lines[] = '❌ <b>Неверно!</b>';
+            }
+            
+            $lines[] = '';
+            $lines[] = '━━━━━━━━━━━━━━━━';
+            $lines[] = '🏁 <b>ИГРА ОКОНЧЕНА</b>';
+            $lines[] = '━━━━━━━━━━━━━━━━';
+            $lines[] = '';
+            $lines[] = '<b>Утверждение:</b>';
+            $lines[] = htmlspecialchars($fact->statement, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            $lines[] = '';
+            $lines[] = sprintf('Правильный ответ: <b>%s</b>', $result['correct_answer'] ? 'Правда' : 'Ложь');
+
+            if (!empty($result['explanation'])) {
+                $lines[] = '';
+                $lines[] = htmlspecialchars((string) $result['explanation'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            }
+
+            $lines[] = '';
+            $lines[] = '━━━━━━━━━━━━━━━━';
+            $lines[] = sprintf('📊 Твоя серия: <b>%d</b>', (int) $result['streak']);
+            $lines[] = sprintf('🏆 Лучший результат: <b>%d</b>', (int) $result['record']);
+
+            if ($result['record_updated'] ?? false) {
+                $lines[] = '';
+                $lines[] = '🎉 <b>Новый рекорд!</b>';
+            }
+
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => implode("\n", $lines),
+                    'parse_mode' => 'HTML',
+                    'reply_markup' => [
+                        'inline_keyboard' => [
+                            [
+                                ['text' => '🔄 Играть снова', 'callback_data' => 'tf:start'],
+                            ],
+                        ],
+                    ],
+                ],
+            ]);
         }
-
-        $lines[] = '';
-        $lines[] = sprintf('Текущая серия: <b>%d</b>', (int) $result['streak']);
-        $lines[] = sprintf('Лучший результат: <b>%d</b>', (int) $result['record']);
-
-        if ($result['record_updated']) {
-            $lines[] = '🔥 Новый рекорд!';
-        }
-
-        $this->telegramClient->request('POST', 'sendMessage', [
-            'json' => [
-                'chat_id' => $chatId,
-                'text' => implode("\n", $lines),
-                'parse_mode' => 'HTML',
-                'reply_markup' => $this->getMainKeyboard(),
-            ],
-        ]);
     }
 
     /**

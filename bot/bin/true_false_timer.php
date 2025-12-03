@@ -24,6 +24,7 @@ use QuizBot\Bootstrap\AppBootstrap;
 use QuizBot\Infrastructure\Telegram\TelegramClientFactory;
 use QuizBot\Application\Services\TrueFalseService;
 use QuizBot\Domain\Model\User;
+use QuizBot\Domain\Model\TrueFalseFact;
 use Symfony\Contracts\Cache\CacheInterface;
 
 if ($argc < 9) {
@@ -55,10 +56,9 @@ try {
 
     $replyMarkup = json_decode($replyMarkupJson, true);
     $startTime = time();
-    $updateInterval = 1; // Обновляем каждую секунду
 
     for ($elapsed = 0; $elapsed < $timeoutSeconds; $elapsed++) {
-        sleep($updateInterval);
+        sleep(1);
         $remaining = $timeoutSeconds - $elapsed - 1;
 
         // Проверяем, ответил ли пользователь
@@ -121,18 +121,25 @@ try {
     $questionStartTime = $cache->get($cacheKey, static fn () => null);
 
     if ($questionStartTime !== null && $questionStartTime <= $startTime) {
-        // Пользователь не ответил - засчитываем как неверный ответ
+        // Пользователь не ответил - засчитываем как неверный ответ и заканчиваем игру
         $user = User::query()->find($userId);
 
         if ($user instanceof User) {
             $result = $trueFalseService->handleAnswer($user, $factId, false);
             $result['timed_out'] = true;
 
-            // Отправляем результат
-            $fact = $result['fact'];
+            // Получаем факт для показа
+            /** @var TrueFalseFact|null $fact */
+            $fact = TrueFalseFact::query()->find($factId);
+            
             if ($fact !== null) {
+                // Отправляем ФИНАЛЬНОЕ сообщение (игра окончена)
                 $lines = [];
-                $lines[] = '❌ <b>Время истекло!</b>';
+                $lines[] = '⏱ <b>Время истекло!</b>';
+                $lines[] = '';
+                $lines[] = '━━━━━━━━━━━━━━━━';
+                $lines[] = '🏁 <b>ИГРА ОКОНЧЕНА</b>';
+                $lines[] = '━━━━━━━━━━━━━━━━';
                 $lines[] = '';
                 $lines[] = '<b>Утверждение:</b>';
                 $lines[] = htmlspecialchars($fact->statement, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
@@ -145,108 +152,29 @@ try {
                 }
 
                 $lines[] = '';
-                $lines[] = sprintf('Текущая серия: <b>%d</b>', (int) $result['streak']);
-                $lines[] = sprintf('Лучший результат: <b>%d</b>', (int) $result['record']);
+                $lines[] = '━━━━━━━━━━━━━━━━';
+                $lines[] = sprintf('📊 Твоя серия: <b>%d</b>', $streak);
+                $lines[] = sprintf('🏆 Лучший результат: <b>%d</b>', (int) ($result['record'] ?? $user->profile?->true_false_record ?? 0));
+
+                if ($result['record_updated'] ?? false) {
+                    $lines[] = '';
+                    $lines[] = '🎉 <b>Новый рекорд!</b>';
+                }
 
                 $telegramClient->request('POST', 'sendMessage', [
                     'json' => [
                         'chat_id' => $chatId,
                         'text' => implode("\n", $lines),
                         'parse_mode' => 'HTML',
+                        'reply_markup' => [
+                            'inline_keyboard' => [
+                                [
+                                    ['text' => '🔄 Играть снова', 'callback_data' => 'tf:start'],
+                                ],
+                            ],
+                        ],
                     ],
                 ]);
-
-                // Пауза 3 секунды
-                sleep(3);
-
-                // Отправляем следующий вопрос
-                $nextFact = $result['next_fact'] ?? null;
-                if ($nextFact !== null) {
-                    // Сохраняем время начала нового вопроса
-                    $newCacheKey = sprintf('tf_question_start:%d', $userId);
-                    $cache->delete($newCacheKey);
-                    $newStartTime = time();
-                    $cache->get($newCacheKey, static fn () => $newStartTime);
-
-                    $newStreak = (int) $result['streak'];
-                    $newTimeoutSeconds = 15;
-
-                    $newLines = [
-                        '🧠 <b>Правда или ложь</b>',
-                        sprintf('⏱ <b>%d сек.</b>', $newTimeoutSeconds),
-                    ];
-
-                    if ($newStreak > 0) {
-                        $newLines[] = sprintf('🔥 Серия: %d', $newStreak);
-                    }
-
-                    $newLines[] = '';
-                    $newLines[] = htmlspecialchars($nextFact->statement, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-                    $newLines[] = '';
-                    $newLines[] = 'Выбери ответ:';
-
-                    $newKeyboard = [
-                        'inline_keyboard' => [
-                            [
-                                ['text' => '✅ Правда', 'callback_data' => sprintf('tf:answer:%d:1', $nextFact->getKey())],
-                                ['text' => '❌ Ложь', 'callback_data' => sprintf('tf:answer:%d:0', $nextFact->getKey())],
-                            ],
-                            [
-                                ['text' => '⏭ Пропустить', 'callback_data' => 'tf:skip'],
-                            ],
-                        ],
-                    ];
-
-                    $response = $telegramClient->request('POST', 'sendMessage', [
-                        'json' => [
-                            'chat_id' => $chatId,
-                            'text' => implode("\n", $newLines),
-                            'parse_mode' => 'HTML',
-                            'reply_markup' => $newKeyboard,
-                        ],
-                    ]);
-
-                    // Запускаем новый таймер
-                    $responseBody = json_decode($response->getBody()->getContents(), true);
-                    $newMessageId = $responseBody['result']['message_id'] ?? null;
-
-                    if ($newMessageId !== null) {
-                        $phpPath = PHP_BINARY;
-                        if (strpos($phpPath, 'fpm') !== false) {
-                            $possiblePaths = ['/usr/bin/php', '/usr/local/bin/php', '/usr/bin/php8.2', '/usr/bin/php8.1'];
-                            foreach ($possiblePaths as $path) {
-                                if (file_exists($path) && is_executable($path)) {
-                                    $phpPath = $path;
-                                    break;
-                                }
-                            }
-                        }
-
-                        $command = sprintf(
-                            'cd %s && nohup %s %s %s %d %d %d %s %s %d %d > /dev/null 2>&1 &',
-                            escapeshellarg(__DIR__ . '/..'),
-                            escapeshellarg($phpPath),
-                            escapeshellarg(__FILE__),
-                            escapeshellarg((string) $chatId),
-                            $newMessageId,
-                            $userId,
-                            $nextFact->getKey(),
-                            escapeshellarg(implode("\n", $newLines)),
-                            escapeshellarg(json_encode($newKeyboard)),
-                            $newTimeoutSeconds,
-                            $newStreak
-                        );
-
-                        exec($command);
-                    }
-                } else {
-                    $telegramClient->request('POST', 'sendMessage', [
-                        'json' => [
-                            'chat_id' => $chatId,
-                            'text' => 'Факты закончились. Нажми /truth, чтобы сыграть снова.',
-                        ],
-                    ]);
-                }
             }
         }
     }
@@ -262,4 +190,3 @@ try {
         FILE_APPEND
     );
 }
-
