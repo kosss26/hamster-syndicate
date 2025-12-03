@@ -352,38 +352,37 @@ final class CommandHandler
             return;
         }
 
+        $record = $user->profile?->true_false_record ?? 0;
+
         $this->telegramClient->request('POST', 'sendMessage', [
             'json' => [
                 'chat_id' => $chatId,
                 'text' => implode("\n", [
                     '🧠 <b>Правда или ложь</b>',
                     '',
-                    'Читайте утверждение и нажимайте «Правда» или «Ложь».',
+                    'Читай утверждение и нажимай «Правда» или «Ложь».',
                     'Каждый правильный ответ увеличивает серию — побей свой рекорд!',
+                    '',
+                    sprintf('🏆 Твой рекорд: <b>%d</b>', $record),
+                    '',
+                    '⏱ На ответ даётся <b>15 секунд</b>.',
                 ]),
                 'parse_mode' => 'HTML',
-                'reply_markup' => $this->getMainKeyboard(),
+                'reply_markup' => [
+                    'inline_keyboard' => [
+                        [
+                            ['text' => '🚀 Начать игру', 'callback_data' => 'tf:start'],
+                        ],
+                    ],
+                ],
             ],
         ]);
-
-        $fact = $this->trueFalseService->startSession($user);
-
-        if (!$fact instanceof TrueFalseFact) {
-            $this->telegramClient->request('POST', 'sendMessage', [
-                'json' => [
-                    'chat_id' => $chatId,
-                    'text' => '⚠️ Не удалось загрузить факты. Попробуйте позже.',
-                ],
-            ]);
-
-            return;
-        }
-
-        $this->sendTrueFalseFactMessage($chatId, $fact, 0, $user);
     }
 
     private function sendTrueFalseFactMessage($chatId, TrueFalseFact $fact, int $streak, ?User $user = null): void
     {
+        $timeoutSeconds = 15;
+        
         // Сохраняем время начала вопроса для проверки таймаута
         if ($user instanceof User) {
             $cacheKey = sprintf('tf_question_start:%d', $user->getKey());
@@ -394,13 +393,11 @@ final class CommandHandler
 
         $lines = [
             '🧠 <b>Правда или ложь</b>',
-            '⏱ <b>15 сек.</b>',
+            sprintf('⏱ <b>%d сек.</b>', $timeoutSeconds),
         ];
 
         if ($streak > 0) {
-            $lines[] = sprintf('Серия: %d', $streak);
-        } else {
-            $lines[] = 'Собери серию правильных ответов!';
+            $lines[] = sprintf('🔥 Серия: %d', $streak);
         }
 
         $lines[] = '';

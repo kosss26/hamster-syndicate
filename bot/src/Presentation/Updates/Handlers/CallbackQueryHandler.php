@@ -405,6 +405,12 @@ final class CallbackQueryHandler
             return;
         }
 
+        if ($data === 'tf:start') {
+            $this->handleTrueFalseStart($chatId, $user);
+
+            return;
+        }
+
         if ($this->startsWith($data, 'tf:answer:')) {
             $this->handleTrueFalseAnswer($chatId, $data, $user);
 
@@ -1807,6 +1813,25 @@ final class CallbackQueryHandler
         }
     }
 
+    private function handleTrueFalseStart($chatId, ?User $user): void
+    {
+        if (!$user instanceof User) {
+            $this->sendText($chatId, 'Не удалось определить профиль. Нажми /start и попробуй снова.');
+
+            return;
+        }
+
+        $fact = $this->trueFalseService->startSession($user);
+
+        if (!$fact instanceof TrueFalseFact) {
+            $this->sendText($chatId, '⚠️ Не удалось загрузить факты. Попробуйте позже.');
+
+            return;
+        }
+
+        $this->sendTrueFalseFactMessage($chatId, $fact, 0, $user);
+    }
+
     private function handleTrueFalseAnswer($chatId, string $data, ?User $user): void
     {
         if (!$user instanceof User) {
@@ -1887,6 +1912,8 @@ final class CallbackQueryHandler
 
     private function sendTrueFalseFactMessage($chatId, TrueFalseFact $fact, int $streak, ?User $user = null): void
     {
+        $timeoutSeconds = 15;
+        
         // Сохраняем время начала вопроса для проверки таймаута
         if ($user instanceof User) {
             $cacheKey = sprintf('tf_question_start:%d', $user->getKey());
@@ -1897,13 +1924,11 @@ final class CallbackQueryHandler
 
         $lines = [
             '🧠 <b>Правда или ложь</b>',
-            '⏱ <b>15 сек.</b>',
+            sprintf('⏱ <b>%d сек.</b>', $timeoutSeconds),
         ];
 
         if ($streak > 0) {
-            $lines[] = sprintf('Серия: %d', $streak);
-        } else {
-            $lines[] = 'Попробуй набрать рекордную серию!';
+            $lines[] = sprintf('🔥 Серия: %d', $streak);
         }
 
         $lines[] = '';
@@ -1930,7 +1955,7 @@ final class CallbackQueryHandler
             ],
         ];
 
-        $this->telegramClient->request('POST', 'sendMessage', [
+        $response = $this->telegramClient->request('POST', 'sendMessage', [
             'json' => [
                 'chat_id' => $chatId,
                 'text' => implode("\n", $lines),
@@ -1940,6 +1965,79 @@ final class CallbackQueryHandler
                 ],
             ],
         ]);
+
+        // Запускаем скрипт для динамического обновления таймера
+        if ($user instanceof User) {
+            try {
+                $responseBody = json_decode($response->getBody()->getContents(), true);
+                $messageId = $responseBody['result']['message_id'] ?? null;
+
+                if ($messageId !== null) {
+                    $this->launchTrueFalseTimer(
+                        $chatId,
+                        $messageId,
+                        $user->getKey(),
+                        $fact->getKey(),
+                        implode("\n", $lines),
+                        json_encode(['inline_keyboard' => $keyboard]),
+                        $timeoutSeconds,
+                        $streak
+                    );
+                }
+            } catch (\Throwable $e) {
+                $this->logger->error('Ошибка запуска таймера Правда/Ложь', [
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+    }
+
+    private function launchTrueFalseTimer(
+        $chatId,
+        int $messageId,
+        int $userId,
+        int $factId,
+        string $originalText,
+        string $replyMarkupJson,
+        int $timeoutSeconds,
+        int $streak
+    ): void {
+        $reflection = new \ReflectionClass($this);
+        $basePath = dirname($reflection->getFileName(), 5);
+        $scriptPath = $basePath . '/bin/true_false_timer.php';
+
+        if (!file_exists($scriptPath)) {
+            $this->logger->warning('Скрипт таймера Правда/Ложь не найден', ['script_path' => $scriptPath]);
+            return;
+        }
+
+        $phpPath = PHP_BINARY;
+        if (strpos($phpPath, 'fpm') !== false) {
+            $possiblePaths = ['/usr/bin/php', '/usr/local/bin/php', '/usr/bin/php8.2', '/usr/bin/php8.1'];
+            foreach ($possiblePaths as $path) {
+                if (file_exists($path) && is_executable($path)) {
+                    $phpPath = $path;
+                    break;
+                }
+            }
+        }
+
+        $command = sprintf(
+            'cd %s && nohup %s %s %s %d %d %d %s %s %d %d > /dev/null 2>&1 &',
+            escapeshellarg($basePath),
+            escapeshellarg($phpPath),
+            escapeshellarg($scriptPath),
+            escapeshellarg((string) $chatId),
+            $messageId,
+            $userId,
+            $factId,
+            escapeshellarg($originalText),
+            escapeshellarg($replyMarkupJson),
+            $timeoutSeconds,
+            $streak
+        );
+
+        exec($command);
     }
 
     /**
