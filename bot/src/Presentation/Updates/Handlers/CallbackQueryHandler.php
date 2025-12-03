@@ -416,12 +416,6 @@ final class CallbackQueryHandler
 
             return;
         }
-
-        if ($data === 'tf:skip') {
-            $this->handleTrueFalseSkip($chatId, $user);
-
-            return;
-        }
     }
 
     private function handleDuelAccept($chatId, int $duelId, ?User $user): void
@@ -1894,64 +1888,6 @@ final class CallbackQueryHandler
         // Если ответ неверный или время истекло - игра закончена, итоги уже показаны в sendTrueFalseResultMessage
     }
 
-    private function handleTrueFalseSkip($chatId, ?User $user): void
-    {
-        if (!$user instanceof User) {
-            $this->sendText($chatId, 'Нажми /start, чтобы продолжить игру.');
-
-            return;
-        }
-
-        // Получаем текущий факт для показа ответа
-        $currentFact = $this->trueFalseService->getCurrentFact($user);
-        
-        // Сбрасываем серию
-        $this->trueFalseService->skip($user);
-        
-        $record = $user->profile?->true_false_record ?? 0;
-
-        $lines = [
-            '⏭ <b>Пропущено</b>',
-            '',
-            '━━━━━━━━━━━━━━━━',
-            '🏁 <b>ИГРА ОКОНЧЕНА</b>',
-            '━━━━━━━━━━━━━━━━',
-        ];
-
-        if ($currentFact instanceof TrueFalseFact) {
-            $lines[] = '';
-            $lines[] = '<b>Утверждение:</b>';
-            $lines[] = htmlspecialchars($currentFact->statement, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-            $lines[] = '';
-            $lines[] = sprintf('Правильный ответ: <b>%s</b>', $currentFact->is_true ? 'Правда' : 'Ложь');
-
-            if (!empty($currentFact->explanation)) {
-                $lines[] = '';
-                $lines[] = htmlspecialchars($currentFact->explanation, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-            }
-        }
-
-        $lines[] = '';
-        $lines[] = '━━━━━━━━━━━━━━━━';
-        $lines[] = '📊 Твоя серия: <b>0</b>';
-        $lines[] = sprintf('🏆 Лучший результат: <b>%d</b>', $record);
-
-        $this->telegramClient->request('POST', 'sendMessage', [
-            'json' => [
-                'chat_id' => $chatId,
-                'text' => implode("\n", $lines),
-                'parse_mode' => 'HTML',
-                'reply_markup' => [
-                    'inline_keyboard' => [
-                        [
-                            ['text' => '🔄 Играть снова', 'callback_data' => 'tf:start'],
-                        ],
-                    ],
-                ],
-            ],
-        ]);
-    }
-
     private function sendTrueFalseFactMessage($chatId, TrueFalseFact $fact, int $streak, ?User $user = null): void
     {
         $timeoutSeconds = 15;
@@ -1987,12 +1923,6 @@ final class CallbackQueryHandler
                 [
                     'text' => '❌ Ложь',
                     'callback_data' => sprintf('tf:answer:%d:0', $fact->getKey()),
-                ],
-            ],
-            [
-                [
-                    'text' => '⏭ Пропустить',
-                    'callback_data' => 'tf:skip',
                 ],
             ],
         ];
@@ -2064,8 +1994,19 @@ final class CallbackQueryHandler
             }
         }
 
+        $this->logger->info('Запуск таймера Правда/Ложь', [
+            'script_path' => $scriptPath,
+            'php_path' => $phpPath,
+            'chat_id' => $chatId,
+            'message_id' => $messageId,
+            'user_id' => $userId,
+            'fact_id' => $factId,
+        ]);
+
+        $logFile = $basePath . '/storage/logs/tf_timer.log';
+        
         $command = sprintf(
-            'cd %s && nohup %s %s %s %d %d %d %s %s %d %d > /dev/null 2>&1 &',
+            'cd %s && nohup %s %s %s %d %d %d %s %s %d %d >> %s 2>&1 &',
             escapeshellarg($basePath),
             escapeshellarg($phpPath),
             escapeshellarg($scriptPath),
@@ -2076,9 +2017,11 @@ final class CallbackQueryHandler
             escapeshellarg($originalText),
             escapeshellarg($replyMarkupJson),
             $timeoutSeconds,
-            $streak
+            $streak,
+            escapeshellarg($logFile)
         );
 
+        $this->logger->info('Команда запуска таймера', ['command' => $command]);
         exec($command);
     }
 

@@ -6,16 +6,6 @@ declare(strict_types=1);
 /**
  * Скрипт для динамического обновления таймера в режиме "Правда или ложь".
  * Запускается в фоне для каждого вопроса.
- *
- * Аргументы:
- * 1. chatId
- * 2. messageId
- * 3. userId
- * 4. factId
- * 5. originalText
- * 6. replyMarkupJson
- * 7. timeoutSeconds
- * 8. streak
  */
 
 require_once __DIR__ . '/../vendor/autoload.php';
@@ -27,7 +17,26 @@ use QuizBot\Domain\Model\User;
 use QuizBot\Domain\Model\TrueFalseFact;
 use Symfony\Contracts\Cache\CacheInterface;
 
+// Логирование
+$logDir = __DIR__ . '/../storage/logs';
+if (!is_dir($logDir)) {
+    mkdir($logDir, 0755, true);
+}
+
+function tfLog(string $message): void {
+    global $logDir;
+    file_put_contents(
+        $logDir . '/tf_timer.log',
+        sprintf("[%s] %s\n", date('Y-m-d H:i:s'), $message),
+        FILE_APPEND
+    );
+}
+
+tfLog("=== Скрипт запущен ===");
+tfLog("Аргументы: " . json_encode($argv));
+
 if ($argc < 9) {
+    tfLog("Недостаточно аргументов: $argc");
     exit(1);
 }
 
@@ -39,6 +48,8 @@ $originalText = $argv[5];
 $replyMarkupJson = $argv[6];
 $timeoutSeconds = (int) $argv[7];
 $streak = (int) $argv[8];
+
+tfLog("chatId=$chatId, messageId=$messageId, userId=$userId, factId=$factId, timeout=$timeoutSeconds");
 
 try {
     $bootstrap = new AppBootstrap(__DIR__ . '/..');
@@ -57,6 +68,8 @@ try {
     $replyMarkup = json_decode($replyMarkupJson, true);
     $startTime = time();
 
+    tfLog("Начинаем цикл таймера, startTime=$startTime");
+
     for ($elapsed = 0; $elapsed < $timeoutSeconds; $elapsed++) {
         sleep(1);
         $remaining = $timeoutSeconds - $elapsed - 1;
@@ -65,8 +78,11 @@ try {
         $cacheKey = sprintf('tf_question_start:%d', $userId);
         $questionStartTime = $cache->get($cacheKey, static fn () => null);
 
+        tfLog("elapsed=$elapsed, remaining=$remaining, questionStartTime=$questionStartTime");
+
         // Если время начала вопроса изменилось или отсутствует, значит пользователь ответил
         if ($questionStartTime === null || $questionStartTime > $startTime) {
+            tfLog("Пользователь ответил, выходим");
             exit(0);
         }
 
@@ -88,6 +104,8 @@ try {
             $replyMarkup = ['inline_keyboard' => []];
         }
 
+        tfLog("Обновляем сообщение, remaining=$remaining");
+
         // Обновляем сообщение
         try {
             $telegramClient->request('POST', 'editMessageText', [
@@ -99,11 +117,14 @@ try {
                     'reply_markup' => $replyMarkup,
                 ],
             ]);
+            tfLog("Сообщение обновлено успешно");
         } catch (\Throwable $e) {
+            tfLog("Ошибка обновления: " . $e->getMessage());
             // Если сообщение уже изменено или удалено - выходим
             if (strpos($e->getMessage(), 'message is not modified') !== false ||
                 strpos($e->getMessage(), "message can't be edited") !== false ||
                 strpos($e->getMessage(), 'message to edit not found') !== false) {
+                tfLog("Сообщение изменено/удалено, выходим");
                 exit(0);
             }
         }
@@ -114,26 +135,28 @@ try {
     }
 
     // Время истекло - обрабатываем таймаут
+    tfLog("Время истекло, обрабатываем таймаут");
     sleep(1);
 
     // Проверяем, не ответил ли пользователь в последний момент
     $cacheKey = sprintf('tf_question_start:%d', $userId);
     $questionStartTime = $cache->get($cacheKey, static fn () => null);
 
+    tfLog("Финальная проверка: questionStartTime=$questionStartTime, startTime=$startTime");
+
     if ($questionStartTime !== null && $questionStartTime <= $startTime) {
         // Пользователь не ответил - засчитываем как неверный ответ и заканчиваем игру
         $user = User::query()->find($userId);
 
         if ($user instanceof User) {
+            tfLog("Пользователь не ответил, обрабатываем как неверный");
             $result = $trueFalseService->handleAnswer($user, $factId, false);
             $result['timed_out'] = true;
 
-            // Получаем факт для показа
             /** @var TrueFalseFact|null $fact */
             $fact = TrueFalseFact::query()->find($factId);
             
             if ($fact !== null) {
-                // Отправляем ФИНАЛЬНОЕ сообщение (игра окончена)
                 $lines = [];
                 $lines[] = '⏱ <b>Время истекло!</b>';
                 $lines[] = '';
@@ -175,18 +198,14 @@ try {
                         ],
                     ],
                 ]);
+                tfLog("Финальное сообщение отправлено");
             }
         }
     }
+
+    tfLog("=== Скрипт завершён ===");
+
 } catch (\Throwable $e) {
-    // Логируем ошибку в файл
-    $logDir = __DIR__ . '/../storage/logs';
-    if (!is_dir($logDir)) {
-        mkdir($logDir, 0755, true);
-    }
-    file_put_contents(
-        $logDir . '/tf_timer_error.log',
-        sprintf("[%s] Error: %s\nTrace: %s\n\n", date('Y-m-d H:i:s'), $e->getMessage(), $e->getTraceAsString()),
-        FILE_APPEND
-    );
+    tfLog("ОШИБКА: " . $e->getMessage());
+    tfLog("Trace: " . $e->getTraceAsString());
 }
