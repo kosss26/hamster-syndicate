@@ -111,7 +111,8 @@ final class UpdateRouter
                 $this->messageFormatter,
                 $this->adminService,
                 $this->hintService,
-                $this->trueFalseService
+                $this->trueFalseService,
+                $this->profileFormatter
             );
             $callbackHandler->handle($update['callback_query']);
 

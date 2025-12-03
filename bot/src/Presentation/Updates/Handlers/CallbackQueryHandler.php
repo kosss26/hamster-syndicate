@@ -14,6 +14,7 @@ use QuizBot\Application\Services\StoryService;
 use QuizBot\Application\Services\AdminService;
 use QuizBot\Application\Services\HintService;
 use QuizBot\Application\Services\TrueFalseService;
+use QuizBot\Application\Services\ProfileFormatter;
 use QuizBot\Domain\Model\User;
 use QuizBot\Domain\Model\Question;
 use QuizBot\Domain\Model\GameSession;
@@ -53,6 +54,8 @@ final class CallbackQueryHandler
 
     private TrueFalseService $trueFalseService;
 
+    private ProfileFormatter $profileFormatter;
+
     private string $basePath;
 
     public function __construct(
@@ -66,7 +69,8 @@ final class CallbackQueryHandler
         \QuizBot\Application\Services\MessageFormatter $messageFormatter,
         AdminService $adminService,
         HintService $hintService,
-        TrueFalseService $trueFalseService
+        TrueFalseService $trueFalseService,
+        ProfileFormatter $profileFormatter
     ) {
         $this->telegramClient = $telegramClient;
         $this->logger = $logger;
@@ -79,6 +83,7 @@ final class CallbackQueryHandler
         $this->adminService = $adminService;
         $this->hintService = $hintService;
         $this->trueFalseService = $trueFalseService;
+        $this->profileFormatter = $profileFormatter;
         $this->basePath = dirname(__DIR__, 4);
     }
 

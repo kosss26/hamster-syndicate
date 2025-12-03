@@ -138,6 +138,7 @@ class UserService
         try {
             $profiles = UserProfile::query()
                 ->whereNotNull('rating')
+                ->where('rating', '>', 0)
                 ->orderByDesc('rating')
                 ->limit($limit)
                 ->with('user')
