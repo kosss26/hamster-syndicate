@@ -1848,6 +1848,9 @@ final class CallbackQueryHandler
         $cacheKey = sprintf('tf_question_start:%d', $user->getKey());
         $startTime = $this->cache->get($cacheKey, static fn () => null);
         
+        // Удаляем кэш времени начала, чтобы остановить таймер
+        $this->cache->delete($cacheKey);
+        
         $timedOut = false;
         if ($startTime !== null) {
             $elapsed = time() - $startTime;

@@ -73,7 +73,8 @@ try {
     }
     $startTime = time();
 
-    tfLog("Начинаем цикл таймера, startTime=$startTime, replyMarkup=" . json_encode($replyMarkup));
+    $updateInterval = 5; // Обновляем сообщение каждые 5 секунд
+    tfLog("Начинаем цикл таймера, startTime=$startTime, updateInterval=$updateInterval");
 
     for ($elapsed = 0; $elapsed < $timeoutSeconds; $elapsed++) {
         sleep(1);
@@ -83,13 +84,19 @@ try {
         $cacheKey = sprintf('tf_question_start:%d', $userId);
         $questionStartTime = $cache->get($cacheKey, static fn () => null);
 
-        tfLog("elapsed=$elapsed, remaining=$remaining, questionStartTime=$questionStartTime");
-
         // Если время начала вопроса изменилось или отсутствует, значит пользователь ответил
         if ($questionStartTime === null || $questionStartTime > $startTime) {
             tfLog("Пользователь ответил, выходим");
             exit(0);
         }
+        
+        // Обновляем сообщение только каждые $updateInterval секунд или когда время истекло
+        $shouldUpdate = ($elapsed % $updateInterval === 0) || ($remaining <= 0);
+        if (!$shouldUpdate) {
+            continue;
+        }
+        
+        tfLog("elapsed=$elapsed, remaining=$remaining, обновляем сообщение");
 
         // Формируем обновлённый текст
         if ($remaining > 0) {
@@ -108,8 +115,6 @@ try {
             // Убираем кнопки ответа
             $replyMarkup = ['inline_keyboard' => []];
         }
-
-        tfLog("Обновляем сообщение, remaining=$remaining");
 
         // Обновляем сообщение
         try {
