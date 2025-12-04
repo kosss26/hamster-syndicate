@@ -60,7 +60,7 @@ function App() {
 
   return (
     <TelegramContext.Provider value={{ tg, user }}>
-      <BrowserRouter>
+      <BrowserRouter basename="/webapp">
         <div className="min-h-screen bg-gradient-game">
           <Routes>
             <Route path="/" element={<HomePage />} />
