@@ -80,6 +80,10 @@ export const api = {
   // Статистика
   getStatistics: () => request('/statistics'),
   getQuickStatistics: () => request('/statistics/quick'),
+
+  // Админ
+  getAdminStats: () => request('/admin/stats'),
+  isAdmin: () => request('/admin/check'),
 }
 
 export default api

@@ -123,6 +123,16 @@ try {
             handleGetQuickStatistics($container, $telegramUser);
             break;
 
+        // GET /admin/check - проверить права админа
+        case $path === '/admin/check' && $requestMethod === 'GET':
+            handleAdminCheck($container, $telegramUser);
+            break;
+
+        // GET /admin/stats - получить статистику для админки
+        case $path === '/admin/stats' && $requestMethod === 'GET':
+            handleAdminStats($container, $telegramUser);
+            break;
+
         default:
             jsonError('Маршрут не найден', 404);
     }
@@ -628,6 +638,119 @@ function handleGetQuickStatistics($container, ?array $telegramUser): void
     $statistics = $statisticsService->getQuickStats($user);
 
     jsonResponse($statistics);
+}
+
+/**
+ * Проверка, является ли пользователь админом
+ */
+function isAdmin(?array $telegramUser, $container): bool
+{
+    if (!$telegramUser) {
+        return false;
+    }
+    
+    /** @var Config $config */
+    $config = $container->get(Config::class);
+    $adminIds = array_map('trim', explode(',', $config->get('ADMIN_TELEGRAM_IDS', '')));
+    
+    return in_array((string) $telegramUser['id'], $adminIds, true);
+}
+
+/**
+ * Проверка прав админа
+ */
+function handleAdminCheck($container, ?array $telegramUser): void
+{
+    jsonResponse([
+        'is_admin' => isAdmin($telegramUser, $container),
+    ]);
+}
+
+/**
+ * Получение статистики для админки
+ */
+function handleAdminStats($container, ?array $telegramUser): void
+{
+    if (!isAdmin($telegramUser, $container)) {
+        jsonError('Доступ запрещён', 403);
+    }
+
+    // Получаем статистику из БД
+    $totalUsers = \QuizBot\Domain\Model\User::query()->count();
+    $activeToday = \QuizBot\Domain\Model\User::query()
+        ->where('updated_at', '>=', now()->subDay())
+        ->count();
+    $newUsersToday = \QuizBot\Domain\Model\User::query()
+        ->where('created_at', '>=', now()->subDay())
+        ->count();
+    
+    $totalDuels = \QuizBot\Domain\Model\Duel::query()->count();
+    $activeDuels = \QuizBot\Domain\Model\Duel::query()
+        ->whereIn('status', ['waiting', 'matched', 'in_progress'])
+        ->count();
+    $duelsToday = \QuizBot\Domain\Model\Duel::query()
+        ->where('created_at', '>=', now()->subDay())
+        ->count();
+    
+    $totalQuestions = \QuizBot\Domain\Model\Question::query()->count();
+    $totalFacts = \QuizBot\Domain\Model\TrueFalseFact::query()->count();
+    
+    // Последние пользователи
+    $recentUsers = \QuizBot\Domain\Model\User::query()
+        ->with('profile')
+        ->orderByDesc('created_at')
+        ->limit(10)
+        ->get()
+        ->map(fn($u) => [
+            'id' => $u->getKey(),
+            'telegram_id' => $u->telegram_id,
+            'first_name' => $u->first_name,
+            'last_name' => $u->last_name,
+            'username' => $u->username,
+            'rating' => $u->profile?->rating ?? 1000,
+        ]);
+    
+    // Последние дуэли
+    $recentDuels = \QuizBot\Domain\Model\Duel::query()
+        ->with(['initiator', 'opponent', 'result'])
+        ->orderByDesc('created_at')
+        ->limit(10)
+        ->get()
+        ->map(fn($d) => [
+            'id' => $d->getKey(),
+            'code' => $d->code,
+            'status' => $d->status,
+            'initiator_name' => $d->initiator?->first_name ?? '???',
+            'opponent_name' => $d->opponent?->first_name ?? null,
+            'initiator_score' => $d->result?->initiator_total_score ?? 0,
+            'opponent_score' => $d->result?->opponent_total_score ?? 0,
+        ]);
+    
+    // Категории с количеством вопросов
+    $categories = \QuizBot\Domain\Model\Category::query()
+        ->withCount('questions')
+        ->orderByDesc('questions_count')
+        ->limit(10)
+        ->get()
+        ->map(fn($c) => [
+            'title' => $c->title,
+            'count' => $c->questions_count,
+        ]);
+
+    jsonResponse([
+        'total_users' => $totalUsers,
+        'active_today' => $activeToday,
+        'new_users_today' => $newUsersToday,
+        'total_duels' => $totalDuels,
+        'active_duels' => $activeDuels,
+        'duels_today' => $duelsToday,
+        'total_questions' => $totalQuestions,
+        'total_facts' => $totalFacts,
+        'tf_games_today' => 0, // TODO: добавить подсчёт
+        'recent_users' => $recentUsers,
+        'recent_duels' => $recentDuels,
+        'categories' => $categories,
+    ]);
 }
 
 /**

@@ -4,6 +4,9 @@ import { motion } from 'framer-motion'
 import { useTelegram, showBackButton, hapticFeedback } from '../hooks/useTelegram'
 import api from '../api/client'
 
+// Telegram ID администраторов
+const ADMIN_IDS = [1763619724]
+
 const menuItems = [
   {
     id: 'duel',
@@ -146,6 +149,28 @@ function HomePage() {
           </div>
         </div>
       </motion.div>
+
+      {/* Admin Button - только для админов */}
+      {user && ADMIN_IDS.includes(user.id) && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.9 }}
+          className="mt-4"
+        >
+          <Link to="/admin" onClick={handleMenuClick}>
+            <div className="glass rounded-xl p-3 flex items-center gap-3 border border-red-500/30">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center text-xl">
+                ⚙️
+              </div>
+              <div>
+                <h3 className="font-semibold text-sm text-white">Админ-панель</h3>
+                <p className="text-xs text-telegram-hint">Управление ботом</p>
+              </div>
+            </div>
+          </Link>
+        </motion.div>
+      )}
     </div>
   )
 }

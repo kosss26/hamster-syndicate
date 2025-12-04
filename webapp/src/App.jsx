@@ -7,6 +7,7 @@ import ProfilePage from './pages/ProfilePage'
 import LeaderboardPage from './pages/LeaderboardPage'
 import StatsPage from './pages/StatsPage'
 import TrueFalsePage from './pages/TrueFalsePage'
+import AdminPage from './pages/AdminPage'
 
 function App() {
   const [tg, setTg] = useState(null)
@@ -70,6 +71,7 @@ function App() {
             <Route path="/stats" element={<StatsPage />} />
             <Route path="/leaderboard" element={<LeaderboardPage />} />
             <Route path="/truefalse" element={<TrueFalsePage />} />
+            <Route path="/admin" element={<AdminPage />} />
           </Routes>
         </div>
       </BrowserRouter>
