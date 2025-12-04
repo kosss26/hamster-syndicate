@@ -651,7 +651,8 @@ function isAdmin(?array $telegramUser, $container): bool
     
     /** @var Config $config */
     $config = $container->get(Config::class);
-    $adminIds = array_map('trim', explode(',', $config->get('ADMIN_TELEGRAM_IDS', '')));
+    $adminIdsRaw = $config->get('ADMIN_TELEGRAM_IDS', '');
+    $adminIds = array_map('trim', explode(',', (string) $adminIdsRaw));
     
     return in_array((string) $telegramUser['id'], $adminIds, true);
 }
