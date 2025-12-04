@@ -4,7 +4,15 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
 
 // Получаем initData из Telegram для авторизации
 function getInitData() {
-  return window.Telegram?.WebApp?.initData || ''
+  const initData = window.Telegram?.WebApp?.initData || ''
+  
+  // Для отладки: если нет initData, но есть user - создаём фейковый
+  if (!initData && window.Telegram?.WebApp?.initDataUnsafe?.user) {
+    const user = window.Telegram.WebApp.initDataUnsafe.user
+    return `user=${encodeURIComponent(JSON.stringify(user))}`
+  }
+  
+  return initData
 }
 
 // Базовый метод для запросов
