@@ -133,6 +133,21 @@ try {
             handleAdminStats($container, $telegramUser);
             break;
 
+        // POST /admin/duel/{id}/cancel - отменить дуэль
+        case preg_match('#^/admin/duel/(\d+)/cancel$#', $path, $matches) && $requestMethod === 'POST':
+            handleAdminCancelDuel($container, $telegramUser, (int) $matches[1]);
+            break;
+
+        // POST /admin/duels/cancel-all - отменить все активные дуэли
+        case $path === '/admin/duels/cancel-all' && $requestMethod === 'POST':
+            handleAdminCancelAllDuels($container, $telegramUser);
+            break;
+
+        // POST /admin/question - добавить вопрос
+        case $path === '/admin/question' && $requestMethod === 'POST':
+            handleAdminAddQuestion($container, $telegramUser, $body);
+            break;
+
         default:
             jsonError('Маршрут не найден', 404);
     }
@@ -641,6 +656,101 @@ function handleGetQuickStatistics($container, ?array $telegramUser): void
 }
 
 /**
+ * Отмена дуэли админом
+ */
+function handleAdminCancelDuel($container, ?array $telegramUser, int $duelId): void
+{
+    if (!isAdmin($telegramUser, $container)) {
+        jsonError('Доступ запрещён', 403);
+    }
+
+    $duel = \QuizBot\Domain\Model\Duel::query()->find($duelId);
+    
+    if (!$duel) {
+        jsonError('Дуэль не найдена', 404);
+    }
+    
+    if ($duel->status === 'finished' || $duel->status === 'cancelled') {
+        jsonError('Дуэль уже завершена', 400);
+    }
+    
+    $duel->status = 'cancelled';
+    $duel->finished_at = \Illuminate\Support\Carbon::now();
+    $duel->save();
+    
+    jsonResponse(['cancelled' => true, 'duel_id' => $duelId]);
+}
+
+/**
+ * Отмена всех активных дуэлей
+ */
+function handleAdminCancelAllDuels($container, ?array $telegramUser): void
+{
+    if (!isAdmin($telegramUser, $container)) {
+        jsonError('Доступ запрещён', 403);
+    }
+
+    $now = \Illuminate\Support\Carbon::now();
+    $cancelled = \QuizBot\Domain\Model\Duel::query()
+        ->whereIn('status', ['waiting', 'matched', 'in_progress'])
+        ->update([
+            'status' => 'cancelled',
+            'finished_at' => $now
+        ]);
+    
+    jsonResponse(['cancelled' => $cancelled]);
+}
+
+/**
+ * Добавление нового вопроса
+ */
+function handleAdminAddQuestion($container, ?array $telegramUser, array $body): void
+{
+    if (!isAdmin($telegramUser, $container)) {
+        jsonError('Доступ запрещён', 403);
+    }
+
+    $categoryId = $body['category_id'] ?? null;
+    $questionText = $body['question_text'] ?? null;
+    $answers = $body['answers'] ?? [];
+    $correctIndex = $body['correct_answer'] ?? 0;
+    
+    if (!$categoryId || !$questionText || count($answers) < 2) {
+        jsonError('Заполните все обязательные поля', 400);
+    }
+    
+    $category = \QuizBot\Domain\Model\Category::query()->find($categoryId);
+    if (!$category) {
+        jsonError('Категория не найдена', 404);
+    }
+    
+    // Создаём вопрос
+    $question = new \QuizBot\Domain\Model\Question([
+        'category_id' => $categoryId,
+        'question_text' => $questionText,
+        'difficulty' => 'medium',
+        'time_limit' => 30,
+        'is_active' => true,
+    ]);
+    $question->save();
+    
+    // Добавляем ответы
+    foreach ($answers as $i => $answerText) {
+        if (empty(trim($answerText))) continue;
+        
+        $question->answers()->create([
+            'answer_text' => trim($answerText),
+            'is_correct' => $i === $correctIndex,
+        ]);
+    }
+    
+    jsonResponse([
+        'question_id' => $question->getKey(),
+        'message' => 'Вопрос добавлен'
+    ]);
+}
+
+/**
  * Проверка, является ли пользователь админом
  */
 function isAdmin(?array $telegramUser, $container): bool
@@ -733,9 +843,9 @@ function handleAdminStats($container, ?array $telegramUser): void
     $categories = \QuizBot\Domain\Model\Category::query()
         ->withCount('questions')
         ->orderByDesc('questions_count')
-        ->limit(10)
         ->get()
         ->map(fn($c) => [
+            'id' => $c->getKey(),
             'title' => $c->title,
             'count' => $c->questions_count,
         ]);

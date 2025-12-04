@@ -84,6 +84,9 @@ export const api = {
   // Админ
   getAdminStats: () => request('/admin/stats'),
   isAdmin: () => request('/admin/check'),
+  adminCancelDuel: (duelId) => request(`/admin/duel/${duelId}/cancel`, { method: 'POST' }),
+  adminCancelAllDuels: () => request('/admin/duels/cancel-all', { method: 'POST' }),
+  adminAddQuestion: (data) => request('/admin/question', { method: 'POST', body: JSON.stringify(data) }),
 }
 
 export default api

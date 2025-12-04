@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useTelegram, showBackButton } from '../hooks/useTelegram'
+import { useTelegram, showBackButton, hapticFeedback } from '../hooks/useTelegram'
 import api from '../api/client'
 
 function AdminPage() {
@@ -10,6 +10,17 @@ function AdminPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [activeTab, setActiveTab] = useState('stats')
+  const [showConfirm, setShowConfirm] = useState(null)
+  const [actionLoading, setActionLoading] = useState(false)
+  
+  // Форма добавления вопроса
+  const [showAddQuestion, setShowAddQuestion] = useState(false)
+  const [newQuestion, setNewQuestion] = useState({
+    category_id: '',
+    question_text: '',
+    answers: ['', '', '', ''],
+    correct_answer: 0
+  })
 
   useEffect(() => {
     showBackButton(true)
@@ -29,6 +40,85 @@ function AdminPage() {
       setError(err.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const cancelDuel = async (duelId) => {
+    setActionLoading(true)
+    try {
+      const response = await api.adminCancelDuel(duelId)
+      if (response.success) {
+        hapticFeedback('success')
+        loadAdminData()
+      } else {
+        alert('Ошибка: ' + response.error)
+      }
+    } catch (err) {
+      alert('Ошибка: ' + err.message)
+    } finally {
+      setActionLoading(false)
+      setShowConfirm(null)
+    }
+  }
+
+  const cancelAllDuels = async () => {
+    setActionLoading(true)
+    try {
+      const response = await api.adminCancelAllDuels()
+      if (response.success) {
+        hapticFeedback('success')
+        alert(`Отменено дуэлей: ${response.data.cancelled}`)
+        loadAdminData()
+      } else {
+        alert('Ошибка: ' + response.error)
+      }
+    } catch (err) {
+      alert('Ошибка: ' + err.message)
+    } finally {
+      setActionLoading(false)
+      setShowConfirm(null)
+    }
+  }
+
+  const addQuestion = async () => {
+    if (!newQuestion.question_text || !newQuestion.category_id) {
+      alert('Заполните все поля')
+      return
+    }
+    
+    const filledAnswers = newQuestion.answers.filter(a => a.trim())
+    if (filledAnswers.length < 2) {
+      alert('Минимум 2 варианта ответа')
+      return
+    }
+
+    setActionLoading(true)
+    try {
+      const response = await api.adminAddQuestion({
+        category_id: parseInt(newQuestion.category_id),
+        question_text: newQuestion.question_text,
+        answers: newQuestion.answers.filter(a => a.trim()),
+        correct_answer: newQuestion.correct_answer
+      })
+      
+      if (response.success) {
+        hapticFeedback('success')
+        alert('Вопрос добавлен!')
+        setNewQuestion({
+          category_id: newQuestion.category_id,
+          question_text: '',
+          answers: ['', '', '', ''],
+          correct_answer: 0
+        })
+        setShowAddQuestion(false)
+        loadAdminData()
+      } else {
+        alert('Ошибка: ' + response.error)
+      }
+    } catch (err) {
+      alert('Ошибка: ' + err.message)
+    } finally {
+      setActionLoading(false)
     }
   }
 
@@ -80,6 +170,7 @@ function AdminPage() {
       minHeight: '100vh', 
       background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
       padding: '20px',
+      paddingBottom: '100px',
       color: 'white'
     }}>
       <h1 style={{ fontSize: '24px', marginBottom: '8px', textAlign: 'center' }}>
@@ -207,6 +298,26 @@ function AdminPage() {
       {/* Duels Tab */}
       {activeTab === 'duels' && stats?.recent_duels && (
         <div>
+          {/* Cancel all active duels */}
+          {stats.active_duels > 0 && (
+            <button
+              onClick={() => setShowConfirm({ type: 'all' })}
+              style={{
+                width: '100%',
+                padding: '12px',
+                background: 'rgba(239,68,68,0.2)',
+                border: '1px solid rgba(239,68,68,0.5)',
+                borderRadius: '10px',
+                color: '#ef4444',
+                cursor: 'pointer',
+                marginBottom: '16px',
+                fontWeight: '500'
+              }}
+            >
+              🛑 Завершить все активные дуэли ({stats.active_duels})
+            </button>
+          )}
+
           <h3 style={{ fontSize: '14px', marginBottom: '12px', opacity: 0.7 }}>
             Последние дуэли
           </h3>
@@ -227,9 +338,11 @@ function AdminPage() {
                     borderRadius: '6px',
                     background: d.status === 'finished' ? 'rgba(34,197,94,0.3)' : 
                                d.status === 'in_progress' ? 'rgba(99,102,241,0.3)' : 
+                               d.status === 'cancelled' ? 'rgba(107,114,128,0.3)' :
                                'rgba(251,191,36,0.3)',
                     color: d.status === 'finished' ? '#22c55e' : 
-                           d.status === 'in_progress' ? '#6366f1' : '#fbbf24'
+                           d.status === 'in_progress' ? '#6366f1' : 
+                           d.status === 'cancelled' ? '#9ca3af' : '#fbbf24'
                   }}>
                     {d.status}
                   </span>
@@ -243,6 +356,23 @@ function AdminPage() {
                     Счёт: {d.initiator_score} : {d.opponent_score}
                   </p>
                 )}
+                {['waiting', 'matched', 'in_progress'].includes(d.status) && (
+                  <button
+                    onClick={() => setShowConfirm({ type: 'single', id: d.id, code: d.code })}
+                    style={{
+                      marginTop: '8px',
+                      padding: '6px 12px',
+                      background: 'rgba(239,68,68,0.2)',
+                      border: '1px solid rgba(239,68,68,0.5)',
+                      borderRadius: '6px',
+                      color: '#ef4444',
+                      cursor: 'pointer',
+                      fontSize: '12px'
+                    }}
+                  >
+                    ✕ Завершить
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -252,6 +382,24 @@ function AdminPage() {
       {/* Questions Tab */}
       {activeTab === 'questions' && (
         <div>
+          <button
+            onClick={() => setShowAddQuestion(true)}
+            style={{
+              width: '100%',
+              padding: '14px',
+              background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+              border: 'none',
+              borderRadius: '12px',
+              color: 'white',
+              cursor: 'pointer',
+              marginBottom: '16px',
+              fontWeight: '600',
+              fontSize: '15px'
+            }}
+          >
+            ➕ Добавить вопрос
+          </button>
+
           <div style={{ 
             background: 'rgba(255,255,255,0.1)', 
             padding: '16px', 
@@ -290,6 +438,209 @@ function AdminPage() {
       >
         🔄 Обновить данные
       </button>
+
+      {/* Confirm Modal */}
+      {showConfirm && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.8)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: '#1a1a2e',
+            padding: '24px',
+            borderRadius: '16px',
+            maxWidth: '320px',
+            width: '100%'
+          }}>
+            <h3 style={{ marginBottom: '12px', textAlign: 'center' }}>⚠️ Подтверждение</h3>
+            <p style={{ opacity: 0.8, textAlign: 'center', marginBottom: '20px', fontSize: '14px' }}>
+              {showConfirm.type === 'all' 
+                ? `Завершить ВСЕ активные дуэли (${stats.active_duels} шт)?`
+                : `Завершить дуэль ${showConfirm.code}?`
+              }
+            </p>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                onClick={() => setShowConfirm(null)}
+                disabled={actionLoading}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  background: 'rgba(255,255,255,0.1)',
+                  border: 'none',
+                  borderRadius: '10px',
+                  color: 'white',
+                  cursor: 'pointer'
+                }}
+              >
+                Отмена
+              </button>
+              <button
+                onClick={() => showConfirm.type === 'all' ? cancelAllDuels() : cancelDuel(showConfirm.id)}
+                disabled={actionLoading}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  background: '#ef4444',
+                  border: 'none',
+                  borderRadius: '10px',
+                  color: 'white',
+                  cursor: 'pointer',
+                  opacity: actionLoading ? 0.5 : 1
+                }}
+              >
+                {actionLoading ? '...' : 'Завершить'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Question Modal */}
+      {showAddQuestion && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.9)',
+          overflowY: 'auto',
+          padding: '20px',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: '#1a1a2e',
+            padding: '20px',
+            borderRadius: '16px',
+            maxWidth: '400px',
+            margin: '0 auto'
+          }}>
+            <h3 style={{ marginBottom: '16px', textAlign: 'center' }}>➕ Новый вопрос</h3>
+            
+            <label style={{ display: 'block', marginBottom: '12px' }}>
+              <span style={{ fontSize: '12px', opacity: 0.7, display: 'block', marginBottom: '4px' }}>Категория</span>
+              <select
+                value={newQuestion.category_id}
+                onChange={(e) => setNewQuestion({...newQuestion, category_id: e.target.value})}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: 'rgba(255,255,255,0.1)',
+                  color: 'white',
+                  fontSize: '14px'
+                }}
+              >
+                <option value="">Выберите категорию</option>
+                {stats?.categories?.map((cat, i) => (
+                  <option key={i} value={cat.id || i + 1}>{cat.title}</option>
+                ))}
+              </select>
+            </label>
+
+            <label style={{ display: 'block', marginBottom: '12px' }}>
+              <span style={{ fontSize: '12px', opacity: 0.7, display: 'block', marginBottom: '4px' }}>Текст вопроса</span>
+              <textarea
+                value={newQuestion.question_text}
+                onChange={(e) => setNewQuestion({...newQuestion, question_text: e.target.value})}
+                placeholder="Введите вопрос..."
+                rows={3}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: 'rgba(255,255,255,0.1)',
+                  color: 'white',
+                  fontSize: '14px',
+                  resize: 'vertical'
+                }}
+              />
+            </label>
+
+            <div style={{ marginBottom: '12px' }}>
+              <span style={{ fontSize: '12px', opacity: 0.7, display: 'block', marginBottom: '8px' }}>
+                Варианты ответов (первый = правильный)
+              </span>
+              {newQuestion.answers.map((answer, i) => (
+                <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
+                  <input
+                    type="radio"
+                    name="correct"
+                    checked={newQuestion.correct_answer === i}
+                    onChange={() => setNewQuestion({...newQuestion, correct_answer: i})}
+                    style={{ accentColor: '#22c55e' }}
+                  />
+                  <input
+                    value={answer}
+                    onChange={(e) => {
+                      const answers = [...newQuestion.answers]
+                      answers[i] = e.target.value
+                      setNewQuestion({...newQuestion, answers})
+                    }}
+                    placeholder={`Ответ ${i + 1}${i === 0 ? ' (правильный)' : ''}`}
+                    style={{
+                      flex: 1,
+                      padding: '10px',
+                      borderRadius: '8px',
+                      border: newQuestion.correct_answer === i ? '2px solid #22c55e' : 'none',
+                      background: 'rgba(255,255,255,0.1)',
+                      color: 'white',
+                      fontSize: '14px'
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+              <button
+                onClick={() => setShowAddQuestion(false)}
+                disabled={actionLoading}
+                style={{
+                  flex: 1,
+                  padding: '14px',
+                  background: 'rgba(255,255,255,0.1)',
+                  border: 'none',
+                  borderRadius: '10px',
+                  color: 'white',
+                  cursor: 'pointer'
+                }}
+              >
+                Отмена
+              </button>
+              <button
+                onClick={addQuestion}
+                disabled={actionLoading}
+                style={{
+                  flex: 1,
+                  padding: '14px',
+                  background: '#22c55e',
+                  border: 'none',
+                  borderRadius: '10px',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontWeight: '600',
+                  opacity: actionLoading ? 0.5 : 1
+                }}
+              >
+                {actionLoading ? 'Добавляю...' : 'Добавить'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -310,4 +661,3 @@ function StatCard({ title, value, icon, color }) {
 }
 
 export default AdminPage
-
