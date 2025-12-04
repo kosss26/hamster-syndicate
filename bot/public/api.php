@@ -378,6 +378,33 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
     $question = null;
     $roundStatus = null;
     
+    // Получаем последний закрытый раунд (для показа результата)
+    $lastClosedRound = $duel->rounds
+        ->whereNotNull('closed_at')
+        ->sortByDesc('closed_at')
+        ->first();
+    $lastClosedRoundStatus = null;
+    
+    if ($lastClosedRound) {
+        $lcMyPayload = $isInitiator ? $lastClosedRound->initiator_payload : $lastClosedRound->opponent_payload;
+        $lcOpponentPayload = $isInitiator ? $lastClosedRound->opponent_payload : $lastClosedRound->initiator_payload;
+        
+        $lcCorrectAnswerId = null;
+        if ($lastClosedRound->question && $lastClosedRound->question->answers) {
+            $lcCorrectAnswer = $lastClosedRound->question->answers->firstWhere('is_correct', true);
+            $lcCorrectAnswerId = $lcCorrectAnswer ? $lcCorrectAnswer->getKey() : null;
+        }
+        
+        $lastClosedRoundStatus = [
+            'round_id' => $lastClosedRound->getKey(),
+            'round_number' => $lastClosedRound->round_number,
+            'my_correct' => $lcMyPayload['is_correct'] ?? false,
+            'opponent_correct' => $lcOpponentPayload['is_correct'] ?? false,
+            'correct_answer_id' => $lcCorrectAnswerId,
+            'closed_at' => $lastClosedRound->closed_at?->toIso8601String(),
+        ];
+    }
+    
     if ($currentRound) {
         // Помечаем раунд как отправленный
         $duelService->markRoundDispatched($currentRound);
@@ -420,6 +447,7 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
         
         $roundStatus = [
             'round_id' => $currentRound->getKey(),
+            'round_number' => $currentRound->round_number,
             'my_answered' => $myAnswered,
             'my_correct' => $myAnswered ? ($myPayload['is_correct'] ?? false) : null,
             'opponent_answered' => $opponentAnswered,
@@ -454,6 +482,7 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
         ] : null,
         'question' => $question,
         'round_status' => $roundStatus,
+        'last_closed_round' => $lastClosedRoundStatus,
         'is_initiator' => $isInitiator,
     ]);
 }
@@ -522,6 +551,7 @@ function handleDuelAnswer($container, ?array $telegramUser, array $body): void
     $roundClosed = $round->closed_at !== null;
 
     jsonResponse([
+        'round_id' => $round->getKey(),
         'is_correct' => $payload['is_correct'] ?? false,
         'points_earned' => $payload['score'] ?? 0,
         'time_taken' => $payload['time_elapsed'] ?? 0,

@@ -41,6 +41,8 @@ function DuelPage() {
   const currentQuestionId = useRef(null)
   // Ref для таймера чтобы не перезапускать его при каждом изменении timeLeft
   const timerRef = useRef(null)
+  // ID раунда, на который мы ответили (для отслеживания смены раунда)
+  const answeredRoundId = useRef(null)
 
   // Показываем кнопку "Назад"
   useEffect(() => {
@@ -137,10 +139,40 @@ function DuelPage() {
         } else if (state === STATES.WAITING_OPPONENT && data.question) {
           // Появился вопрос - загружаем
           loadDuel(duelId)
-        } else if (state === STATES.WAITING_OPPONENT_ANSWER && data.round_status) {
+        } else if (state === STATES.WAITING_OPPONENT_ANSWER) {
           // Ждём ответа соперника в текущем раунде
-          if (data.round_status.opponent_answered) {
-            // Соперник ответил! Обновляем информацию
+          
+          // Проверяем, изменился ли раунд (соперник ответил и раунд закрылся)
+          const currentRoundId = data.round_status?.round_id
+          const lastClosedRound = data.last_closed_round
+          
+          // Если раунд изменился и есть данные о последнем закрытом раунде
+          if (answeredRoundId.current && lastClosedRound && 
+              lastClosedRound.round_id === answeredRoundId.current &&
+              currentRoundId !== answeredRoundId.current) {
+            // Раунд закрылся! Показываем результат из last_closed_round
+            setOpponentAnswer({
+              answered: true,
+              correct: lastClosedRound.opponent_correct
+            })
+            
+            // Устанавливаем правильный ответ
+            if (lastClosedRound.correct_answer_id) {
+              setCorrectAnswer(lastClosedRound.correct_answer_id)
+            }
+            
+            // Переходим в состояние показа результата на 3 секунды
+            setState(STATES.SHOWING_RESULT)
+            hapticFeedback(lastClosedRound.opponent_correct ? 'warning' : 'success')
+            
+            // Через 3 секунды загружаем следующий вопрос
+            setTimeout(() => {
+              currentQuestionId.current = null
+              answeredRoundId.current = null
+              loadDuel(duelId)
+            }, 3000)
+          } else if (data.round_status?.opponent_answered) {
+            // Соперник ответил в текущем раунде (раунд ещё не закрылся или это тот же раунд)
             setOpponentAnswer({
               answered: true,
               correct: data.round_status.opponent_correct
@@ -158,6 +190,7 @@ function DuelPage() {
             // Через 3 секунды загружаем следующий вопрос
             setTimeout(() => {
               currentQuestionId.current = null
+              answeredRoundId.current = null
               loadDuel(duelId)
             }, 3000)
           }
@@ -191,6 +224,9 @@ function DuelPage() {
           // Устанавливаем вопрос только если это новый вопрос
           if (currentQuestionId.current !== data.question.id) {
             currentQuestionId.current = data.question.id
+            // Сохраняем ID раунда для отслеживания
+            answeredRoundId.current = null // Сбрасываем - ещё не ответили на этот раунд
+            
             // Сортируем ответы по ID чтобы порядок был всегда одинаковый
             const sortedQuestion = {
               ...data.question,
@@ -281,6 +317,11 @@ function DuelPage() {
         const data = response.data
         setLastResult(data)
         
+        // Сохраняем ID раунда для отслеживания смены раунда
+        if (data.round_id) {
+          answeredRoundId.current = data.round_id
+        }
+        
         // Устанавливаем правильный ответ
         if (data.correct_answer_id) {
           setCorrectAnswer(data.correct_answer_id)
@@ -309,6 +350,7 @@ function DuelPage() {
           // Загружаем следующий раунд через 3 сек
           setTimeout(() => {
             currentQuestionId.current = null
+            answeredRoundId.current = null
             loadDuel(duel.duel_id)
           }, 3000)
         } else {
