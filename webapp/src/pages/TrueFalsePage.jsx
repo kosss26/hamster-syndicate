@@ -118,8 +118,8 @@ function TrueFalsePage() {
           hapticFeedback('error')
         }
         
-        // Если есть следующий факт - подготавливаем его
-        if (data.next_fact) {
+        // Если ответ правильный и есть следующий факт - переходим к нему
+        if (data.is_correct && data.next_fact) {
           setTimeout(() => {
             setFact(data.next_fact)
             setAnswered(false)
@@ -127,6 +127,7 @@ function TrueFalsePage() {
             setTimeLeft(15) // Сброс таймера на новый вопрос
           }, 2500)
         }
+        // При неправильном ответе - игра заканчивается (показывается экран Game Over)
       }
     } catch (err) {
       console.error('Failed to submit answer:', err)
