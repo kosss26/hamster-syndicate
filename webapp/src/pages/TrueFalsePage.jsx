@@ -15,11 +15,60 @@ function TrueFalsePage() {
   const [record, setRecord] = useState(0)
   const [result, setResult] = useState(null) // { isCorrect, explanation, correctAnswer }
   const [answered, setAnswered] = useState(false)
+  const [timeLeft, setTimeLeft] = useState(15)
 
   useEffect(() => {
     showBackButton(true)
     loadQuestion()
   }, [])
+
+  // Таймер
+  useEffect(() => {
+    if (loading || answered || timeLeft <= 0) return
+
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          // Время вышло - считаем как неправильный ответ
+          handleTimeout()
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [loading, answered, timeLeft])
+
+  const handleTimeout = async () => {
+    if (answered || !fact) return
+    setAnswered(true)
+    hapticFeedback('warning')
+    
+    try {
+      // Отправляем неправильный ответ (противоположный правильному)
+      const response = await api.submitTrueFalseAnswer(fact.id, null)
+      
+      if (response.success) {
+        const data = response.data
+        setResult({
+          isCorrect: false,
+          explanation: data.explanation || 'Время вышло!',
+          correctAnswer: data.correct_answer
+        })
+        setStreak(0)
+        setRecord(data.record)
+        hapticFeedback('error')
+      }
+    } catch (err) {
+      console.error('Timeout error:', err)
+      setResult({
+        isCorrect: false,
+        explanation: 'Время вышло!',
+        correctAnswer: null
+      })
+    }
+  }
 
   const loadQuestion = async () => {
     try {
@@ -27,6 +76,7 @@ function TrueFalsePage() {
       setError(null)
       setAnswered(false)
       setResult(null)
+      setTimeLeft(15)
       
       const response = await api.getTrueFalseQuestion()
       
@@ -85,7 +135,7 @@ function TrueFalsePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-game flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-telegram-hint">Загрузка...</p>
@@ -96,13 +146,13 @@ function TrueFalsePage() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-game flex items-center justify-center p-4">
         <div className="text-center">
           <div className="text-4xl mb-4">😔</div>
           <p className="text-telegram-hint mb-4">{error}</p>
           <button 
             onClick={loadQuestion}
-            className="px-6 py-3 bg-purple-500 rounded-xl font-semibold"
+            className="px-6 py-3 bg-purple-500 rounded-xl font-semibold text-white"
           >
             Попробовать снова
           </button>
@@ -114,7 +164,7 @@ function TrueFalsePage() {
   // Игра окончена (неправильный ответ)
   if (result && !result.isCorrect) {
     return (
-      <div className="min-h-screen p-4 flex flex-col items-center justify-center">
+      <div className="min-h-screen bg-gradient-game p-4 flex flex-col items-center justify-center">
         <motion.div
           initial={{ opacity: 0, scale: 0.5 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -174,7 +224,7 @@ function TrueFalsePage() {
   }
 
   return (
-    <div className="min-h-screen p-4 flex flex-col">
+    <div className="min-h-screen bg-gradient-game p-4 flex flex-col">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -186,6 +236,37 @@ function TrueFalsePage() {
           <div>
             <h1 className="font-bold text-white">Правда или ложь</h1>
             <p className="text-xs text-telegram-hint">Проверь свои знания</p>
+          </div>
+        </div>
+
+        {/* Timer */}
+        <div className="relative w-14 h-14">
+          <svg className="w-full h-full -rotate-90">
+            <circle
+              cx="28"
+              cy="28"
+              r="24"
+              fill="none"
+              stroke="rgba(255,255,255,0.1)"
+              strokeWidth="4"
+            />
+            <circle
+              cx="28"
+              cy="28"
+              r="24"
+              fill="none"
+              stroke={timeLeft <= 5 ? '#ef4444' : '#a855f7'}
+              strokeWidth="4"
+              strokeLinecap="round"
+              strokeDasharray={150.8}
+              strokeDashoffset={150.8 - (150.8 * timeLeft / 15)}
+              className="transition-all duration-1000"
+            />
+          </svg>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className={`font-bold text-white ${timeLeft <= 5 ? 'text-game-danger' : ''}`}>
+              {timeLeft}
+            </span>
           </div>
         </div>
         

@@ -69,8 +69,19 @@ function LeaderboardPage() {
 
   const data = activeTab === 'duel' ? leaderboard.duel : leaderboard.truefalse
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-game flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-game-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-telegram-hint">Загрузка...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen p-4 pb-8">
+    <div className="min-h-screen bg-gradient-game p-4 pb-8">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}

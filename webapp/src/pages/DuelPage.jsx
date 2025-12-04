@@ -214,7 +214,7 @@ function DuelPage() {
   // Меню выбора режима
   if (state === STATES.MENU) {
     return (
-      <div className="min-h-screen p-4 flex flex-col">
+      <div className="min-h-screen bg-gradient-game p-4 flex flex-col">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -279,7 +279,7 @@ function DuelPage() {
   // Поиск соперника
   if (state === STATES.SEARCHING) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-game flex items-center justify-center p-4">
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -302,7 +302,7 @@ function DuelPage() {
   // Ожидание соперника
   if (state === STATES.WAITING_OPPONENT) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-game flex items-center justify-center p-4">
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -333,7 +333,7 @@ function DuelPage() {
   // Соперник найден
   if (state === STATES.FOUND) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-game flex items-center justify-center p-4">
         <motion.div
           initial={{ opacity: 0, scale: 0.5 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -371,7 +371,7 @@ function DuelPage() {
   // Игра
   if (state === STATES.PLAYING && question) {
     return (
-      <div className="min-h-screen p-4 flex flex-col">
+      <div className="min-h-screen bg-gradient-game p-4 flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div className="text-sm">
@@ -505,7 +505,7 @@ function DuelPage() {
     const isDraw = score.player === score.opponent
 
     return (
-      <div className="min-h-screen p-4 flex flex-col items-center justify-center">
+      <div className="min-h-screen bg-gradient-game p-4 flex flex-col items-center justify-center">
         <motion.div
           initial={{ opacity: 0, scale: 0.5 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -578,7 +578,7 @@ function DuelPage() {
 
   // Loading state
   return (
-    <div className="min-h-screen flex items-center justify-center">
+    <div className="min-h-screen bg-gradient-game flex items-center justify-center">
       <div className="text-center">
         <div className="w-12 h-12 border-4 border-game-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
         <p className="text-telegram-hint">Загрузка...</p>

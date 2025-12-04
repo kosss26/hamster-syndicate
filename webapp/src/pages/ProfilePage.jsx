@@ -43,7 +43,7 @@ function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-game flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-game-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-telegram-hint">Загрузка...</p>
@@ -57,18 +57,18 @@ function ProfilePage() {
     const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user
     
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-game flex items-center justify-center p-4">
         <div className="text-center">
           <div className="text-4xl mb-4">😔</div>
           <p className="text-telegram-hint mb-4">{error || 'Профиль не найден'}</p>
-          <div className="text-xs text-left bg-black/30 p-3 rounded-lg max-w-xs mx-auto">
+          <div className="text-xs text-left bg-black/30 p-3 rounded-lg max-w-xs mx-auto text-white">
             <p className="mb-2"><b>Debug info:</b></p>
             <p>TG User: {tgUser ? `${tgUser.first_name} (${tgUser.id})` : 'null'}</p>
             <p>initData: {initData ? `${initData.substring(0, 50)}...` : 'empty'}</p>
           </div>
           <button 
             onClick={loadProfile}
-            className="mt-4 px-4 py-2 bg-game-primary rounded-lg"
+            className="mt-4 px-4 py-2 bg-game-primary rounded-lg text-white"
           >
             Повторить
           </button>
@@ -81,7 +81,7 @@ function ProfilePage() {
   const winRate = totalGames > 0 ? Math.round((profile.stats.duel_wins / totalGames) * 100) : 0
 
   return (
-    <div className="min-h-screen p-4 pb-8">
+    <div className="min-h-screen bg-gradient-game p-4 pb-8">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
