@@ -9,9 +9,8 @@ declare(strict_types=1);
  * с существующими сервисами бота.
  */
 
-use DI\ContainerBuilder;
-use Psr\Http\Message\ResponseInterface;
 use QuizBot\Bootstrap\AppBootstrap;
+use QuizBot\Infrastructure\Config\Config;
 use QuizBot\Application\Services\UserService;
 use QuizBot\Application\Services\DuelService;
 use QuizBot\Application\Services\ProfileFormatter;
@@ -35,11 +34,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 // Инициализация приложения
 try {
-    new AppBootstrap(dirname(__DIR__));
-    
-    $containerBuilder = new ContainerBuilder();
-    $containerBuilder->addDefinitions(dirname(__DIR__) . '/config/di.php');
-    $container = $containerBuilder->build();
+    $app = new AppBootstrap(dirname(__DIR__));
+    $container = $app->getContainer();
 } catch (Throwable $e) {
     jsonError('Ошибка инициализации: ' . $e->getMessage(), 500);
 }
@@ -57,7 +53,9 @@ $body = json_decode(file_get_contents('php://input'), true) ?? [];
 
 // Верификация Telegram initData
 $initData = $_SERVER['HTTP_X_TELEGRAM_INIT_DATA'] ?? '';
-$telegramUser = verifyTelegramInitData($initData);
+/** @var Config $config */
+$config = $container->get(Config::class);
+$telegramUser = verifyTelegramInitData($initData, $config->get('TELEGRAM_BOT_TOKEN', ''));
 
 // Роутинг
 try {
@@ -122,18 +120,9 @@ try {
 /**
  * Верификация initData из Telegram
  */
-function verifyTelegramInitData(string $initData): ?array
+function verifyTelegramInitData(string $initData, string $botToken): ?array
 {
     if (empty($initData)) {
-        // Для разработки возвращаем тестового пользователя
-        if (getenv('APP_ENV') === 'development') {
-            return [
-                'id' => 123456789,
-                'first_name' => 'Тестовый',
-                'last_name' => 'Пользователь',
-                'username' => 'test_user'
-            ];
-        }
         return null;
     }
 
@@ -145,7 +134,6 @@ function verifyTelegramInitData(string $initData): ?array
     }
 
     // Верификация подписи
-    $botToken = getenv('TELEGRAM_BOT_TOKEN');
     $checkHash = $data['hash'];
     unset($data['hash']);
 
