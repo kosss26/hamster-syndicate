@@ -124,6 +124,7 @@ function TrueFalsePage() {
             setFact(data.next_fact)
             setAnswered(false)
             setResult(null)
+            setTimeLeft(15) // Сброс таймера на новый вопрос
           }, 2500)
         }
       }
