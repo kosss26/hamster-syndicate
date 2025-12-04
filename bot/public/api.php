@@ -352,6 +352,11 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
     /** @var DuelService $duelService */
     $duelService = $container->get(DuelService::class);
     
+    /** @var UserService $userService */
+    $userService = $container->get(UserService::class);
+    
+    $user = $userService->findByTelegramId((int) $telegramUser['id']);
+    
     $duel = $duelService->findById($duelId);
     
     if (!$duel) {
@@ -365,9 +370,13 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
 
     $duel->loadMissing('rounds.question.answers', 'rounds.question.category', 'initiator', 'opponent');
 
+    // Определяем роль текущего пользователя
+    $isInitiator = $user && $duel->initiator_user_id === $user->getKey();
+
     // Получаем текущий раунд с вопросом
     $currentRound = $duelService->getCurrentRound($duel);
     $question = null;
+    $roundStatus = null;
     
     if ($currentRound) {
         // Помечаем раунд как отправленный
@@ -394,6 +403,32 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
             'category' => $q?->category?->title ?? 'Общие знания',
             'answers' => $answers,
         ];
+        
+        // Получаем статус текущего раунда
+        $myPayload = $isInitiator ? $currentRound->initiator_payload : $currentRound->opponent_payload;
+        $opponentPayload = $isInitiator ? $currentRound->opponent_payload : $currentRound->initiator_payload;
+        
+        $myAnswered = isset($myPayload['completed']) && $myPayload['completed'] === true;
+        $opponentAnswered = isset($opponentPayload['completed']) && $opponentPayload['completed'] === true;
+        
+        // Находим ID правильного ответа
+        $correctAnswerId = null;
+        if ($q && $q->answers) {
+            $correctAnswer = $q->answers->firstWhere('is_correct', true);
+            $correctAnswerId = $correctAnswer ? $correctAnswer->getKey() : null;
+        }
+        
+        $roundStatus = [
+            'round_id' => $currentRound->getKey(),
+            'my_answered' => $myAnswered,
+            'my_correct' => $myAnswered ? ($myPayload['is_correct'] ?? false) : null,
+            'opponent_answered' => $opponentAnswered,
+            'opponent_correct' => $opponentAnswered ? ($opponentPayload['is_correct'] ?? false) : null,
+            'correct_answer_id' => ($myAnswered || $opponentAnswered) ? $correctAnswerId : null,
+            'round_closed' => $currentRound->closed_at !== null,
+            'time_limit' => $currentRound->time_limit ?? 30,
+            'question_sent_at' => $currentRound->question_sent_at?->toIso8601String(),
+        ];
     }
 
     // Подсчитываем очки
@@ -418,6 +453,8 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
             'name' => $duel->opponent->first_name,
         ] : null,
         'question' => $question,
+        'round_status' => $roundStatus,
+        'is_initiator' => $isInitiator,
     ]);
 }
 
@@ -463,15 +500,35 @@ function handleDuelAnswer($container, ?array $telegramUser, array $body): void
 
     // Обрабатываем ответ
     $round = $duelService->submitAnswer($currentRound, $user, (int) $answerId);
+    $round->loadMissing('question.answers');
     
     // Определяем результат для текущего пользователя
     $isInitiator = $duel->initiator_user_id === $user->getKey();
     $payload = $isInitiator ? $round->initiator_payload : $round->opponent_payload;
+    $opponentPayload = $isInitiator ? $round->opponent_payload : $round->initiator_payload;
+    
+    // Находим ID правильного ответа
+    $correctAnswerId = null;
+    if ($round->question && $round->question->answers) {
+        $correctAnswer = $round->question->answers->firstWhere('is_correct', true);
+        $correctAnswerId = $correctAnswer ? $correctAnswer->getKey() : null;
+    }
+    
+    // Проверяем, ответил ли соперник
+    $opponentAnswered = isset($opponentPayload['completed']) && $opponentPayload['completed'] === true;
+    $opponentCorrect = $opponentAnswered ? ($opponentPayload['is_correct'] ?? false) : null;
+    
+    // Проверяем, закрыт ли раунд (оба ответили)
+    $roundClosed = $round->closed_at !== null;
 
     jsonResponse([
         'is_correct' => $payload['is_correct'] ?? false,
         'points_earned' => $payload['score'] ?? 0,
         'time_taken' => $payload['time_elapsed'] ?? 0,
+        'correct_answer_id' => $correctAnswerId,
+        'opponent_answered' => $opponentAnswered,
+        'opponent_correct' => $opponentCorrect,
+        'round_closed' => $roundClosed,
     ]);
 }
 

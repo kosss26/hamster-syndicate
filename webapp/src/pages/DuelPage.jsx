@@ -11,7 +11,8 @@ const STATES = {
   FOUND: 'found',
   PLAYING: 'playing',
   WAITING_OPPONENT: 'waiting_opponent',
-  SHOWING_RESULT: 'showing_result', // Новое состояние для показа результата
+  WAITING_OPPONENT_ANSWER: 'waiting_opponent_answer', // Ждём ответа соперника в раунде
+  SHOWING_RESULT: 'showing_result', // Показ результата после ответа обоих
   FINISHED: 'finished'
 }
 
@@ -38,6 +39,8 @@ function DuelPage() {
   
   // Храним ID текущего вопроса чтобы не перезаписывать его при polling
   const currentQuestionId = useRef(null)
+  // Ref для таймера чтобы не перезапускать его при каждом изменении timeLeft
+  const timerRef = useRef(null)
 
   // Показываем кнопку "Назад"
   useEffect(() => {
@@ -58,13 +61,24 @@ function DuelPage() {
     }
   }, [duelIdParam])
 
-  // Таймер
+  // Таймер - использует ref чтобы не перезапускаться каждую секунду
   useEffect(() => {
-    if (state !== STATES.PLAYING || timeLeft <= 0) return
+    // Очищаем предыдущий таймер
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+    
+    if (state !== STATES.PLAYING) return
 
-    const timer = setInterval(() => {
+    timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
+          // Очищаем таймер при достижении 0
+          if (timerRef.current) {
+            clearInterval(timerRef.current)
+            timerRef.current = null
+          }
           handleTimeout()
           return 0
         }
@@ -72,19 +86,26 @@ function DuelPage() {
       })
     }, 1000)
 
-    return () => clearInterval(timer)
-  }, [state, timeLeft])
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
+    }
+  }, [state, question?.id]) // Перезапускаем только при смене состояния или вопроса
 
-  // Периодическая проверка состояния дуэли (только когда ждём соперника)
+  // Периодическая проверка состояния дуэли
   useEffect(() => {
     if (!duel || state === STATES.FINISHED || state === STATES.SHOWING_RESULT) return
     
-    // При игре не обновляем вопрос, только статус
-    const interval = setInterval(() => {
+    // Определяем интервал в зависимости от состояния
+    const interval = state === STATES.WAITING_OPPONENT_ANSWER ? 1000 : 3000
+    
+    const checkInterval = setInterval(() => {
       checkDuelStatus(duel.duel_id)
-    }, 3000)
+    }, interval)
 
-    return () => clearInterval(interval)
+    return () => clearInterval(checkInterval)
   }, [duel, state])
 
   // Проверка статуса без перезаписи вопроса
@@ -95,17 +116,18 @@ function DuelPage() {
       if (response.success) {
         const data = response.data
         
-        // Обновляем счёт
+        // Обновляем счёт с учетом роли игрока
+        const isInitiator = data.is_initiator
         setScore({
-          player: data.initiator_score,
-          opponent: data.opponent_score
+          player: isInitiator ? data.initiator_score : data.opponent_score,
+          opponent: isInitiator ? data.opponent_score : data.initiator_score
         })
         
         if (data.status === 'finished') {
           setState(STATES.FINISHED)
         } else if (data.status === 'waiting' && state === STATES.WAITING_OPPONENT) {
           // Ждём соперника - при появлении соперника загружаем дуэль полностью
-          if (data.opponent_id) {
+          if (data.opponent) {
             setState(STATES.FOUND)
             hapticFeedback('success')
             setTimeout(() => {
@@ -115,6 +137,30 @@ function DuelPage() {
         } else if (state === STATES.WAITING_OPPONENT && data.question) {
           // Появился вопрос - загружаем
           loadDuel(duelId)
+        } else if (state === STATES.WAITING_OPPONENT_ANSWER && data.round_status) {
+          // Ждём ответа соперника в текущем раунде
+          if (data.round_status.opponent_answered) {
+            // Соперник ответил! Обновляем информацию
+            setOpponentAnswer({
+              answered: true,
+              correct: data.round_status.opponent_correct
+            })
+            
+            // Устанавливаем правильный ответ если еще не установлен
+            if (!correctAnswer && data.round_status.correct_answer_id) {
+              setCorrectAnswer(data.round_status.correct_answer_id)
+            }
+            
+            // Переходим в состояние показа результата на 3 секунды
+            setState(STATES.SHOWING_RESULT)
+            hapticFeedback(data.round_status.opponent_correct ? 'warning' : 'success')
+            
+            // Через 3 секунды загружаем следующий вопрос
+            setTimeout(() => {
+              currentQuestionId.current = null
+              loadDuel(duelId)
+            }, 3000)
+          }
         }
       }
     } catch (err) {
@@ -131,9 +177,12 @@ function DuelPage() {
         setDuel(data)
         setRound(data.current_round)
         setTotalRounds(data.total_rounds)
+        
+        // Обновляем счёт с учетом роли игрока
+        const isInitiator = data.is_initiator
         setScore({
-          player: data.initiator_score,
-          opponent: data.opponent_score
+          player: isInitiator ? data.initiator_score : data.opponent_score,
+          opponent: isInitiator ? data.opponent_score : data.initiator_score
         })
         
         if (data.status === 'finished') {
@@ -152,9 +201,18 @@ function DuelPage() {
             setCorrectAnswer(null)
             setOpponentAnswer(null)
             setLastResult(null)
-            setTimeLeft(30)
+            
+            // Устанавливаем время с учетом уже прошедшего времени
+            const timeLimit = data.round_status?.time_limit || 30
+            if (data.round_status?.question_sent_at) {
+              const sentAt = new Date(data.round_status.question_sent_at)
+              const elapsed = Math.floor((Date.now() - sentAt.getTime()) / 1000)
+              setTimeLeft(Math.max(0, timeLimit - elapsed))
+            } else {
+              setTimeLeft(timeLimit)
+            }
           }
-          if (state !== STATES.PLAYING && state !== STATES.SHOWING_RESULT) {
+          if (state !== STATES.PLAYING && state !== STATES.SHOWING_RESULT && state !== STATES.WAITING_OPPONENT_ANSWER) {
             setState(STATES.PLAYING)
           }
         } else if (data.status === 'waiting') {
@@ -210,6 +268,12 @@ function DuelPage() {
     setSelectedAnswer(answerId)
     hapticFeedback('light')
     
+    // Останавливаем таймер
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+    
     try {
       const response = await api.submitAnswer(duel.duel_id, round, answerId)
       
@@ -226,27 +290,38 @@ function DuelPage() {
         
         if (data.is_correct) {
           hapticFeedback('success')
-          setScore(prev => ({ ...prev, player: prev.player + (data.points_earned || 10) }))
+          setScore(prev => ({ ...prev, player: prev.player + (data.points_earned || 1) }))
         } else {
           hapticFeedback('error')
         }
         
-        // Показываем результат соперника (если есть)
-        if (data.opponent_answered !== undefined) {
+        // Проверяем, ответил ли соперник
+        if (data.opponent_answered) {
+          // Соперник уже ответил - показываем его результат
           setOpponentAnswer({
-            answered: data.opponent_answered,
+            answered: true,
             correct: data.opponent_correct
           })
+          
+          // Переходим в состояние показа результата
+          setState(STATES.SHOWING_RESULT)
+          
+          // Загружаем следующий раунд через 3 сек
+          setTimeout(() => {
+            currentQuestionId.current = null
+            loadDuel(duel.duel_id)
+          }, 3000)
+        } else {
+          // Соперник еще не ответил - показываем "ожидание" и ждём
+          setOpponentAnswer({
+            answered: false,
+            correct: null
+          })
+          
+          // Переходим в состояние ожидания ответа соперника
+          setState(STATES.WAITING_OPPONENT_ANSWER)
+          // Polling в useEffect будет проверять статус раунда
         }
-        
-        // Переходим в состояние показа результата
-        setState(STATES.SHOWING_RESULT)
-        
-        // Загружаем следующий раунд через 3 сек
-        setTimeout(() => {
-          currentQuestionId.current = null // Сбрасываем чтобы загрузить новый вопрос
-          loadDuel(duel.duel_id)
-        }, 3000)
       }
     } catch (err) {
       console.error('Failed to submit answer:', err)
@@ -260,13 +335,22 @@ function DuelPage() {
     
     setSelectedAnswer(-1) // Маркер таймаута
     setLastResult({ is_correct: false, timeout: true })
-    setState(STATES.SHOWING_RESULT)
     
-    // При таймауте загружаем следующий раунд
-    setTimeout(() => {
-      currentQuestionId.current = null
-      loadDuel(duel.duel_id)
-    }, 2000)
+    // Останавливаем таймер
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+    
+    // При таймауте показываем результат и ждём соперника (или сразу следующий вопрос если раунд уже закрыт)
+    setOpponentAnswer({
+      answered: false,
+      correct: null
+    })
+    
+    // Переходим в состояние ожидания ответа соперника
+    setState(STATES.WAITING_OPPONENT_ANSWER)
+    // Polling в useEffect будет проверять статус раунда
   }
 
   const getAnswerClass = (answerId) => {
@@ -439,8 +523,8 @@ function DuelPage() {
     )
   }
 
-  // Игра или показ результата
-  if ((state === STATES.PLAYING || state === STATES.SHOWING_RESULT) && question) {
+  // Игра, ожидание ответа соперника или показ результата
+  if ((state === STATES.PLAYING || state === STATES.WAITING_OPPONENT_ANSWER || state === STATES.SHOWING_RESULT) && question) {
     return (
       <div className="min-h-screen bg-gradient-game p-4 flex flex-col">
         {/* Header */}
@@ -567,7 +651,7 @@ function DuelPage() {
 
         {/* Результат раунда */}
         <AnimatePresence>
-          {state === STATES.SHOWING_RESULT && lastResult && (
+          {(state === STATES.SHOWING_RESULT || state === STATES.WAITING_OPPONENT_ANSWER) && lastResult && (
             <motion.div
               initial={{ opacity: 0, y: 50 }}
               animate={{ opacity: 1, y: 0 }}
@@ -615,7 +699,7 @@ function DuelPage() {
                     <span className="font-medium text-white/70">Соперник</span>
                   </div>
                   <div className="flex items-center gap-2 text-white/50">
-                    {opponentAnswer ? (
+                    {opponentAnswer && opponentAnswer.answered ? (
                       opponentAnswer.correct ? (
                         <>
                           <span>✅</span>
