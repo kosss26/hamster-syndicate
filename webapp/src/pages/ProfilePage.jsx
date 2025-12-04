@@ -10,6 +10,7 @@ function ProfilePage() {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+
   useEffect(() => {
     showBackButton(true)
     loadProfile()
@@ -19,9 +20,7 @@ function ProfilePage() {
     try {
       setLoading(true)
       setError(null)
-      
       const response = await api.getProfile()
-      
       if (response.success) {
         setProfile(response.data)
       } else {
@@ -34,138 +33,302 @@ function ProfilePage() {
     }
   }
 
-  // Всегда показываем что-то
-  return (
-    <div style={{ 
-      minHeight: '100vh', 
-      background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
-      padding: '20px',
-      color: 'white'
-    }}>
-      <h1 style={{ fontSize: '24px', marginBottom: '16px', textAlign: 'center' }}>
-        📊 Профиль
-      </h1>
+  const getRankDisplay = (rank) => {
+    if (typeof rank === 'object') {
+      return `${rank.emoji || ''} ${rank.name || ''}`
+    }
+    return rank
+  }
 
-      {loading && (
-        <div style={{ textAlign: 'center', padding: '40px' }}>
-          <div style={{ 
-            width: '40px', 
-            height: '40px', 
-            border: '3px solid rgba(255,255,255,0.3)',
-            borderTopColor: '#6366f1',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-            margin: '0 auto 16px'
-          }} />
-          <p>Загрузка...</p>
-        </div>
-      )}
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-game flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center"
+        >
+          <div className="relative w-20 h-20 mx-auto mb-4">
+            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 animate-spin" style={{ padding: '3px' }}>
+              <div className="w-full h-full rounded-full bg-[#1a1a2e]"></div>
+            </div>
+          </div>
+          <p className="text-white/60 text-sm">Загрузка профиля...</p>
+        </motion.div>
+      </div>
+    )
+  }
 
-      {error && (
-        <div style={{ 
-          background: 'rgba(239,68,68,0.2)', 
-          padding: '16px', 
-          borderRadius: '12px',
-          marginBottom: '16px',
-          border: '1px solid rgba(239,68,68,0.5)'
-        }}>
-          <p style={{ color: '#ef4444' }}>Ошибка: {error}</p>
+  if (error || !profile) {
+    return (
+      <div className="min-h-screen bg-gradient-game flex items-center justify-center p-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center"
+        >
+          <div className="text-6xl mb-4">😔</div>
+          <p className="text-white/60 mb-6">{error || 'Профиль не найден'}</p>
           <button 
             onClick={loadProfile}
-            style={{
-              marginTop: '12px',
-              padding: '8px 16px',
-              background: '#6366f1',
-              border: 'none',
-              borderRadius: '8px',
-              color: 'white',
-              cursor: 'pointer'
-            }}
+            className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl text-white font-medium"
           >
-            Повторить
+            Попробовать снова
           </button>
-        </div>
-      )}
+        </motion.div>
+      </div>
+    )
+  }
 
-      {profile && (
-        <div>
-          <div style={{ 
-            background: 'rgba(255,255,255,0.1)', 
-            padding: '20px', 
-            borderRadius: '16px',
-            marginBottom: '16px',
-            textAlign: 'center'
-          }}>
-            <div style={{
-              width: '80px',
-              height: '80px',
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, #6366f1, #9333ea)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '32px',
-              fontWeight: 'bold',
-              margin: '0 auto 12px'
-            }}>
-              {user?.first_name?.[0] || '?'}
-            </div>
-            <h2 style={{ fontSize: '20px', marginBottom: '4px' }}>
-              {user?.first_name} {user?.last_name || ''}
-            </h2>
-            {user?.username && (
-              <p style={{ opacity: 0.6, fontSize: '14px' }}>@{user.username}</p>
-            )}
+  const totalGames = (profile.stats?.duel_wins || 0) + (profile.stats?.duel_losses || 0) + (profile.stats?.duel_draws || 0)
+  const winRate = totalGames > 0 ? Math.round((profile.stats?.duel_wins / totalGames) * 100) : 0
+
+  return (
+    <div className="min-h-screen bg-gradient-game overflow-hidden">
+      {/* Decorative background elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-indigo-500/20 rounded-full blur-3xl"></div>
+      </div>
+
+      <div className="relative z-10 p-4 pb-8">
+        {/* Header with Avatar */}
+        <motion.div
+          initial={{ opacity: 0, y: -30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="text-center pt-4 mb-6"
+        >
+          {/* Avatar with ring */}
+          <div className="relative inline-block mb-4">
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: 'spring', delay: 0.2 }}
+              className="relative"
+            >
+              <div className="w-24 h-24 rounded-full p-[3px] bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500">
+                <div className="w-full h-full rounded-full bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center">
+                  <span className="text-4xl font-bold text-white">
+                    {user?.first_name?.[0]?.toUpperCase() || '?'}
+                  </span>
+                </div>
+              </div>
+              {/* Online indicator */}
+              <div className="absolute bottom-1 right-1 w-5 h-5 bg-green-500 rounded-full border-3 border-[#1a1a2e]"></div>
+            </motion.div>
           </div>
 
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: '1fr 1fr', 
-            gap: '12px',
-            marginBottom: '16px'
-          }}>
-            <div style={{ 
-              background: 'rgba(255,255,255,0.1)', 
-              padding: '16px', 
-              borderRadius: '12px',
-              textAlign: 'center'
-            }}>
-              <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#6366f1' }}>
-                {profile.rating}
-              </p>
-              <p style={{ fontSize: '12px', opacity: 0.6 }}>Рейтинг</p>
+          <motion.h1
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+            className="text-2xl font-bold text-white mb-1"
+          >
+            {user?.first_name} {user?.last_name || ''}
+          </motion.h1>
+          
+          {user?.username && (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4 }}
+              className="text-white/50 text-sm"
+            >
+              @{user.username}
+            </motion.p>
+          )}
+        </motion.div>
+
+        {/* Rating Card - Main */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.2 }}
+          className="relative mb-4 overflow-hidden"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-indigo-600/30 to-purple-600/30 rounded-2xl"></div>
+          <div className="relative glass rounded-2xl p-5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-white/50 text-xs uppercase tracking-wider mb-1">Рейтинг</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-4xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+                    {profile.rating}
+                  </span>
+                  <span className="text-white/40 text-sm">очков</span>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-white/50 text-xs uppercase tracking-wider mb-1">Ранг</p>
+                <p className="text-xl font-semibold text-white">{getRankDisplay(profile.rank)}</p>
+              </div>
             </div>
-            <div style={{ 
-              background: 'rgba(255,255,255,0.1)', 
-              padding: '16px', 
-              borderRadius: '12px',
-              textAlign: 'center'
-            }}>
-              <p style={{ fontSize: '28px', fontWeight: 'bold', color: '#22c55e' }}>
-                {profile.stats?.duel_wins || 0}
-              </p>
-              <p style={{ fontSize: '12px', opacity: 0.6 }}>Победы</p>
+            
+            {/* Progress bar */}
+            <div className="mt-4">
+              <div className="flex justify-between text-xs text-white/40 mb-2">
+                <span>Прогресс</span>
+                <span>До следующего ранга</span>
+              </div>
+              <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: '65%' }}
+                  transition={{ delay: 0.6, duration: 1, ease: 'easeOut' }}
+                  className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full"
+                />
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Stats Grid */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="grid grid-cols-3 gap-3 mb-4"
+        >
+          <StatBox 
+            icon="🏆" 
+            value={profile.stats?.duel_wins || 0} 
+            label="Победы" 
+            color="from-green-500/20 to-emerald-500/20"
+            textColor="text-green-400"
+            delay={0.4}
+          />
+          <StatBox 
+            icon="💰" 
+            value={profile.coins} 
+            label="Монеты" 
+            color="from-yellow-500/20 to-amber-500/20"
+            textColor="text-yellow-400"
+            delay={0.5}
+          />
+          <StatBox 
+            icon="🔥" 
+            value={profile.win_streak} 
+            label="Серия" 
+            color="from-orange-500/20 to-red-500/20"
+            textColor="text-orange-400"
+            delay={0.6}
+          />
+        </motion.div>
+
+        {/* Duel Statistics */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="glass rounded-2xl p-4 mb-4"
+        >
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-lg">⚔️</span>
+            <h3 className="text-white/70 text-sm font-medium">Статистика дуэлей</h3>
+          </div>
+          
+          <div className="grid grid-cols-4 gap-2 text-center mb-4">
+            <div>
+              <p className="text-2xl font-bold text-green-400">{profile.stats?.duel_wins || 0}</p>
+              <p className="text-[10px] text-white/40 uppercase">Побед</p>
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-red-400">{profile.stats?.duel_losses || 0}</p>
+              <p className="text-[10px] text-white/40 uppercase">Поражений</p>
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-white/50">{profile.stats?.duel_draws || 0}</p>
+              <p className="text-[10px] text-white/40 uppercase">Ничьих</p>
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-white">{totalGames}</p>
+              <p className="text-[10px] text-white/40 uppercase">Всего</p>
             </div>
           </div>
 
-          <div style={{ 
-            background: 'rgba(255,255,255,0.1)', 
-            padding: '16px', 
-            borderRadius: '12px'
-          }}>
-            <p style={{ fontSize: '14px', marginBottom: '8px' }}>Ранг: <b>{typeof profile.rank === 'object' ? `${profile.rank.emoji || ''} ${profile.rank.name || ''}` : profile.rank}</b></p>
-            <p style={{ fontSize: '14px', marginBottom: '8px' }}>Монеты: <b>{profile.coins}</b></p>
-            <p style={{ fontSize: '14px' }}>Рекорд П/Л: <b>{profile.true_false_record}</b></p>
+          {/* Win Rate Bar */}
+          <div className="pt-3 border-t border-white/10">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-xs text-white/50">Процент побед</span>
+              <span className="text-sm font-bold text-green-400">{winRate}%</span>
+            </div>
+            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${winRate}%` }}
+                transition={{ delay: 0.8, duration: 0.8, ease: 'easeOut' }}
+                className="h-full bg-gradient-to-r from-green-500 to-emerald-400 rounded-full"
+              />
+            </div>
           </div>
-        </div>
-      )}
+        </motion.div>
 
-      <style>{`
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
+        {/* True/False Record */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="glass rounded-2xl p-4 mb-4"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500/30 to-pink-500/30 flex items-center justify-center">
+                <span className="text-2xl">🧠</span>
+              </div>
+              <div>
+                <p className="text-white/50 text-xs uppercase tracking-wider">Правда или ложь</p>
+                <p className="text-xl font-bold text-white">Рекорд: {profile.true_false_record}</p>
+              </div>
+            </div>
+            <div className="text-3xl">🏅</div>
+          </div>
+        </motion.div>
+
+        {/* Detailed Stats Button */}
+        <motion.button
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+          onClick={() => navigate('/stats')}
+          className="w-full glass rounded-2xl p-4 flex items-center justify-between group hover:bg-white/10 transition-all active:scale-[0.98]"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500/30 to-purple-500/30 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <span className="text-2xl">📊</span>
+            </div>
+            <div className="text-left">
+              <p className="font-semibold text-white">Подробная статистика</p>
+              <p className="text-xs text-white/40">Аналитика по категориям</p>
+            </div>
+          </div>
+          <div className="text-white/30 group-hover:text-white/60 group-hover:translate-x-1 transition-all">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+            </svg>
+          </div>
+        </motion.button>
+      </div>
     </div>
+  )
+}
+
+function StatBox({ icon, value, label, color, textColor, delay }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay }}
+      className={`relative overflow-hidden rounded-xl p-3 text-center`}
+    >
+      <div className={`absolute inset-0 bg-gradient-to-br ${color}`}></div>
+      <div className="absolute inset-0 glass"></div>
+      <div className="relative">
+        <span className="text-lg">{icon}</span>
+        <p className={`text-2xl font-bold ${textColor} mt-1`}>{value}</p>
+        <p className="text-[10px] text-white/40 uppercase tracking-wider">{label}</p>
+      </div>
+    </motion.div>
   )
 }
 
