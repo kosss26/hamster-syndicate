@@ -629,36 +629,24 @@ function DuelPage() {
         </div>
 
         {/* Category */}
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-4"
-        >
+        <div className="text-center mb-4">
           <span className="inline-block px-3 py-1 rounded-full bg-game-primary/20 text-game-primary text-sm">
             📜 {question.category}
           </span>
-        </motion.div>
+        </div>
 
         {/* Question */}
-        <motion.div
-          key={`q-${question.id}`}
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="glass rounded-2xl p-5 mb-6"
-        >
+        <div className="glass rounded-2xl p-5 mb-6">
           <p className="text-lg font-medium leading-relaxed">
             {question.text}
           </p>
-        </motion.div>
+        </div>
 
         {/* Answers */}
         <div className="flex-1 flex flex-col gap-3">
           {question.answers.map((answer, index) => (
-            <motion.button
+            <button
               key={answer.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
               onClick={() => handleAnswerSelect(answer.id)}
               disabled={selectedAnswer !== null}
               className={`btn-answer ${getAnswerClass(answer.id)}`}
@@ -669,25 +657,13 @@ function DuelPage() {
                 </span>
                 <span className="flex-1 text-left">{answer.text}</span>
                 {selectedAnswer === answer.id && lastResult?.is_correct && (
-                  <motion.span
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="text-xl"
-                  >
-                    ✓
-                  </motion.span>
+                  <span className="text-xl">✓</span>
                 )}
                 {selectedAnswer === answer.id && lastResult && !lastResult.is_correct && !lastResult.timeout && (
-                  <motion.span
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="text-xl"
-                  >
-                    ✗
-                  </motion.span>
+                  <span className="text-xl">✗</span>
                 )}
               </div>
-            </motion.button>
+            </button>
           ))}
         </div>
 
@@ -773,22 +749,17 @@ function DuelPage() {
   if (state === STATES.FINISHED) {
     const isWinner = score.player > score.opponent
     const isDraw = score.player === score.opponent
+    
+    // Рейтинг: +10 за победу, 0 за ничью, -10 за поражение (базовые значения)
+    const ratingChange = isWinner ? '+10' : isDraw ? '0' : '-10'
+    const ratingColor = isWinner ? 'text-game-success' : isDraw ? 'text-white/50' : 'text-game-danger'
 
     return (
       <div className="min-h-screen bg-gradient-game p-4 flex flex-col items-center justify-center">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.5 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="text-center"
-        >
-          <motion.div
-            initial={{ scale: 0, rotate: -180 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: 'spring', delay: 0.2 }}
-            className="text-7xl mb-4"
-          >
+        <div className="text-center">
+          <div className="text-7xl mb-4">
             {isWinner ? '🏆' : isDraw ? '🤝' : '😔'}
-          </motion.div>
+          </div>
           
           <h2 className="text-3xl font-bold mb-2 text-white">
             {isWinner ? 'Победа!' : isDraw ? 'Ничья!' : 'Поражение'}
@@ -800,27 +771,14 @@ function DuelPage() {
             <span className="text-game-danger">{score.opponent}</span>
           </div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="glass rounded-2xl p-4 mb-6"
-          >
-            <div className="flex justify-around">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-game-success">
-                  {isWinner ? '+15' : isDraw ? '+5' : '-10'}
-                </div>
-                <div className="text-xs text-telegram-hint">Рейтинг</div>
+          <div className="glass rounded-2xl p-4 mb-6">
+            <div className="text-center">
+              <div className={`text-2xl font-bold ${ratingColor}`}>
+                {ratingChange}
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-game-warning">
-                  {isWinner ? '+50' : isDraw ? '+25' : '+10'}
-                </div>
-                <div className="text-xs text-telegram-hint">Монеты</div>
-              </div>
+              <div className="text-xs text-telegram-hint">Рейтинг</div>
             </div>
-          </motion.div>
+          </div>
 
           <div className="flex gap-3">
             <button
@@ -842,7 +800,7 @@ function DuelPage() {
               Ещё раз
             </button>
           </div>
-        </motion.div>
+        </div>
       </div>
     )
   }

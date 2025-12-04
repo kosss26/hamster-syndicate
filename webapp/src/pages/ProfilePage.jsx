@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
 import { useTelegram, showBackButton } from '../hooks/useTelegram'
 import api from '../api/client'
 
@@ -43,18 +42,14 @@ function ProfilePage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-game flex items-center justify-center">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="text-center"
-        >
+        <div className="text-center">
           <div className="relative w-20 h-20 mx-auto mb-4">
             <div className="absolute inset-0 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 animate-spin" style={{ padding: '3px' }}>
               <div className="w-full h-full rounded-full bg-[#1a1a2e]"></div>
             </div>
           </div>
           <p className="text-white/60 text-sm">Загрузка профиля...</p>
-        </motion.div>
+        </div>
       </div>
     )
   }
@@ -62,11 +57,7 @@ function ProfilePage() {
   if (error || !profile) {
     return (
       <div className="min-h-screen bg-gradient-game flex items-center justify-center p-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center"
-        >
+        <div className="text-center">
           <div className="text-6xl mb-4">😔</div>
           <p className="text-white/60 mb-6">{error || 'Профиль не найден'}</p>
           <button 
@@ -75,7 +66,7 @@ function ProfilePage() {
           >
             Попробовать снова
           </button>
-        </motion.div>
+        </div>
       </div>
     )
   }
@@ -93,20 +84,10 @@ function ProfilePage() {
 
       <div className="relative z-10 p-4 pb-8">
         {/* Header with Avatar */}
-        <motion.div
-          initial={{ opacity: 0, y: -30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="text-center pt-4 mb-6"
-        >
+        <div className="text-center pt-4 mb-6">
           {/* Avatar with ring */}
           <div className="relative inline-block mb-4">
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ type: 'spring', delay: 0.2 }}
-              className="relative"
-            >
+            <div className="relative">
               <div className="w-24 h-24 rounded-full p-[3px] bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500">
                 <div className="w-full h-full rounded-full bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center">
                   <span className="text-4xl font-bold text-white">
@@ -116,37 +97,22 @@ function ProfilePage() {
               </div>
               {/* Online indicator */}
               <div className="absolute bottom-1 right-1 w-5 h-5 bg-green-500 rounded-full border-3 border-[#1a1a2e]"></div>
-            </motion.div>
+            </div>
           </div>
 
-          <motion.h1
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3 }}
-            className="text-2xl font-bold text-white mb-1"
-          >
+          <h1 className="text-2xl font-bold text-white mb-1">
             {user?.first_name} {user?.last_name || ''}
-          </motion.h1>
+          </h1>
           
           {user?.username && (
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4 }}
-              className="text-white/50 text-sm"
-            >
+            <p className="text-white/50 text-sm">
               @{user.username}
-            </motion.p>
+            </p>
           )}
-        </motion.div>
+        </div>
 
         {/* Rating Card - Main */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.2 }}
-          className="relative mb-4 overflow-hidden"
-        >
+        <div className="relative mb-4 overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-600/30 to-purple-600/30 rounded-2xl"></div>
           <div className="relative glass rounded-2xl p-5">
             <div className="flex items-center justify-between">
@@ -172,39 +138,30 @@ function ProfilePage() {
                 <span>До следующего ранга</span>
               </div>
               <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: '65%' }}
-                  transition={{ delay: 0.6, duration: 1, ease: 'easeOut' }}
+                <div
+                  style={{ width: '65%' }}
                   className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full"
                 />
               </div>
             </div>
           </div>
-        </motion.div>
+        </div>
 
         {/* Stats Grid */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="grid grid-cols-3 gap-3 mb-4"
-        >
+        <div className="grid grid-cols-3 gap-3 mb-4">
           <StatBox 
             icon="🏆" 
             value={profile.stats?.duel_wins || 0} 
             label="Победы" 
             color="from-green-500/20 to-emerald-500/20"
             textColor="text-green-400"
-            delay={0.4}
           />
           <StatBox 
-            icon="💰" 
-            value={profile.coins} 
-            label="Монеты" 
-            color="from-yellow-500/20 to-amber-500/20"
-            textColor="text-yellow-400"
-            delay={0.5}
+            icon="📊" 
+            value={profile.rating} 
+            label="Рейтинг" 
+            color="from-indigo-500/20 to-purple-500/20"
+            textColor="text-indigo-400"
           />
           <StatBox 
             icon="🔥" 
@@ -212,17 +169,11 @@ function ProfilePage() {
             label="Серия" 
             color="from-orange-500/20 to-red-500/20"
             textColor="text-orange-400"
-            delay={0.6}
           />
-        </motion.div>
+        </div>
 
         {/* Duel Statistics */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="glass rounded-2xl p-4 mb-4"
-        >
+        <div className="glass rounded-2xl p-4 mb-4">
           <div className="flex items-center gap-2 mb-4">
             <span className="text-lg">⚔️</span>
             <h3 className="text-white/70 text-sm font-medium">Статистика дуэлей</h3>
@@ -254,23 +205,16 @@ function ProfilePage() {
               <span className="text-sm font-bold text-green-400">{winRate}%</span>
             </div>
             <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${winRate}%` }}
-                transition={{ delay: 0.8, duration: 0.8, ease: 'easeOut' }}
+              <div
+                style={{ width: `${winRate}%` }}
                 className="h-full bg-gradient-to-r from-green-500 to-emerald-400 rounded-full"
               />
             </div>
           </div>
-        </motion.div>
+        </div>
 
         {/* True/False Record */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="glass rounded-2xl p-4 mb-4"
-        >
+        <div className="glass rounded-2xl p-4 mb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500/30 to-pink-500/30 flex items-center justify-center">
@@ -283,13 +227,10 @@ function ProfilePage() {
             </div>
             <div className="text-3xl">🏅</div>
           </div>
-        </motion.div>
+        </div>
 
         {/* Detailed Stats Button */}
-        <motion.button
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
+        <button
           onClick={() => navigate('/stats')}
           className="w-full glass rounded-2xl p-4 flex items-center justify-between group hover:bg-white/10 transition-all active:scale-[0.98]"
         >
@@ -307,20 +248,15 @@ function ProfilePage() {
               <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
             </svg>
           </div>
-        </motion.button>
+        </button>
       </div>
     </div>
   )
 }
 
-function StatBox({ icon, value, label, color, textColor, delay }) {
+function StatBox({ icon, value, label, color, textColor }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.8 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ delay }}
-      className={`relative overflow-hidden rounded-xl p-3 text-center`}
-    >
+    <div className="relative overflow-hidden rounded-xl p-3 text-center">
       <div className={`absolute inset-0 bg-gradient-to-br ${color}`}></div>
       <div className="absolute inset-0 glass"></div>
       <div className="relative">
@@ -328,7 +264,7 @@ function StatBox({ icon, value, label, color, textColor, delay }) {
         <p className={`text-2xl font-bold ${textColor} mt-1`}>{value}</p>
         <p className="text-[10px] text-white/40 uppercase tracking-wider">{label}</p>
       </div>
-    </motion.div>
+    </div>
   )
 }
 
