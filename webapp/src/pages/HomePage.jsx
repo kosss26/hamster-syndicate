@@ -72,8 +72,7 @@ function HomePage() {
         className="text-center mb-8 pt-4"
       >
         <div className="text-5xl mb-3">⚔️</div>
-        <h1 className="text-2xl font-bold mb-1">Битва знаний</h1>
-        <p className="text-xs text-red-500">v3 - {new Date().toLocaleTimeString()}</p>
+        <h1 className="text-2xl font-bold mb-1 text-white">Битва знаний</h1>
         {user && (
           <p className="text-telegram-hint">
             Привет, {user.first_name}! 👋
@@ -99,7 +98,7 @@ function HomePage() {
                 <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${item.gradient} flex items-center justify-center text-2xl mb-3`}>
                   {item.icon}
                 </div>
-                <h3 className="font-semibold text-sm mb-1">{item.title}</h3>
+                <h3 className="font-semibold text-sm mb-1 text-white">{item.title}</h3>
                 <p className="text-xs text-telegram-hint">{item.subtitle}</p>
               </div>
             </Link>
