@@ -581,6 +581,15 @@ function handleGetTrueFalseQuestion($container, ?array $telegramUser): void
             jsonError('Пользователь не найден', 404);
         }
 
+        // Проверяем наличие фактов напрямую в БД
+        $factsCount = \QuizBot\Domain\Model\TrueFalseFact::query()
+            ->where('is_active', true)
+            ->count();
+        
+        if ($factsCount === 0) {
+            jsonError('Нет фактов в базе данных. Выполните: php bin/seed.php', 404);
+        }
+
         /** @var TrueFalseService $trueFalseService */
         $trueFalseService = $container->get(TrueFalseService::class);
         
@@ -593,7 +602,7 @@ function handleGetTrueFalseQuestion($container, ?array $telegramUser): void
         }
         
         if (!$fact) {
-            jsonError('Нет доступных фактов. Добавьте факты в базу данных.', 404);
+            jsonError('Не удалось загрузить факт', 500);
         }
 
         jsonResponse([
@@ -601,7 +610,7 @@ function handleGetTrueFalseQuestion($container, ?array $telegramUser): void
             'statement' => $fact->statement,
         ]);
     } catch (Throwable $e) {
-        jsonError('Ошибка: ' . $e->getMessage(), 500);
+        jsonError('Ошибка: ' . $e->getMessage() . ' в ' . $e->getFile() . ':' . $e->getLine(), 500);
     }
 }
 
