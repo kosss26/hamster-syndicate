@@ -571,34 +571,38 @@ function handleGetTrueFalseQuestion($container, ?array $telegramUser): void
         jsonError('Не авторизован', 401);
     }
 
-    /** @var UserService $userService */
-    $userService = $container->get(UserService::class);
-    
-    $user = $userService->findByTelegramId((int) $telegramUser['id']);
-    
-    if (!$user) {
-        jsonError('Пользователь не найден', 404);
-    }
+    try {
+        /** @var UserService $userService */
+        $userService = $container->get(UserService::class);
+        
+        $user = $userService->findByTelegramId((int) $telegramUser['id']);
+        
+        if (!$user) {
+            jsonError('Пользователь не найден', 404);
+        }
 
-    /** @var TrueFalseService $trueFalseService */
-    $trueFalseService = $container->get(TrueFalseService::class);
-    
-    // Проверяем, есть ли текущий факт
-    $fact = $trueFalseService->getCurrentFact($user);
-    
-    if (!$fact) {
-        // Начинаем новую сессию
-        $fact = $trueFalseService->startSession($user);
-    }
-    
-    if (!$fact) {
-        jsonError('Не удалось загрузить факт', 500);
-    }
+        /** @var TrueFalseService $trueFalseService */
+        $trueFalseService = $container->get(TrueFalseService::class);
+        
+        // Проверяем, есть ли текущий факт
+        $fact = $trueFalseService->getCurrentFact($user);
+        
+        if (!$fact) {
+            // Начинаем новую сессию
+            $fact = $trueFalseService->startSession($user);
+        }
+        
+        if (!$fact) {
+            jsonError('Нет доступных фактов. Добавьте факты в базу данных.', 404);
+        }
 
-    jsonResponse([
-        'id' => $fact->getKey(),
-        'statement' => $fact->statement,
-    ]);
+        jsonResponse([
+            'id' => $fact->getKey(),
+            'statement' => $fact->statement,
+        ]);
+    } catch (Throwable $e) {
+        jsonError('Ошибка: ' . $e->getMessage(), 500);
+    }
 }
 
 /**
