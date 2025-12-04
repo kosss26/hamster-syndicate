@@ -60,6 +60,19 @@ $telegramUser = verifyTelegramInitData($initData, $config->get('TELEGRAM_BOT_TOK
 // Роутинг
 try {
     switch (true) {
+        // GET /debug - отладка авторизации
+        case $path === '/debug' && $requestMethod === 'GET':
+            jsonResponse([
+                'initData_received' => !empty($initData),
+                'initData_length' => strlen($initData),
+                'initData_preview' => substr($initData, 0, 100),
+                'telegram_user' => $telegramUser,
+                'headers' => [
+                    'X-Telegram-Init-Data' => $_SERVER['HTTP_X_TELEGRAM_INIT_DATA'] ?? 'not set',
+                ],
+            ]);
+            break;
+
         // GET /user - получить текущего пользователя
         case $path === '/user' && $requestMethod === 'GET':
             handleGetUser($container, $telegramUser);

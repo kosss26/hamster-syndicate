@@ -23,7 +23,12 @@ function ProfilePage() {
       
       // Отладка: проверяем initData
       const initData = window.Telegram?.WebApp?.initData
+      const initDataUnsafe = window.Telegram?.WebApp?.initDataUnsafe
+      console.log('=== DEBUG ===')
       console.log('initData:', initData)
+      console.log('initData length:', initData?.length)
+      console.log('initDataUnsafe:', initDataUnsafe)
+      console.log('user:', initDataUnsafe?.user)
       
       const response = await api.getProfile()
       console.log('API response:', response)
@@ -56,22 +61,43 @@ function ProfilePage() {
     const initData = window.Telegram?.WebApp?.initData
     const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user
     
+    const testDebugApi = async () => {
+      try {
+        const res = await fetch('/api/debug', {
+          headers: { 'X-Telegram-Init-Data': initData || '' }
+        })
+        const data = await res.json()
+        alert(JSON.stringify(data, null, 2))
+      } catch (e) {
+        alert('Error: ' + e.message)
+      }
+    }
+    
     return (
       <div className="min-h-screen bg-gradient-game flex items-center justify-center p-4">
         <div className="text-center">
           <div className="text-4xl mb-4">😔</div>
           <p className="text-telegram-hint mb-4">{error || 'Профиль не найден'}</p>
-          <div className="text-xs text-left bg-black/30 p-3 rounded-lg max-w-xs mx-auto text-white">
+          <div className="text-xs text-left bg-black/30 p-3 rounded-lg max-w-xs mx-auto text-white break-all">
             <p className="mb-2"><b>Debug info:</b></p>
             <p>TG User: {tgUser ? `${tgUser.first_name} (${tgUser.id})` : 'null'}</p>
-            <p>initData: {initData ? `${initData.substring(0, 50)}...` : 'empty'}</p>
+            <p>initData length: {initData?.length || 0}</p>
+            <p className="mt-2 text-[10px] opacity-70">initData: {initData ? `${initData.substring(0, 100)}...` : 'empty'}</p>
           </div>
-          <button 
-            onClick={loadProfile}
-            className="mt-4 px-4 py-2 bg-game-primary rounded-lg text-white"
-          >
-            Повторить
-          </button>
+          <div className="flex gap-2 mt-4 justify-center">
+            <button 
+              onClick={loadProfile}
+              className="px-4 py-2 bg-game-primary rounded-lg text-white"
+            >
+              Повторить
+            </button>
+            <button 
+              onClick={testDebugApi}
+              className="px-4 py-2 bg-white/20 rounded-lg text-white"
+            >
+              Test API
+            </button>
+          </div>
         </div>
       </div>
     )
