@@ -28,8 +28,8 @@ lt.log
 *~
 .DS_Store
 
-# Cache
-cache/
+# Cache (only storage cache, not source code)
+storage/cache/
 .cache/
 *.cache
 
