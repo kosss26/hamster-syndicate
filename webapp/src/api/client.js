@@ -1,4 +1,5 @@
-// Базовый URL API (будет настроен на продакшене)
+// Базовый URL API
+// В продакшене используем относительный путь /api, который nginx проксирует на PHP
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
 
 // Получаем initData из Telegram для авторизации

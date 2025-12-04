@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTelegram, showBackButton, hapticFeedback } from '../hooks/useTelegram'
+import api from '../api/client'
 
 // Состояния дуэли
 const STATES = {
@@ -9,35 +10,29 @@ const STATES = {
   SEARCHING: 'searching',
   FOUND: 'found',
   PLAYING: 'playing',
-  ROUND_RESULT: 'round_result',
+  WAITING_OPPONENT: 'waiting_opponent',
   FINISHED: 'finished'
-}
-
-// Моковые данные для демонстрации
-const MOCK_QUESTION = {
-  id: 1,
-  text: 'Какой город был столицей Древнего Египта во времена фараона Тутанхамона?',
-  category: 'История',
-  answers: [
-    { id: 1, text: 'Фивы' },
-    { id: 2, text: 'Мемфис' },
-    { id: 3, text: 'Александрия' },
-    { id: 4, text: 'Гелиополь' }
-  ]
 }
 
 function DuelPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const { id: duelIdParam } = useParams()
   const { user } = useTelegram()
   
   const [state, setState] = useState(STATES.MENU)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  
+  const [duel, setDuel] = useState(null)
+  const [question, setQuestion] = useState(null)
   const [timeLeft, setTimeLeft] = useState(30)
   const [round, setRound] = useState(1)
+  const [totalRounds, setTotalRounds] = useState(10)
   const [score, setScore] = useState({ player: 0, opponent: 0 })
   const [selectedAnswer, setSelectedAnswer] = useState(null)
   const [correctAnswer, setCorrectAnswer] = useState(null)
-  const [question, setQuestion] = useState(MOCK_QUESTION)
+  const [lastResult, setLastResult] = useState(null)
 
   // Показываем кнопку "Назад"
   useEffect(() => {
@@ -50,6 +45,13 @@ function DuelPage() {
       startSearch()
     }
   }, [searchParams])
+
+  // Загрузка существующей дуэли
+  useEffect(() => {
+    if (duelIdParam) {
+      loadDuel(parseInt(duelIdParam))
+    }
+  }, [duelIdParam])
 
   // Таймер
   useEffect(() => {
@@ -68,78 +70,144 @@ function DuelPage() {
     return () => clearInterval(timer)
   }, [state, timeLeft])
 
-  const startSearch = () => {
-    setState(STATES.SEARCHING)
-    hapticFeedback('medium')
+  // Периодическая проверка состояния дуэли
+  useEffect(() => {
+    if (!duel || state === STATES.FINISHED) return
     
-    // Имитация поиска соперника
-    setTimeout(() => {
-      setState(STATES.FOUND)
-      hapticFeedback('success')
+    const interval = setInterval(() => {
+      loadDuel(duel.duel_id)
+    }, 3000)
+
+    return () => clearInterval(interval)
+  }, [duel, state])
+
+  const loadDuel = async (duelId) => {
+    try {
+      const response = await api.getDuel(duelId)
       
-      // Начинаем игру через 2 секунды
-      setTimeout(() => {
-        setState(STATES.PLAYING)
-        setTimeLeft(30)
-      }, 2000)
-    }, 2000)
+      if (response.success) {
+        const data = response.data
+        setDuel(data)
+        setRound(data.current_round)
+        setTotalRounds(data.total_rounds)
+        setScore({
+          player: data.initiator_score,
+          opponent: data.opponent_score
+        })
+        
+        if (data.status === 'finished') {
+          setState(STATES.FINISHED)
+        } else if (data.question) {
+          setQuestion(data.question)
+          if (state !== STATES.PLAYING) {
+            setState(STATES.PLAYING)
+            setTimeLeft(30)
+          }
+        } else if (data.status === 'waiting') {
+          setState(STATES.WAITING_OPPONENT)
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load duel:', err)
+    }
   }
 
-  const handleAnswerSelect = (answerId) => {
-    if (selectedAnswer !== null) return
+  const startSearch = async () => {
+    setState(STATES.SEARCHING)
+    setLoading(true)
+    setError(null)
+    hapticFeedback('medium')
+    
+    try {
+      const response = await api.createDuel('random')
+      
+      if (response.success) {
+        const data = response.data
+        setDuel(data)
+        
+        if (data.opponent_id) {
+          // Соперник уже найден
+          setState(STATES.FOUND)
+          hapticFeedback('success')
+          
+          setTimeout(() => {
+            loadDuel(data.duel_id)
+          }, 2000)
+        } else {
+          // Ожидаем соперника
+          setState(STATES.WAITING_OPPONENT)
+        }
+      } else {
+        setError(response.error || 'Не удалось создать дуэль')
+        setState(STATES.MENU)
+      }
+    } catch (err) {
+      console.error('Failed to create duel:', err)
+      setError(`Ошибка: ${err.message}`)
+      setState(STATES.MENU)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleAnswerSelect = async (answerId) => {
+    if (selectedAnswer !== null || !duel || !question) return
     
     setSelectedAnswer(answerId)
     hapticFeedback('light')
     
-    // Имитация проверки ответа
-    setTimeout(() => {
-      const correct = 1 // В реальности придёт с сервера
-      setCorrectAnswer(correct)
+    try {
+      const response = await api.submitAnswer(duel.duel_id, round, answerId)
       
-      if (answerId === correct) {
-        hapticFeedback('success')
-        setScore(prev => ({ ...prev, player: prev.player + 1 }))
-      } else {
-        hapticFeedback('error')
-      }
-      
-      // Переход к следующему раунду
-      setTimeout(() => {
-        if (round >= 10) {
-          setState(STATES.FINISHED)
+      if (response.success) {
+        const data = response.data
+        setLastResult(data)
+        
+        // Находим правильный ответ (если сервер вернул)
+        const correctId = data.is_correct ? answerId : null
+        setCorrectAnswer(correctId)
+        
+        if (data.is_correct) {
+          hapticFeedback('success')
+          setScore(prev => ({ ...prev, player: prev.player + data.points_earned }))
         } else {
-          setRound(prev => prev + 1)
+          hapticFeedback('error')
+        }
+        
+        // Загружаем следующий раунд через 2 сек
+        setTimeout(() => {
+          loadDuel(duel.duel_id)
           setSelectedAnswer(null)
           setCorrectAnswer(null)
           setTimeLeft(30)
-        }
-      }, 2000)
-    }, 500)
+        }, 2000)
+      }
+    } catch (err) {
+      console.error('Failed to submit answer:', err)
+      setError(`Ошибка: ${err.message}`)
+    }
   }
 
-  const handleTimeout = () => {
+  const handleTimeout = async () => {
     if (selectedAnswer !== null) return
-    setCorrectAnswer(1)
     hapticFeedback('warning')
     
+    // При таймауте считаем ответ неправильным
     setTimeout(() => {
-      if (round >= 10) {
-        setState(STATES.FINISHED)
-      } else {
-        setRound(prev => prev + 1)
-        setSelectedAnswer(null)
-        setCorrectAnswer(null)
-        setTimeLeft(30)
-      }
-    }, 2000)
+      loadDuel(duel.duel_id)
+      setSelectedAnswer(null)
+      setCorrectAnswer(null)
+      setTimeLeft(30)
+    }, 1000)
   }
 
   const getAnswerClass = (answerId) => {
-    if (correctAnswer === null) {
-      return selectedAnswer === answerId ? 'ring-2 ring-game-primary' : ''
+    if (correctAnswer === null && selectedAnswer === null) return ''
+    if (selectedAnswer === answerId) {
+      if (correctAnswer === answerId) return 'correct'
+      return 'incorrect'
     }
-    if (answerId === correctAnswer) return 'correct'
-    if (answerId === selectedAnswer) return 'incorrect'
+    if (correctAnswer === answerId) return 'correct'
     return 'opacity-50'
   }
 
@@ -157,12 +225,23 @@ function DuelPage() {
           <p className="text-telegram-hint mt-2">Выбери режим игры</p>
         </motion.div>
 
+        {error && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="glass rounded-xl p-4 mb-4 border border-game-danger/50"
+          >
+            <p className="text-game-danger text-sm">{error}</p>
+          </motion.div>
+        )}
+
         <div className="flex-1 flex flex-col gap-4">
           <motion.button
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             onClick={startSearch}
-            className="glass rounded-2xl p-6 text-left hover:bg-white/10 transition-colors active:scale-95"
+            disabled={loading}
+            className="glass rounded-2xl p-6 text-left hover:bg-white/10 transition-colors active:scale-95 disabled:opacity-50"
           >
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-game-primary to-purple-600 flex items-center justify-center text-2xl">
@@ -179,7 +258,8 @@ function DuelPage() {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.1 }}
-            className="glass rounded-2xl p-6 text-left hover:bg-white/10 transition-colors active:scale-95"
+            className="glass rounded-2xl p-6 text-left hover:bg-white/10 transition-colors active:scale-95 opacity-50"
+            disabled
           >
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-2xl">
@@ -187,7 +267,7 @@ function DuelPage() {
               </div>
               <div>
                 <h3 className="font-semibold text-lg">Пригласить друга</h3>
-                <p className="text-sm text-telegram-hint">Отправь приглашение по нику</p>
+                <p className="text-sm text-telegram-hint">Скоро будет доступно</p>
               </div>
             </div>
           </motion.button>
@@ -214,6 +294,37 @@ function DuelPage() {
           </div>
           <h2 className="text-xl font-bold mb-2">Ищем соперника...</h2>
           <p className="text-telegram-hint">Это займёт несколько секунд</p>
+        </motion.div>
+      </div>
+    )
+  }
+
+  // Ожидание соперника
+  if (state === STATES.WAITING_OPPONENT) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center"
+        >
+          <div className="relative w-32 h-32 mx-auto mb-6">
+            <div className="absolute inset-0 rounded-full bg-yellow-500/30 pulse-ring"></div>
+            <div className="absolute inset-8 rounded-full bg-yellow-500 flex items-center justify-center">
+              <span className="text-4xl">⏳</span>
+            </div>
+          </div>
+          <h2 className="text-xl font-bold mb-2">Ожидаем соперника</h2>
+          <p className="text-telegram-hint mb-4">Код дуэли: <span className="font-mono font-bold">{duel?.code}</span></p>
+          <button
+            onClick={() => {
+              setState(STATES.MENU)
+              setDuel(null)
+            }}
+            className="px-6 py-2 bg-white/10 rounded-xl"
+          >
+            Отмена
+          </button>
         </motion.div>
       </div>
     )
@@ -258,14 +369,14 @@ function DuelPage() {
   }
 
   // Игра
-  if (state === STATES.PLAYING) {
+  if (state === STATES.PLAYING && question) {
     return (
       <div className="min-h-screen p-4 flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div className="text-sm">
             <span className="text-telegram-hint">Раунд</span>
-            <span className="font-bold ml-1">{round}/10</span>
+            <span className="font-bold ml-1">{round}/{totalRounds}</span>
           </div>
           
           {/* Timer */}
@@ -308,7 +419,7 @@ function DuelPage() {
 
         {/* Progress */}
         <div className="flex gap-1 mb-6">
-          {Array.from({ length: 10 }).map((_, i) => (
+          {Array.from({ length: totalRounds }).map((_, i) => (
             <div
               key={i}
               className={`flex-1 h-1 rounded-full transition-colors ${
@@ -333,7 +444,7 @@ function DuelPage() {
 
         {/* Question */}
         <motion.div
-          key={round}
+          key={`q-${round}`}
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           className="glass rounded-2xl p-5 mb-6"
@@ -353,15 +464,15 @@ function DuelPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
                 onClick={() => handleAnswerSelect(answer.id)}
-                disabled={correctAnswer !== null}
+                disabled={selectedAnswer !== null}
                 className={`btn-answer ${getAnswerClass(answer.id)}`}
               >
                 <div className="flex items-center gap-3">
                   <span className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-sm font-medium">
                     {String.fromCharCode(65 + index)}
                   </span>
-                  <span className="flex-1">{answer.text}</span>
-                  {correctAnswer === answer.id && (
+                  <span className="flex-1 text-left">{answer.text}</span>
+                  {selectedAnswer === answer.id && lastResult?.is_correct && (
                     <motion.span
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
@@ -370,7 +481,7 @@ function DuelPage() {
                       ✓
                     </motion.span>
                   )}
-                  {selectedAnswer === answer.id && correctAnswer !== null && correctAnswer !== answer.id && (
+                  {selectedAnswer === answer.id && lastResult && !lastResult.is_correct && (
                     <motion.span
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
@@ -427,11 +538,15 @@ function DuelPage() {
           >
             <div className="flex justify-around">
               <div className="text-center">
-                <div className="text-2xl font-bold text-game-success">+15</div>
+                <div className="text-2xl font-bold text-game-success">
+                  {isWinner ? '+15' : isDraw ? '+5' : '-10'}
+                </div>
                 <div className="text-xs text-telegram-hint">Рейтинг</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-game-warning">+50</div>
+                <div className="text-2xl font-bold text-game-warning">
+                  {isWinner ? '+50' : isDraw ? '+25' : '+10'}
+                </div>
                 <div className="text-xs text-telegram-hint">Монеты</div>
               </div>
             </div>
@@ -447,6 +562,7 @@ function DuelPage() {
             <button
               onClick={() => {
                 setState(STATES.MENU)
+                setDuel(null)
                 setRound(1)
                 setScore({ player: 0, opponent: 0 })
               }}
@@ -460,8 +576,15 @@ function DuelPage() {
     )
   }
 
-  return null
+  // Loading state
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <div className="w-12 h-12 border-4 border-game-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+        <p className="text-telegram-hint">Загрузка...</p>
+      </div>
+    </div>
+  )
 }
 
 export default DuelPage
-

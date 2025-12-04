@@ -305,7 +305,7 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
             foreach ($q->answers as $answer) {
                 $answers[] = [
                     'id' => $answer->getKey(),
-                    'text' => $answer->text,
+                    'text' => $answer->answer_text,
                 ];
             }
         }
@@ -315,7 +315,7 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
         
         $question = [
             'id' => $q?->getKey(),
-            'text' => $q?->text,
+            'text' => $q?->question_text,
             'category' => $q?->category?->title ?? 'Общие знания',
             'answers' => $answers,
         ];
