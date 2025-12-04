@@ -267,7 +267,42 @@ function handleCreateDuel($container, ?array $telegramUser, array $body): void
     
     $mode = $body['mode'] ?? 'random';
     
-    // Создаём дуэль через matchmaking
+    // Проверяем, есть ли у пользователя активная дуэль
+    $existingDuel = $duelService->findActiveDuelForUser($user);
+    if ($existingDuel) {
+        jsonResponse([
+            'duel_id' => $existingDuel->getKey(),
+            'status' => $existingDuel->status,
+            'code' => $existingDuel->code,
+            'initiator_id' => $existingDuel->initiator_user_id,
+            'opponent_id' => $existingDuel->opponent_user_id,
+            'existing' => true,
+        ]);
+        return;
+    }
+    
+    // Ищем доступный тикет от другого игрока (TTL 60 секунд)
+    $availableTicket = $duelService->findAvailableMatchmakingTicket($user, 60);
+    
+    if ($availableTicket) {
+        // Нашли соперника - присоединяемся!
+        $duel = $duelService->acceptDuel($availableTicket, $user);
+        
+        // Сразу стартуем дуэль
+        $duel = $duelService->startDuel($duel);
+        
+        jsonResponse([
+            'duel_id' => $duel->getKey(),
+            'status' => $duel->status,
+            'code' => $duel->code,
+            'initiator_id' => $duel->initiator_user_id,
+            'opponent_id' => $duel->opponent_user_id,
+            'matched' => true,
+        ]);
+        return;
+    }
+    
+    // Не нашли соперника - создаём свой тикет
     $duel = $duelService->createMatchmakingTicket($user);
     
     jsonResponse([
@@ -276,6 +311,7 @@ function handleCreateDuel($container, ?array $telegramUser, array $body): void
         'code' => $duel->code,
         'initiator_id' => $duel->initiator_user_id,
         'opponent_id' => $duel->opponent_user_id,
+        'waiting' => true,
     ]);
 }
 
@@ -296,14 +332,22 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
     if (!$duel) {
         jsonError('Дуэль не найдена', 404);
     }
+    
+    // Если дуэль matched но ещё не стартовала - стартуем
+    if ($duel->status === 'matched' && $duel->started_at === null) {
+        $duel = $duelService->startDuel($duel);
+    }
 
-    $duel->loadMissing('rounds.question.answers', 'rounds.question.category');
+    $duel->loadMissing('rounds.question.answers', 'rounds.question.category', 'initiator', 'opponent');
 
     // Получаем текущий раунд с вопросом
     $currentRound = $duelService->getCurrentRound($duel);
     $question = null;
     
     if ($currentRound) {
+        // Помечаем раунд как отправленный
+        $duelService->markRoundDispatched($currentRound);
+        
         $q = $currentRound->question;
         $answers = [];
         
@@ -335,10 +379,19 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
     jsonResponse([
         'duel_id' => $duel->getKey(),
         'status' => $duel->status,
+        'code' => $duel->code,
         'current_round' => $completedRounds + 1,
         'total_rounds' => $duel->rounds_to_win * 2,
         'initiator_score' => $initiatorScore,
         'opponent_score' => $opponentScore,
+        'initiator' => $duel->initiator ? [
+            'id' => $duel->initiator->getKey(),
+            'name' => $duel->initiator->first_name,
+        ] : null,
+        'opponent' => $duel->opponent ? [
+            'id' => $duel->opponent->getKey(),
+            'name' => $duel->opponent->first_name,
+        ] : null,
         'question' => $question,
     ]);
 }

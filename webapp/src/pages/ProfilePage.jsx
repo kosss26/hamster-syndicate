@@ -10,16 +10,8 @@ function ProfilePage() {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [debugInfo, setDebugInfo] = useState('')
-
   useEffect(() => {
     showBackButton(true)
-    
-    // Debug info сразу при загрузке
-    const initData = window.Telegram?.WebApp?.initData || ''
-    const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user
-    setDebugInfo(`initData: ${initData.length} chars, user: ${tgUser?.first_name || 'none'}`)
-    
     loadProfile()
   }, [])
 
@@ -53,16 +45,6 @@ function ProfilePage() {
       <h1 style={{ fontSize: '24px', marginBottom: '16px', textAlign: 'center' }}>
         📊 Профиль
       </h1>
-      
-      <div style={{ 
-        background: 'rgba(255,255,255,0.1)', 
-        padding: '16px', 
-        borderRadius: '12px',
-        marginBottom: '16px'
-      }}>
-        <p style={{ fontSize: '12px', opacity: 0.7, marginBottom: '8px' }}>Debug:</p>
-        <p style={{ fontSize: '11px', wordBreak: 'break-all' }}>{debugInfo}</p>
-      </div>
 
       {loading && (
         <div style={{ textAlign: 'center', padding: '40px' }}>
