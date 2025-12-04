@@ -676,13 +676,15 @@ function handleAdminStats($container, ?array $telegramUser): void
         jsonError('Доступ запрещён', 403);
     }
 
+    $yesterday = \Illuminate\Support\Carbon::now()->subDay();
+
     // Получаем статистику из БД
     $totalUsers = \QuizBot\Domain\Model\User::query()->count();
     $activeToday = \QuizBot\Domain\Model\User::query()
-        ->where('updated_at', '>=', now()->subDay())
+        ->where('updated_at', '>=', $yesterday)
         ->count();
     $newUsersToday = \QuizBot\Domain\Model\User::query()
-        ->where('created_at', '>=', now()->subDay())
+        ->where('created_at', '>=', $yesterday)
         ->count();
     
     $totalDuels = \QuizBot\Domain\Model\Duel::query()->count();
@@ -690,7 +692,7 @@ function handleAdminStats($container, ?array $telegramUser): void
         ->whereIn('status', ['waiting', 'matched', 'in_progress'])
         ->count();
     $duelsToday = \QuizBot\Domain\Model\Duel::query()
-        ->where('created_at', '>=', now()->subDay())
+        ->where('created_at', '>=', $yesterday)
         ->count();
     
     $totalQuestions = \QuizBot\Domain\Model\Question::query()->count();
