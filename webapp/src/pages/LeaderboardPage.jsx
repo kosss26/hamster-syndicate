@@ -1,18 +1,13 @@
 import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { useTelegram, showBackButton, hapticFeedback } from '../hooks/useTelegram'
+import { useTelegram, showBackButton } from '../hooks/useTelegram'
 import api from '../api/client'
-
-const TABS = [
-  { id: 'duel', label: 'Дуэли', icon: '⚔️' },
-  { id: 'truefalse', label: 'Правда/Ложь', icon: '🧠' }
-]
 
 function LeaderboardPage() {
   const { user } = useTelegram()
   const [activeTab, setActiveTab] = useState('duel')
   const [leaderboard, setLeaderboard] = useState({ duel: [], truefalse: [] })
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     showBackButton(true)
@@ -26,178 +21,162 @@ function LeaderboardPage() {
       if (response.success) {
         setLeaderboard(prev => ({
           ...prev,
-          [type]: response.data.players
+          [type]: response.data.players || []
         }))
+      } else {
+        setError(response.error)
       }
     } catch (err) {
-      console.error('Failed to load leaderboard:', err)
+      setError(err.message)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleTabChange = (tabId) => {
-    setActiveTab(tabId)
-    hapticFeedback('light')
-  }
-
-  const getPositionStyle = (position) => {
-    switch (position) {
-      case 1:
-        return 'bg-gradient-to-r from-game-gold to-yellow-600 text-black'
-      case 2:
-        return 'bg-gradient-to-r from-gray-300 to-gray-400 text-black'
-      case 3:
-        return 'bg-gradient-to-r from-game-bronze to-orange-700 text-white'
-      default:
-        return 'bg-white/10'
-    }
-  }
-
-  const getPositionIcon = (position) => {
-    switch (position) {
-      case 1:
-        return '🥇'
-      case 2:
-        return '🥈'
-      case 3:
-        return '🥉'
-      default:
-        return position
-    }
-  }
-
   const data = activeTab === 'duel' ? leaderboard.duel : leaderboard.truefalse
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-game flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-game-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-telegram-hint">Загрузка...</p>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-game p-4 pb-8">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="text-center pt-4 mb-6"
-      >
-        <div className="text-4xl mb-2">🏆</div>
-        <h1 className="text-2xl font-bold text-white">Рейтинг</h1>
-        <p className="text-telegram-hint">Лучшие игроки</p>
-      </motion.div>
+    <div style={{ 
+      minHeight: '100vh', 
+      background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+      padding: '20px',
+      color: 'white'
+    }}>
+      <h1 style={{ fontSize: '24px', marginBottom: '8px', textAlign: 'center' }}>
+        🏆 Рейтинг
+      </h1>
+      <p style={{ textAlign: 'center', opacity: 0.6, marginBottom: '20px', fontSize: '14px' }}>
+        Лучшие игроки
+      </p>
 
       {/* Tabs */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="flex gap-2 mb-6"
-      >
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => handleTabChange(tab.id)}
-            className={`flex-1 py-3 px-4 rounded-xl font-medium transition-all ${
-              activeTab === tab.id
-                ? 'bg-game-primary text-white'
-                : 'bg-white/10 text-telegram-hint'
-            }`}
-          >
-            <span className="mr-2">{tab.icon}</span>
-            {tab.label}
-          </button>
-        ))}
-      </motion.div>
-
-      {/* Leaderboard */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={activeTab}
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
-          className="space-y-2"
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+        <button
+          onClick={() => setActiveTab('duel')}
+          style={{
+            flex: 1,
+            padding: '12px',
+            borderRadius: '12px',
+            border: 'none',
+            background: activeTab === 'duel' ? '#6366f1' : 'rgba(255,255,255,0.1)',
+            color: 'white',
+            fontWeight: '500',
+            cursor: 'pointer'
+          }}
         >
-          {data.map((player, index) => (
-            <motion.div
-              key={player.username}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-              className={`glass rounded-xl p-3 flex items-center gap-3 ${
-                player.username === user?.username ? 'ring-2 ring-game-primary' : ''
-              }`}
-            >
-              {/* Position */}
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold ${getPositionStyle(player.position)}`}>
-                {getPositionIcon(player.position)}
-              </div>
+          ⚔️ Дуэли
+        </button>
+        <button
+          onClick={() => setActiveTab('truefalse')}
+          style={{
+            flex: 1,
+            padding: '12px',
+            borderRadius: '12px',
+            border: 'none',
+            background: activeTab === 'truefalse' ? '#6366f1' : 'rgba(255,255,255,0.1)',
+            color: 'white',
+            fontWeight: '500',
+            cursor: 'pointer'
+          }}
+        >
+          🧠 П/Л
+        </button>
+      </div>
 
-              {/* Player Info */}
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold truncate text-white">
-                  {player.name}
-                  {player.username === user?.username && (
-                    <span className="ml-2 text-game-primary text-xs">• Ты</span>
-                  )}
-                </p>
-                <p className="text-sm text-telegram-hint truncate">
-                  @{player.username}
-                </p>
-              </div>
-
-              {/* Score */}
-              <div className="text-right">
-                {activeTab === 'duel' ? (
-                  <>
-                    <p className="font-bold text-game-primary">{player.rating}</p>
-                    <p className="text-xs text-telegram-hint">{player.rank?.split(' ')[0]}</p>
-                  </>
-                ) : (
-                  <>
-                    <p className="font-bold text-purple-400">{player.record}</p>
-                    <p className="text-xs text-telegram-hint">серия</p>
-                  </>
-                )}
-              </div>
-            </motion.div>
-          ))}
-        </motion.div>
-      </AnimatePresence>
-
-      {/* Your Position */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.6 }}
-        className="mt-6 glass rounded-xl p-4"
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-game-primary flex items-center justify-center font-bold">
-              {user?.first_name?.[0] || '?'}
-            </div>
-            <div>
-              <p className="font-semibold text-white">{user?.first_name || 'Ты'}</p>
-              <p className="text-sm text-telegram-hint">Твоя позиция</p>
-            </div>
-          </div>
-          <div className="text-right">
-            <p className="text-2xl font-bold">#42</p>
-            <p className="text-xs text-telegram-hint">из 1,234</p>
-          </div>
+      {loading && (
+        <div style={{ textAlign: 'center', padding: '40px' }}>
+          <p>Загрузка...</p>
         </div>
-      </motion.div>
+      )}
+
+      {error && (
+        <div style={{ 
+          background: 'rgba(239,68,68,0.2)', 
+          padding: '16px', 
+          borderRadius: '12px',
+          marginBottom: '16px'
+        }}>
+          <p style={{ color: '#ef4444' }}>Ошибка: {error}</p>
+        </div>
+      )}
+
+      {!loading && data.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '40px', opacity: 0.6 }}>
+          <p>Пока нет данных</p>
+        </div>
+      )}
+
+      {/* Leaderboard List */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {data.map((player, index) => (
+          <div
+            key={player.username || index}
+            style={{
+              background: player.username === user?.username 
+                ? 'rgba(99,102,241,0.3)' 
+                : 'rgba(255,255,255,0.1)',
+              padding: '12px 16px',
+              borderRadius: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              border: player.username === user?.username ? '2px solid #6366f1' : 'none'
+            }}
+          >
+            {/* Position */}
+            <div style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '8px',
+              background: player.position === 1 ? 'linear-gradient(135deg, #fbbf24, #f59e0b)' :
+                         player.position === 2 ? 'linear-gradient(135deg, #9ca3af, #6b7280)' :
+                         player.position === 3 ? 'linear-gradient(135deg, #cd7f32, #b8860b)' :
+                         'rgba(255,255,255,0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 'bold',
+              fontSize: '14px',
+              color: player.position <= 3 ? '#000' : '#fff'
+            }}>
+              {player.position === 1 ? '🥇' : 
+               player.position === 2 ? '🥈' : 
+               player.position === 3 ? '🥉' : player.position}
+            </div>
+
+            {/* Name */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ 
+                fontWeight: '500', 
+                whiteSpace: 'nowrap', 
+                overflow: 'hidden', 
+                textOverflow: 'ellipsis' 
+              }}>
+                {player.name}
+                {player.username === user?.username && (
+                  <span style={{ color: '#6366f1', marginLeft: '8px', fontSize: '12px' }}>• Ты</span>
+                )}
+              </p>
+              <p style={{ fontSize: '12px', opacity: 0.6 }}>@{player.username}</p>
+            </div>
+
+            {/* Score */}
+            <div style={{ textAlign: 'right' }}>
+              <p style={{ 
+                fontWeight: 'bold', 
+                color: activeTab === 'duel' ? '#6366f1' : '#a855f7' 
+              }}>
+                {activeTab === 'duel' ? player.rating : player.record}
+              </p>
+              <p style={{ fontSize: '11px', opacity: 0.6 }}>
+                {activeTab === 'duel' ? (player.rank?.split(' ')[0] || '') : 'серия'}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
 
 export default LeaderboardPage
-
