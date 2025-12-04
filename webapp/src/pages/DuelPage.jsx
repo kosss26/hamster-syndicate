@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTelegram, showBackButton, hapticFeedback } from '../hooks/useTelegram'
@@ -11,6 +11,7 @@ const STATES = {
   FOUND: 'found',
   PLAYING: 'playing',
   WAITING_OPPONENT: 'waiting_opponent',
+  SHOWING_RESULT: 'showing_result', // Новое состояние для показа результата
   FINISHED: 'finished'
 }
 
@@ -33,6 +34,10 @@ function DuelPage() {
   const [selectedAnswer, setSelectedAnswer] = useState(null)
   const [correctAnswer, setCorrectAnswer] = useState(null)
   const [lastResult, setLastResult] = useState(null)
+  const [opponentAnswer, setOpponentAnswer] = useState(null) // Ответ соперника
+  
+  // Храним ID текущего вопроса чтобы не перезаписывать его при polling
+  const currentQuestionId = useRef(null)
 
   // Показываем кнопку "Назад"
   useEffect(() => {
@@ -70,16 +75,52 @@ function DuelPage() {
     return () => clearInterval(timer)
   }, [state, timeLeft])
 
-  // Периодическая проверка состояния дуэли
+  // Периодическая проверка состояния дуэли (только когда ждём соперника)
   useEffect(() => {
-    if (!duel || state === STATES.FINISHED) return
+    if (!duel || state === STATES.FINISHED || state === STATES.SHOWING_RESULT) return
     
+    // При игре не обновляем вопрос, только статус
     const interval = setInterval(() => {
-      loadDuel(duel.duel_id)
+      checkDuelStatus(duel.duel_id)
     }, 3000)
 
     return () => clearInterval(interval)
   }, [duel, state])
+
+  // Проверка статуса без перезаписи вопроса
+  const checkDuelStatus = async (duelId) => {
+    try {
+      const response = await api.getDuel(duelId)
+      
+      if (response.success) {
+        const data = response.data
+        
+        // Обновляем счёт
+        setScore({
+          player: data.initiator_score,
+          opponent: data.opponent_score
+        })
+        
+        if (data.status === 'finished') {
+          setState(STATES.FINISHED)
+        } else if (data.status === 'waiting' && state === STATES.WAITING_OPPONENT) {
+          // Ждём соперника - при появлении соперника загружаем дуэль полностью
+          if (data.opponent_id) {
+            setState(STATES.FOUND)
+            hapticFeedback('success')
+            setTimeout(() => {
+              loadDuel(duelId)
+            }, 2000)
+          }
+        } else if (state === STATES.WAITING_OPPONENT && data.question) {
+          // Появился вопрос - загружаем
+          loadDuel(duelId)
+        }
+      }
+    } catch (err) {
+      console.error('Failed to check duel status:', err)
+    }
+  }
 
   const loadDuel = async (duelId) => {
     try {
@@ -98,10 +139,23 @@ function DuelPage() {
         if (data.status === 'finished') {
           setState(STATES.FINISHED)
         } else if (data.question) {
-          setQuestion(data.question)
-          if (state !== STATES.PLAYING) {
-            setState(STATES.PLAYING)
+          // Устанавливаем вопрос только если это новый вопрос
+          if (currentQuestionId.current !== data.question.id) {
+            currentQuestionId.current = data.question.id
+            // Сортируем ответы по ID чтобы порядок был всегда одинаковый
+            const sortedQuestion = {
+              ...data.question,
+              answers: [...data.question.answers].sort((a, b) => a.id - b.id)
+            }
+            setQuestion(sortedQuestion)
+            setSelectedAnswer(null)
+            setCorrectAnswer(null)
+            setOpponentAnswer(null)
+            setLastResult(null)
             setTimeLeft(30)
+          }
+          if (state !== STATES.PLAYING && state !== STATES.SHOWING_RESULT) {
+            setState(STATES.PLAYING)
           }
         } else if (data.status === 'waiting') {
           setState(STATES.WAITING_OPPONENT)
@@ -163,24 +217,36 @@ function DuelPage() {
         const data = response.data
         setLastResult(data)
         
-        // Находим правильный ответ (если сервер вернул)
-        const correctId = data.is_correct ? answerId : null
-        setCorrectAnswer(correctId)
+        // Устанавливаем правильный ответ
+        if (data.correct_answer_id) {
+          setCorrectAnswer(data.correct_answer_id)
+        } else {
+          setCorrectAnswer(data.is_correct ? answerId : null)
+        }
         
         if (data.is_correct) {
           hapticFeedback('success')
-          setScore(prev => ({ ...prev, player: prev.player + data.points_earned }))
+          setScore(prev => ({ ...prev, player: prev.player + (data.points_earned || 10) }))
         } else {
           hapticFeedback('error')
         }
         
-        // Загружаем следующий раунд через 2 сек
+        // Показываем результат соперника (если есть)
+        if (data.opponent_answered !== undefined) {
+          setOpponentAnswer({
+            answered: data.opponent_answered,
+            correct: data.opponent_correct
+          })
+        }
+        
+        // Переходим в состояние показа результата
+        setState(STATES.SHOWING_RESULT)
+        
+        // Загружаем следующий раунд через 3 сек
         setTimeout(() => {
+          currentQuestionId.current = null // Сбрасываем чтобы загрузить новый вопрос
           loadDuel(duel.duel_id)
-          setSelectedAnswer(null)
-          setCorrectAnswer(null)
-          setTimeLeft(30)
-        }, 2000)
+        }, 3000)
       }
     } catch (err) {
       console.error('Failed to submit answer:', err)
@@ -192,22 +258,27 @@ function DuelPage() {
     if (selectedAnswer !== null) return
     hapticFeedback('warning')
     
-    // При таймауте считаем ответ неправильным
+    setSelectedAnswer(-1) // Маркер таймаута
+    setLastResult({ is_correct: false, timeout: true })
+    setState(STATES.SHOWING_RESULT)
+    
+    // При таймауте загружаем следующий раунд
     setTimeout(() => {
+      currentQuestionId.current = null
       loadDuel(duel.duel_id)
-      setSelectedAnswer(null)
-      setCorrectAnswer(null)
-      setTimeLeft(30)
-    }, 1000)
+    }, 2000)
   }
 
   const getAnswerClass = (answerId) => {
     if (correctAnswer === null && selectedAnswer === null) return ''
-    if (selectedAnswer === answerId) {
-      if (correctAnswer === answerId) return 'correct'
-      return 'incorrect'
-    }
+    
+    // Правильный ответ всегда зелёный
     if (correctAnswer === answerId) return 'correct'
+    
+    // Выбранный неправильный ответ - красный
+    if (selectedAnswer === answerId && correctAnswer !== answerId) return 'incorrect'
+    
+    // Остальные - затемнённые
     return 'opacity-50'
   }
 
@@ -368,8 +439,8 @@ function DuelPage() {
     )
   }
 
-  // Игра
-  if (state === STATES.PLAYING && question) {
+  // Игра или показ результата
+  if ((state === STATES.PLAYING || state === STATES.SHOWING_RESULT) && question) {
     return (
       <div className="min-h-screen bg-gradient-game p-4 flex flex-col">
         {/* Header */}
@@ -444,7 +515,7 @@ function DuelPage() {
 
         {/* Question */}
         <motion.div
-          key={`q-${round}`}
+          key={`q-${question.id}`}
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           className="glass rounded-2xl p-5 mb-6"
@@ -456,45 +527,118 @@ function DuelPage() {
 
         {/* Answers */}
         <div className="flex-1 flex flex-col gap-3">
-          <AnimatePresence>
-            {question.answers.map((answer, index) => (
-              <motion.button
-                key={answer.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                onClick={() => handleAnswerSelect(answer.id)}
-                disabled={selectedAnswer !== null}
-                className={`btn-answer ${getAnswerClass(answer.id)}`}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-sm font-medium">
-                    {String.fromCharCode(65 + index)}
-                  </span>
-                  <span className="flex-1 text-left">{answer.text}</span>
-                  {selectedAnswer === answer.id && lastResult?.is_correct && (
-                    <motion.span
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      className="text-xl"
-                    >
-                      ✓
-                    </motion.span>
-                  )}
-                  {selectedAnswer === answer.id && lastResult && !lastResult.is_correct && (
-                    <motion.span
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      className="text-xl"
-                    >
-                      ✗
-                    </motion.span>
-                  )}
-                </div>
-              </motion.button>
-            ))}
-          </AnimatePresence>
+          {question.answers.map((answer, index) => (
+            <motion.button
+              key={answer.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.1 }}
+              onClick={() => handleAnswerSelect(answer.id)}
+              disabled={selectedAnswer !== null}
+              className={`btn-answer ${getAnswerClass(answer.id)}`}
+            >
+              <div className="flex items-center gap-3">
+                <span className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-sm font-medium">
+                  {String.fromCharCode(65 + index)}
+                </span>
+                <span className="flex-1 text-left">{answer.text}</span>
+                {selectedAnswer === answer.id && lastResult?.is_correct && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="text-xl"
+                  >
+                    ✓
+                  </motion.span>
+                )}
+                {selectedAnswer === answer.id && lastResult && !lastResult.is_correct && !lastResult.timeout && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="text-xl"
+                  >
+                    ✗
+                  </motion.span>
+                )}
+              </div>
+            </motion.button>
+          ))}
         </div>
+
+        {/* Результат раунда */}
+        <AnimatePresence>
+          {state === STATES.SHOWING_RESULT && lastResult && (
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 50 }}
+              className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-[#1a1a2e] to-transparent"
+            >
+              <div className="glass rounded-2xl p-4">
+                {/* Твой результат */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-game-primary flex items-center justify-center font-bold">
+                      {user?.first_name?.[0] || '?'}
+                    </div>
+                    <span className="font-medium">Ты</span>
+                  </div>
+                  <div className={`flex items-center gap-2 ${lastResult.is_correct ? 'text-game-success' : 'text-game-danger'}`}>
+                    {lastResult.timeout ? (
+                      <>
+                        <span>⏱️</span>
+                        <span className="font-bold">Время вышло</span>
+                      </>
+                    ) : lastResult.is_correct ? (
+                      <>
+                        <span>✅</span>
+                        <span className="font-bold">+{lastResult.points_earned || 10}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>❌</span>
+                        <span className="font-bold">Неверно</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Разделитель */}
+                <div className="border-t border-white/10 my-3"></div>
+                
+                {/* Результат соперника */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-game-danger flex items-center justify-center">
+                      👤
+                    </div>
+                    <span className="font-medium text-white/70">Соперник</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-white/50">
+                    {opponentAnswer ? (
+                      opponentAnswer.correct ? (
+                        <>
+                          <span>✅</span>
+                          <span className="font-bold text-game-success">Верно</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>❌</span>
+                          <span className="font-bold text-game-danger">Неверно</span>
+                        </>
+                      )
+                    ) : (
+                      <>
+                        <span className="animate-pulse">⏳</span>
+                        <span>Ожидание...</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     )
   }
@@ -565,6 +709,7 @@ function DuelPage() {
                 setDuel(null)
                 setRound(1)
                 setScore({ player: 0, opponent: 0 })
+                currentQuestionId.current = null
               }}
               className="flex-1 py-3 px-6 rounded-xl bg-game-primary font-semibold active:scale-95 transition-transform"
             >
