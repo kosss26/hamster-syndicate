@@ -1116,6 +1116,12 @@ final class CommandHandler
                     'inline_keyboard' => [
                         [
                             [
+                                'text' => '➕ Добавить вопросы',
+                                'callback_data' => 'admin:add_question',
+                            ],
+                        ],
+                        [
+                            [
                                 'text' => '⚔️ Завершить все активные дуэли',
                                 'callback_data' => 'admin:finish_all_duels',
                             ],

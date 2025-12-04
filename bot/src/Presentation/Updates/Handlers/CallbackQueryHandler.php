@@ -2513,6 +2513,25 @@ final class CallbackQueryHandler
                 return;
             }
 
+            if ($data === 'admin:add_question') {
+                $this->handleAddQuestionMenu($chatId, $user);
+
+                return;
+            }
+
+            if ($this->startsWith($data, 'admin:add_q_cat:')) {
+                $categoryId = (int) substr($data, strlen('admin:add_q_cat:'));
+                $this->handleSelectCategoryForQuestion($chatId, $user, $categoryId);
+
+                return;
+            }
+
+            if ($data === 'admin:cancel_add_q') {
+                $this->handleCancelAddQuestion($chatId, $user);
+
+                return;
+            }
+
             $this->logger->warning('Неизвестное админ-действие', ['data' => $data]);
             $this->sendText($chatId, '❌ Неизвестное админ-действие.');
         } catch (\Throwable $e) {
@@ -2653,15 +2672,18 @@ final class CallbackQueryHandler
 
             $totalUsers = \QuizBot\Domain\Model\User::query()->count();
             $totalDuels = \QuizBot\Domain\Model\Duel::query()->count();
+            $totalQuestions = \QuizBot\Domain\Model\Question::query()->count();
 
             $text = sprintf(
                 "📊 <b>Статистика</b>\n\n" .
                 "Активных дуэлей: %d\n" .
                 "Всего пользователей: %d\n" .
-                "Всего дуэлей: %d",
+                "Всего дуэлей: %d\n" .
+                "Всего вопросов: %d",
                 $activeDuels,
                 $totalUsers,
-                $totalDuels
+                $totalDuels,
+                $totalQuestions
             );
 
             $this->sendText($chatId, $text);
@@ -2672,6 +2694,126 @@ final class CallbackQueryHandler
             ]);
             $this->sendText($chatId, '❌ Ошибка при получении статистики: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Показывает меню добавления вопроса с выбором категории
+     */
+    private function handleAddQuestionMenu($chatId, User $user): void
+    {
+        try {
+            $categories = \QuizBot\Domain\Model\Category::query()
+                ->where('is_active', true)
+                ->orderBy('title')
+                ->get();
+
+            if ($categories->isEmpty()) {
+                $this->sendText($chatId, '❌ Нет доступных категорий для добавления вопросов.');
+                return;
+            }
+
+            $keyboard = [];
+            foreach ($categories as $category) {
+                $count = \QuizBot\Domain\Model\Question::query()
+                    ->where('category_id', $category->getKey())
+                    ->count();
+                
+                $keyboard[] = [
+                    [
+                        'text' => sprintf('%s %s (%d)', $category->icon ?? '📚', $category->title, $count),
+                        'callback_data' => 'admin:add_q_cat:' . $category->getKey(),
+                    ],
+                ];
+            }
+
+            $keyboard[] = [
+                [
+                    'text' => '❌ Отмена',
+                    'callback_data' => 'admin:cancel_add_q',
+                ],
+            ];
+
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => "➕ <b>Добавление вопроса</b>\n\nВыберите категорию:",
+                    'parse_mode' => 'HTML',
+                    'reply_markup' => [
+                        'inline_keyboard' => $keyboard,
+                    ],
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            $this->logger->error('Ошибка при показе меню добавления вопроса', [
+                'error' => $e->getMessage(),
+            ]);
+            $this->sendText($chatId, '❌ Ошибка: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Обрабатывает выбор категории для добавления вопроса
+     */
+    private function handleSelectCategoryForQuestion($chatId, User $user, int $categoryId): void
+    {
+        try {
+            $category = \QuizBot\Domain\Model\Category::find($categoryId);
+
+            if (!$category) {
+                $this->sendText($chatId, '❌ Категория не найдена.');
+                return;
+            }
+
+            // Сохраняем в кеш, что админ добавляет вопрос в эту категорию
+            $cacheKey = sprintf('admin:adding_question:%d', $user->getKey());
+            $this->cache->delete($cacheKey);
+            $this->cache->get($cacheKey, static function () use ($categoryId) {
+                return $categoryId;
+            });
+
+            $text = sprintf(
+                "📝 <b>Добавление вопроса</b>\n\n" .
+                "Категория: %s %s\n\n" .
+                "Отправьте вопрос в формате:\n\n" .
+                "<code>Текст вопроса?\n" .
+                "Правильный ответ\n" .
+                "Неправильный ответ 1\n" .
+                "Неправильный ответ 2\n" .
+                "Неправильный ответ 3</code>\n\n" .
+                "Первый ответ будет правильным!\n\n" .
+                "Или отправьте /cancel для отмены.",
+                $category->icon ?? '📚',
+                htmlspecialchars($category->title, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
+            );
+
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => $text,
+                    'parse_mode' => 'HTML',
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            $this->logger->error('Ошибка при выборе категории для вопроса', [
+                'error' => $e->getMessage(),
+            ]);
+            $this->sendText($chatId, '❌ Ошибка: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Отменяет добавление вопроса
+     */
+    private function handleCancelAddQuestion($chatId, User $user): void
+    {
+        $cacheKey = sprintf('admin:adding_question:%d', $user->getKey());
+        try {
+            $this->cache->delete($cacheKey);
+        } catch (\Throwable $e) {
+            // Игнорируем ошибки удаления кеша
+        }
+
+        $this->sendText($chatId, '❌ Добавление вопроса отменено.');
     }
 
     /**

@@ -390,6 +390,23 @@ final class MessageHandler
                         'trace' => $e->getTraceAsString(),
                     ]);
                 }
+
+                // Проверяем, ожидает ли админ ввода вопроса
+                $addQuestionKey = sprintf('admin:adding_question:%d', $user->getKey());
+                try {
+                    $categoryId = $this->cache->get($addQuestionKey, static function () {
+                        return null;
+                    });
+                    
+                    if ($categoryId !== null && is_numeric($categoryId)) {
+                        $this->handleAdminAddQuestion($chatId, $user, (int) $categoryId, $text);
+                        return;
+                    }
+                } catch (\Throwable $e) {
+                    $this->logger->error('Ошибка при проверке флага добавления вопроса', [
+                        'error' => $e->getMessage(),
+                    ]);
+                }
             }
 
             // Обычная обработка юзернейма для приглашения в дуэль
@@ -607,6 +624,156 @@ final class MessageHandler
     {
         // MessageHandler не имеет MessageFormatter, возвращаем null
         return null;
+    }
+
+    /**
+     * Обрабатывает добавление вопроса от админа
+     */
+    private function handleAdminAddQuestion($chatId, User $admin, int $categoryId, string $input): void
+    {
+        // Проверяем команду отмены
+        if (strtolower(trim($input)) === '/cancel') {
+            $cacheKey = sprintf('admin:adding_question:%d', $admin->getKey());
+            try {
+                $this->cache->delete($cacheKey);
+            } catch (\Throwable $e) {
+                // Игнорируем
+            }
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => '❌ Добавление вопроса отменено.',
+                    'reply_markup' => $this->getMainKeyboard(),
+                ],
+            ]);
+            return;
+        }
+
+        // Парсим ввод: вопрос + 4 ответа (первый - правильный)
+        $lines = array_filter(array_map('trim', explode("\n", $input)), fn($line) => $line !== '');
+
+        if (count($lines) < 3) {
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => "❌ <b>Неверный формат!</b>\n\nОтправьте вопрос в формате:\n\n<code>Текст вопроса?\nПравильный ответ\nНеправильный ответ 1\nНеправильный ответ 2\nНеправильный ответ 3</code>\n\nМинимум: вопрос + 2 ответа.\nОтправьте /cancel для отмены.",
+                    'parse_mode' => 'HTML',
+                ],
+            ]);
+            return;
+        }
+
+        $questionText = array_shift($lines);
+        $correctAnswer = array_shift($lines);
+        $incorrectAnswers = array_slice($lines, 0, 3); // Максимум 3 неправильных ответа
+
+        try {
+            $category = \QuizBot\Domain\Model\Category::find($categoryId);
+            if (!$category) {
+                $this->telegramClient->request('POST', 'sendMessage', [
+                    'json' => [
+                        'chat_id' => $chatId,
+                        'text' => '❌ Категория не найдена.',
+                    ],
+                ]);
+                return;
+            }
+
+            // Создаём вопрос
+            $question = new \QuizBot\Domain\Model\Question();
+            $question->category_id = $categoryId;
+            $question->question_text = $questionText;
+            $question->difficulty = 2; // medium
+            $question->is_active = true;
+            $question->save();
+
+            // Создаём правильный ответ
+            $answer = new \QuizBot\Domain\Model\Answer();
+            $answer->question_id = $question->getKey();
+            $answer->answer_text = $correctAnswer;
+            $answer->is_correct = true;
+            $answer->save();
+
+            // Создаём неправильные ответы
+            foreach ($incorrectAnswers as $wrongAnswer) {
+                $answer = new \QuizBot\Domain\Model\Answer();
+                $answer->question_id = $question->getKey();
+                $answer->answer_text = $wrongAnswer;
+                $answer->is_correct = false;
+                $answer->save();
+            }
+
+            // Удаляем флаг из кеша
+            $cacheKey = sprintf('admin:adding_question:%d', $admin->getKey());
+            try {
+                $this->cache->delete($cacheKey);
+            } catch (\Throwable $e) {
+                // Игнорируем
+            }
+
+            $totalQuestions = \QuizBot\Domain\Model\Question::query()
+                ->where('category_id', $categoryId)
+                ->count();
+
+            $text = sprintf(
+                "✅ <b>Вопрос добавлен!</b>\n\n" .
+                "📚 Категория: %s %s\n" .
+                "❓ Вопрос: %s\n" .
+                "✓ Правильный ответ: %s\n" .
+                "✗ Неправильных ответов: %d\n\n" .
+                "Всего вопросов в категории: %d",
+                $category->icon ?? '📚',
+                htmlspecialchars($category->title, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                htmlspecialchars($questionText, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                htmlspecialchars($correctAnswer, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                count($incorrectAnswers),
+                $totalQuestions
+            );
+
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => $text,
+                    'parse_mode' => 'HTML',
+                    'reply_markup' => [
+                        'inline_keyboard' => [
+                            [
+                                [
+                                    'text' => '➕ Добавить ещё вопрос',
+                                    'callback_data' => 'admin:add_q_cat:' . $categoryId,
+                                ],
+                            ],
+                            [
+                                [
+                                    'text' => '📋 Выбрать другую категорию',
+                                    'callback_data' => 'admin:add_question',
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ]);
+
+            $this->logger->info('Админ добавил вопрос', [
+                'admin_id' => $admin->getKey(),
+                'category_id' => $categoryId,
+                'question_id' => $question->getKey(),
+                'question_text' => $questionText,
+            ]);
+
+        } catch (\Throwable $e) {
+            $this->logger->error('Ошибка при добавлении вопроса', [
+                'error' => $e->getMessage(),
+                'admin_id' => $admin->getKey(),
+                'category_id' => $categoryId,
+            ]);
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => '❌ Ошибка при добавлении вопроса: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                ],
+            ]);
+        }
     }
 
     private function handleAdminFinishDuelByUsername($chatId, User $admin, string $usernameInput): void
