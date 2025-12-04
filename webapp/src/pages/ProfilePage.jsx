@@ -91,7 +91,7 @@ function ProfilePage() {
         <div className="w-20 h-20 rounded-full bg-gradient-to-br from-game-primary to-purple-600 flex items-center justify-center text-3xl font-bold mx-auto mb-3">
           {user?.first_name?.[0] || '?'}
         </div>
-        <h1 className="text-xl font-bold">{user?.first_name} {user?.last_name || ''}</h1>
+        <h1 className="text-xl font-bold text-white">{user?.first_name} {user?.last_name || ''}</h1>
         {user?.username && (
           <p className="text-telegram-hint">@{user.username}</p>
         )}
@@ -240,7 +240,7 @@ function ProfilePage() {
             📊
           </div>
           <div className="text-left">
-            <p className="font-semibold">Подробная статистика</p>
+            <p className="font-semibold text-white">Подробная статистика</p>
             <p className="text-xs text-telegram-hint">Сильные и слабые стороны, аналитика</p>
           </div>
         </div>

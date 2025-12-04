@@ -129,7 +129,7 @@ function TrueFalsePage() {
             😔
           </motion.div>
           
-          <h2 className="text-2xl font-bold mb-2">Игра окончена!</h2>
+          <h2 className="text-2xl font-bold mb-2 text-white">Игра окончена!</h2>
           
           <div className="glass rounded-2xl p-5 mb-6">
             <p className="text-telegram-hint text-sm mb-2">Правильный ответ:</p>
@@ -184,7 +184,7 @@ function TrueFalsePage() {
         <div className="flex items-center gap-3">
           <div className="text-3xl">🧠</div>
           <div>
-            <h1 className="font-bold">Правда или ложь</h1>
+            <h1 className="font-bold text-white">Правда или ложь</h1>
             <p className="text-xs text-telegram-hint">Проверь свои знания</p>
           </div>
         </div>

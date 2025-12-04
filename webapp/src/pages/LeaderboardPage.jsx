@@ -78,7 +78,7 @@ function LeaderboardPage() {
         className="text-center pt-4 mb-6"
       >
         <div className="text-4xl mb-2">🏆</div>
-        <h1 className="text-2xl font-bold">Рейтинг</h1>
+        <h1 className="text-2xl font-bold text-white">Рейтинг</h1>
         <p className="text-telegram-hint">Лучшие игроки</p>
       </motion.div>
 
@@ -131,7 +131,7 @@ function LeaderboardPage() {
 
               {/* Player Info */}
               <div className="flex-1 min-w-0">
-                <p className="font-semibold truncate">
+                <p className="font-semibold truncate text-white">
                   {player.name}
                   {player.username === user?.username && (
                     <span className="ml-2 text-game-primary text-xs">• Ты</span>
@@ -174,7 +174,7 @@ function LeaderboardPage() {
               {user?.first_name?.[0] || '?'}
             </div>
             <div>
-              <p className="font-semibold">{user?.first_name || 'Ты'}</p>
+              <p className="font-semibold text-white">{user?.first_name || 'Ты'}</p>
               <p className="text-sm text-telegram-hint">Твоя позиция</p>
             </div>
           </div>

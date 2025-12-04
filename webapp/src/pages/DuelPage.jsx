@@ -221,7 +221,7 @@ function DuelPage() {
           className="text-center pt-8 mb-8"
         >
           <div className="text-5xl mb-3">⚔️</div>
-          <h1 className="text-2xl font-bold">Дуэль</h1>
+          <h1 className="text-2xl font-bold text-white">Дуэль</h1>
           <p className="text-telegram-hint mt-2">Выбери режим игры</p>
         </motion.div>
 
@@ -248,7 +248,7 @@ function DuelPage() {
                 🎲
               </div>
               <div>
-                <h3 className="font-semibold text-lg">Случайный соперник</h3>
+                <h3 className="font-semibold text-lg text-white">Случайный соперник</h3>
                 <p className="text-sm text-telegram-hint">Найдём тебе достойного противника</p>
               </div>
             </div>
@@ -266,7 +266,7 @@ function DuelPage() {
                 👥
               </div>
               <div>
-                <h3 className="font-semibold text-lg">Пригласить друга</h3>
+                <h3 className="font-semibold text-lg text-white">Пригласить друга</h3>
                 <p className="text-sm text-telegram-hint">Скоро будет доступно</p>
               </div>
             </div>
@@ -292,7 +292,7 @@ function DuelPage() {
               <span className="text-4xl">🔍</span>
             </div>
           </div>
-          <h2 className="text-xl font-bold mb-2">Ищем соперника...</h2>
+          <h2 className="text-xl font-bold mb-2 text-white">Ищем соперника...</h2>
           <p className="text-telegram-hint">Это займёт несколько секунд</p>
         </motion.div>
       </div>
@@ -314,7 +314,7 @@ function DuelPage() {
               <span className="text-4xl">⏳</span>
             </div>
           </div>
-          <h2 className="text-xl font-bold mb-2">Ожидаем соперника</h2>
+          <h2 className="text-xl font-bold mb-2 text-white">Ожидаем соперника</h2>
           <p className="text-telegram-hint mb-4">Код дуэли: <span className="font-mono font-bold">{duel?.code}</span></p>
           <button
             onClick={() => {
@@ -347,7 +347,7 @@ function DuelPage() {
           >
             ⚔️
           </motion.div>
-          <h2 className="text-2xl font-bold mb-2">Соперник найден!</h2>
+          <h2 className="text-2xl font-bold mb-2 text-white">Соперник найден!</h2>
           <div className="flex items-center justify-center gap-4 mt-6">
             <div className="text-center">
               <div className="w-16 h-16 rounded-full bg-game-primary flex items-center justify-center text-2xl mb-2">
@@ -520,7 +520,7 @@ function DuelPage() {
             {isWinner ? '🏆' : isDraw ? '🤝' : '😔'}
           </motion.div>
           
-          <h2 className="text-3xl font-bold mb-2">
+          <h2 className="text-3xl font-bold mb-2 text-white">
             {isWinner ? 'Победа!' : isDraw ? 'Ничья!' : 'Поражение'}
           </h2>
           
