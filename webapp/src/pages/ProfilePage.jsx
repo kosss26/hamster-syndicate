@@ -171,7 +171,7 @@ function ProfilePage() {
             padding: '16px', 
             borderRadius: '12px'
           }}>
-            <p style={{ fontSize: '14px', marginBottom: '8px' }}>Ранг: <b>{profile.rank}</b></p>
+            <p style={{ fontSize: '14px', marginBottom: '8px' }}>Ранг: <b>{typeof profile.rank === 'object' ? `${profile.rank.emoji || ''} ${profile.rank.name || ''}` : profile.rank}</b></p>
             <p style={{ fontSize: '14px', marginBottom: '8px' }}>Монеты: <b>{profile.coins}</b></p>
             <p style={{ fontSize: '14px' }}>Рекорд П/Л: <b>{profile.true_false_record}</b></p>
           </div>

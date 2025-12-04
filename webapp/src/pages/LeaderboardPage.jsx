@@ -169,7 +169,7 @@ function LeaderboardPage() {
                 {activeTab === 'duel' ? player.rating : player.record}
               </p>
               <p style={{ fontSize: '11px', opacity: 0.6 }}>
-                {activeTab === 'duel' ? (player.rank?.split(' ')[0] || '') : 'серия'}
+                {activeTab === 'duel' ? (typeof player.rank === 'object' ? player.rank.name : player.rank?.split?.(' ')[0] || '') : 'серия'}
               </p>
             </div>
           </div>
