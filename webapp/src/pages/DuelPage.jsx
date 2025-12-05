@@ -407,7 +407,7 @@ function DuelPage() {
   const shareInvite = () => {
     if (!duel?.code) return
     
-    const botUsername = 'tvixxbot' // Замени на свой username бота
+    const botUsername = 'duelquizbot'
     const url = `https://t.me/${botUsername}/app?startapp=duel_${duel.code}`
     const text = `🎮 Приглашаю тебя на дуэль!\n\nКод: ${duel.code}`
     
