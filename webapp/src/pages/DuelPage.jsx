@@ -76,6 +76,25 @@ function DuelPage() {
     }
   }, [duelIdParam])
 
+  // Функция для обработки таймаута
+  const handleTimeoutSubmit = useCallback(async () => {
+    if (!duel || hasAnsweredRef.current) return
+    
+    hasAnsweredRef.current = true
+    setSelectedAnswer(-1)
+    setLastResult({ is_correct: false, timeout: true })
+    setOpponentAnswer({ answered: false, correct: null })
+    setState(STATES.WAITING_OPPONENT_ANSWER)
+    hapticFeedback('warning')
+    
+    // Отправляем "пустой" ответ на сервер чтобы закрыть раунд
+    try {
+      await api.submitAnswer(duel.duel_id, round, null)
+    } catch (err) {
+      console.error('Failed to submit timeout:', err)
+    }
+  }, [duel, round])
+
   useEffect(() => {
     if (timerRef.current) {
       clearInterval(timerRef.current)
@@ -83,7 +102,10 @@ function DuelPage() {
     }
     
     if (state !== STATES.PLAYING) return
+    if (!question) return
 
+    console.log('Starting timer for question:', question.id, 'timeLeft:', timeLeft)
+    
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
@@ -91,14 +113,9 @@ function DuelPage() {
             clearInterval(timerRef.current)
             timerRef.current = null
           }
-          // Вызываем таймаут только если ещё не ответили
+          // Вызываем таймаут
           if (!hasAnsweredRef.current) {
-            hasAnsweredRef.current = true
-            setSelectedAnswer(-1) // Маркер таймаута
-            setLastResult({ is_correct: false, timeout: true })
-            setOpponentAnswer({ answered: false, correct: null })
-            setState(STATES.WAITING_OPPONENT_ANSWER)
-            hapticFeedback('warning')
+            handleTimeoutSubmit()
           }
           return 0
         }
@@ -112,7 +129,7 @@ function DuelPage() {
         timerRef.current = null
       }
     }
-  }, [state, question?.id])
+  }, [state, question?.id, handleTimeoutSubmit])
 
   useEffect(() => {
     if (!duel || state === STATES.FINISHED || state === STATES.SHOWING_RESULT) return

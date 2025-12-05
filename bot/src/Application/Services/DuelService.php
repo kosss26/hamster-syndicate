@@ -205,7 +205,7 @@ class DuelService
         return $round->refresh();
     }
 
-    public function submitAnswer(DuelRound $round, User $user, int $answerId): DuelRound
+    public function submitAnswer(DuelRound $round, User $user, ?int $answerId): DuelRound
     {
         $this->ensureRoundOpen($round);
 
@@ -246,7 +246,8 @@ class DuelService
             throw new \RuntimeException('Вопрос для раунда не найден.');
         }
 
-        if ($elapsed > $timeLimit) {
+        // Таймаут: если answerId = null или время истекло
+        if ($answerId === null || $elapsed > $timeLimit) {
             $payload += [
                 'is_correct' => false,
                 'answer_id' => null,

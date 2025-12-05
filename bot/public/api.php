@@ -502,10 +502,10 @@ function handleDuelAnswer($container, ?array $telegramUser, array $body): void
     }
 
     $duelId = $body['duelId'] ?? null;
-    $answerId = $body['answerId'] ?? null;
+    $answerId = $body['answerId'] ?? null; // null означает таймаут
 
-    if (!$duelId || !$answerId) {
-        jsonError('Не указаны обязательные параметры', 400);
+    if (!$duelId) {
+        jsonError('Не указан ID дуэли', 400);
     }
 
     /** @var UserService $userService */
@@ -532,8 +532,8 @@ function handleDuelAnswer($container, ?array $telegramUser, array $body): void
         jsonError('Нет активного раунда', 400);
     }
 
-    // Обрабатываем ответ
-    $round = $duelService->submitAnswer($currentRound, $user, (int) $answerId);
+    // Обрабатываем ответ (answerId = null означает таймаут)
+    $round = $duelService->submitAnswer($currentRound, $user, $answerId !== null ? (int) $answerId : null);
     $round->loadMissing('question.answers');
     
     // Определяем результат для текущего пользователя
