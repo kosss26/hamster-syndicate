@@ -623,12 +623,18 @@ function handleDuelHint($container, ?array $telegramUser, array $body): void
             jsonError('Нет активного раунда', 400);
         }
 
-        // Проверяем, не использована ли уже подсказка в этом раунде
+        // Проверяем, не использована ли уже подсказка в этой дуэли (одна на всю дуэль)
         $isInitiator = $duel->initiator_user_id === $user->getKey();
-        $myPayload = $isInitiator ? $currentRound->initiator_payload : $currentRound->opponent_payload;
         
-        if (isset($myPayload['hint_used']) && $myPayload['hint_used']) {
-            jsonError('Подсказка уже использована в этом раунде', 400);
+        // Проверяем во всех раундах дуэли
+        $duel->loadMissing('rounds');
+        $fieldPayload = $isInitiator ? 'initiator_payload' : 'opponent_payload';
+        
+        foreach ($duel->rounds as $round) {
+            $roundPayload = $round->{$fieldPayload} ?? [];
+            if (isset($roundPayload['hint_used']) && $roundPayload['hint_used']) {
+                jsonError('Подсказка уже использована в этой дуэли', 400);
+            }
         }
 
         // Загружаем вопрос с ответами

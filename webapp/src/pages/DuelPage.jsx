@@ -223,7 +223,7 @@ function DuelPage() {
             setOpponentAnswer(null)
             setLastResult(null)
             setHiddenAnswers([])
-            setHintUsed(false)
+            // hintUsed НЕ сбрасываем - одна подсказка на всю дуэль
             
             const timeLimit = data.round_status?.time_limit || 30
             if (data.round_status?.question_sent_at) {
@@ -250,6 +250,7 @@ function DuelPage() {
     setState(STATES.SEARCHING)
     setLoading(true)
     setError(null)
+    setHintUsed(false) // Сбрасываем при новой дуэли
     hapticFeedback('medium')
     
     try {
