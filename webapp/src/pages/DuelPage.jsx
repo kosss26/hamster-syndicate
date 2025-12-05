@@ -8,6 +8,8 @@ import api from '../api/client'
 const STATES = {
   MENU: 'menu',
   SEARCHING: 'searching',
+  INVITE: 'invite', // Приглашение друга
+  ENTER_CODE: 'enter_code', // Ввод кода дуэли
   FOUND: 'found',
   PLAYING: 'playing',
   WAITING_OPPONENT: 'waiting_opponent',
@@ -40,6 +42,7 @@ function DuelPage() {
   const [hiddenAnswers, setHiddenAnswers] = useState([]) // Скрытые ответы после 50/50
   const [hintUsed, setHintUsed] = useState(false) // Использована ли подсказка в раунде
   const [searchTimeLeft, setSearchTimeLeft] = useState(30) // Таймер поиска соперника
+  const [inviteCode, setInviteCode] = useState('') // Код для присоединения к дуэли
   
   const currentQuestionId = useRef(null)
   const timerRef = useRef(null)
@@ -373,6 +376,84 @@ function DuelPage() {
     }
   }
 
+  // Создать дуэль для приглашения друга
+  const inviteFriend = async () => {
+    setLoading(true)
+    setError(null)
+    setHintUsed(false)
+    hapticFeedback('medium')
+    
+    try {
+      const response = await api.createDuel('invite')
+      
+      if (response.success) {
+        const data = response.data
+        setDuel(data)
+        setState(STATES.INVITE)
+      } else {
+        setError(response.error || 'Не удалось создать дуэль')
+        setState(STATES.MENU)
+      }
+    } catch (err) {
+      console.error('Failed to create invite duel:', err)
+      setError(`Ошибка: ${err.message}`)
+      setState(STATES.MENU)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Поделиться ссылкой через Telegram
+  const shareInvite = () => {
+    if (!duel?.code) return
+    
+    const botUsername = 'tvixxbot' // Замени на свой username бота
+    const url = `https://t.me/${botUsername}/app?startapp=duel_${duel.code}`
+    const text = `🎮 Приглашаю тебя на дуэль!\n\nКод: ${duel.code}`
+    
+    // Используем Telegram share
+    if (window.Telegram?.WebApp?.openTelegramLink) {
+      window.Telegram.WebApp.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`)
+    } else {
+      // Fallback - копируем в буфер
+      navigator.clipboard.writeText(`${text}\n${url}`)
+      hapticFeedback('success')
+    }
+  }
+
+  // Присоединиться по коду
+  const joinByCode = async () => {
+    if (!inviteCode.trim()) return
+    
+    setLoading(true)
+    setError(null)
+    hapticFeedback('medium')
+    
+    try {
+      const response = await api.joinDuel(inviteCode.trim().toUpperCase())
+      
+      if (response.success) {
+        const data = response.data
+        setDuel(data)
+        setState(STATES.FOUND)
+        hapticFeedback('success')
+        
+        setTimeout(() => {
+          loadDuel(data.duel_id)
+        }, 2000)
+      } else {
+        setError(response.error || 'Дуэль не найдена')
+        hapticFeedback('error')
+      }
+    } catch (err) {
+      console.error('Failed to join duel:', err)
+      setError(`Ошибка: ${err.message}`)
+      hapticFeedback('error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleAnswerSelect = async (answerId) => {
     if (selectedAnswer !== null || !duel || !question) return
     
@@ -550,24 +631,165 @@ function DuelPage() {
           </motion.button>
 
           <motion.button
-              initial={{ opacity: 0, x: 30 }}
+            initial={{ opacity: 0, x: 30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.1 }}
-              className="bento-card p-6 text-left opacity-50 cursor-not-allowed"
-            disabled
+            onClick={inviteFriend}
+            disabled={loading}
+            className="bento-card p-6 text-left group disabled:opacity-50"
           >
-              <div className="flex items-center gap-5">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-3xl">
+            <div className="bento-glow bg-gradient-to-br from-blue-500/30 to-cyan-500/20 blur-2xl" />
+            
+            <div className="relative flex items-center gap-5">
+              <motion.div 
+                className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-3xl shadow-glow"
+                whileHover={{ scale: 1.1, rotate: -5 }}
+              >
                 👥
-              </div>
+              </motion.div>
               <div>
-                  <h3 className="font-bold text-lg text-white">Пригласить друга</h3>
-                  <p className="text-white/40 text-sm">Скоро будет доступно</p>
+                <h3 className="font-bold text-lg text-white">Пригласить друга</h3>
+                <p className="text-white/40 text-sm">Создай дуэль и поделись кодом</p>
               </div>
             </div>
           </motion.button>
+
+          {/* Кнопка ввода кода */}
+          <motion.button
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            onClick={() => setState(STATES.ENTER_CODE)}
+            className="glass rounded-2xl p-4 text-center hover:bg-white/10 transition-colors"
+          >
+            <span className="text-white/60">🔑 Есть код? </span>
+            <span className="text-game-primary font-semibold">Присоединиться</span>
+          </motion.button>
           </div>
         </div>
+      </div>
+    )
+  }
+
+  // Экран приглашения друга
+  if (state === STATES.INVITE) {
+    return (
+      <div className="min-h-screen bg-aurora relative overflow-hidden flex items-center justify-center p-4">
+        <div className="aurora-blob aurora-blob-1" />
+        <div className="aurora-blob aurora-blob-2" />
+        <div className="noise-overlay" />
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="relative z-10 text-center max-w-sm w-full"
+        >
+          <div className="text-6xl mb-6">👥</div>
+          <h2 className="text-2xl font-bold mb-2 text-white">Пригласи друга!</h2>
+          <p className="text-white/40 mb-6">Отправь код или поделись ссылкой</p>
+          
+          {/* Код дуэли */}
+          <div className="glass rounded-2xl p-6 mb-6">
+            <p className="text-white/50 text-sm mb-2">Код дуэли</p>
+            <p className="text-4xl font-mono font-bold text-gradient-primary tracking-widest">
+              {duel?.code}
+            </p>
+          </div>
+          
+          {/* Кнопки */}
+          <div className="space-y-3">
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={shareInvite}
+              className="w-full py-4 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl font-bold text-lg shadow-glow flex items-center justify-center gap-3"
+            >
+              <span>📤</span> Поделиться
+            </motion.button>
+            
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                navigator.clipboard.writeText(duel?.code || '')
+                hapticFeedback('success')
+              }}
+              className="w-full py-4 glass rounded-2xl font-medium text-white/70 hover:text-white transition-colors"
+            >
+              📋 Скопировать код
+            </motion.button>
+            
+            <button
+              onClick={() => {
+                setState(STATES.WAITING_OPPONENT)
+              }}
+              className="w-full py-3 text-white/50 hover:text-white transition-colors"
+            >
+              Ожидать соперника →
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    )
+  }
+
+  // Экран ввода кода
+  if (state === STATES.ENTER_CODE) {
+    return (
+      <div className="min-h-screen bg-aurora relative overflow-hidden flex items-center justify-center p-4">
+        <div className="aurora-blob aurora-blob-1" />
+        <div className="aurora-blob aurora-blob-3" />
+        <div className="noise-overlay" />
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="relative z-10 text-center max-w-sm w-full"
+        >
+          <div className="text-6xl mb-6">🔑</div>
+          <h2 className="text-2xl font-bold mb-2 text-white">Введи код</h2>
+          <p className="text-white/40 mb-6">Код дуэли от друга</p>
+          
+          {error && (
+            <div className="glass rounded-xl p-3 mb-4 text-red-400 text-sm">
+              {error}
+            </div>
+          )}
+          
+          {/* Поле ввода */}
+          <div className="glass rounded-2xl p-4 mb-6">
+            <input
+              type="text"
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+              placeholder="XXXXXXXX"
+              maxLength={8}
+              className="w-full text-center text-3xl font-mono font-bold bg-transparent text-white placeholder-white/30 outline-none tracking-widest"
+              autoFocus
+            />
+          </div>
+          
+          {/* Кнопки */}
+          <div className="space-y-3">
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={joinByCode}
+              disabled={loading || inviteCode.length < 4}
+              className="w-full py-4 bg-gradient-to-r from-game-primary to-purple-600 rounded-2xl font-bold text-lg shadow-glow disabled:opacity-50"
+            >
+              {loading ? 'Подключение...' : 'Присоединиться'}
+            </motion.button>
+            
+            <button
+              onClick={() => {
+                setState(STATES.MENU)
+                setInviteCode('')
+                setError(null)
+              }}
+              className="w-full py-3 text-white/50 hover:text-white transition-colors"
+            >
+              ← Назад
+            </button>
+          </div>
+        </motion.div>
       </div>
     )
   }

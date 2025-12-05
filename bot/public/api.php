@@ -103,6 +103,11 @@ try {
             handleDuelHint($container, $telegramUser, $body);
             break;
 
+        // POST /duel/join - присоединиться к дуэли по коду
+        case $path === '/duel/join' && $requestMethod === 'POST':
+            handleJoinDuel($container, $telegramUser, $body);
+            break;
+
         // GET /truefalse/question - получить вопрос "Правда или ложь"
         case $path === '/truefalse/question' && $requestMethod === 'GET':
             handleGetTrueFalseQuestion($container, $telegramUser);
@@ -597,6 +602,63 @@ function handleDuelAnswer($container, ?array $telegramUser, array $body): void
         'opponent_answered' => $opponentAnswered,
         'opponent_correct' => $opponentCorrect,
         'round_closed' => $roundClosed,
+    ]);
+}
+
+/**
+ * Присоединение к дуэли по коду
+ */
+function handleJoinDuel($container, ?array $telegramUser, array $body): void
+{
+    if (!$telegramUser) {
+        jsonError('Не авторизован', 401);
+    }
+
+    $code = strtoupper(trim($body['code'] ?? ''));
+
+    if (empty($code)) {
+        jsonError('Не указан код дуэли', 400);
+    }
+
+    /** @var UserService $userService */
+    $userService = $container->get(UserService::class);
+    
+    $user = $userService->findByTelegramId((int) $telegramUser['id']);
+    
+    if (!$user) {
+        jsonError('Пользователь не найден', 404);
+    }
+
+    /** @var DuelService $duelService */
+    $duelService = $container->get(DuelService::class);
+    
+    // Ищем дуэль по коду
+    $duel = \QuizBot\Domain\Model\Duel::query()
+        ->where('code', $code)
+        ->where('status', 'waiting')
+        ->whereNull('opponent_user_id')
+        ->first();
+    
+    if (!$duel) {
+        jsonError('Дуэль не найдена или уже началась', 404);
+    }
+
+    // Нельзя присоединиться к своей же дуэли
+    if ($duel->initiator_user_id === $user->getKey()) {
+        jsonError('Нельзя присоединиться к своей дуэли', 400);
+    }
+
+    // Присоединяемся к дуэли
+    $duel = $duelService->joinDuel($duel, $user);
+
+    jsonResponse([
+        'duel_id' => $duel->getKey(),
+        'code' => $duel->code,
+        'status' => $duel->status,
+        'initiator' => $duel->initiator ? [
+            'id' => $duel->initiator->getKey(),
+            'name' => $duel->initiator->first_name,
+        ] : null,
     ]);
 }
 
