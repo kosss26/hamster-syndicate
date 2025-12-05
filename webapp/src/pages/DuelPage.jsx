@@ -45,6 +45,7 @@ function DuelPage() {
   const timerRef = useRef(null)
   const answeredRoundId = useRef(null)
   const searchTimerRef = useRef(null)
+  const hasAnsweredRef = useRef(false) // Для проверки в таймере
 
   // Загрузка профиля для получения монет
   const loadProfile = async () => {
@@ -90,7 +91,15 @@ function DuelPage() {
             clearInterval(timerRef.current)
             timerRef.current = null
           }
-          handleTimeout()
+          // Вызываем таймаут только если ещё не ответили
+          if (!hasAnsweredRef.current) {
+            hasAnsweredRef.current = true
+            setSelectedAnswer(-1) // Маркер таймаута
+            setLastResult({ is_correct: false, timeout: true })
+            setOpponentAnswer({ answered: false, correct: null })
+            setState(STATES.WAITING_OPPONENT_ANSWER)
+            hapticFeedback('warning')
+          }
           return 0
         }
         return prev - 1
@@ -261,6 +270,7 @@ function DuelPage() {
             }
             setQuestion(sortedQuestion)
             setSelectedAnswer(null)
+            hasAnsweredRef.current = false
             setCorrectAnswer(null)
             setOpponentAnswer(null)
             setLastResult(null)
@@ -329,6 +339,7 @@ function DuelPage() {
     if (selectedAnswer !== null || !duel || !question) return
     
     setSelectedAnswer(answerId)
+    hasAnsweredRef.current = true
     hapticFeedback('light')
     
     if (timerRef.current) {
