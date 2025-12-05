@@ -39,10 +39,12 @@ function DuelPage() {
   const [coins, setCoins] = useState(0) // Монеты игрока
   const [hiddenAnswers, setHiddenAnswers] = useState([]) // Скрытые ответы после 50/50
   const [hintUsed, setHintUsed] = useState(false) // Использована ли подсказка в раунде
+  const [searchTimeLeft, setSearchTimeLeft] = useState(30) // Таймер поиска соперника
   
   const currentQuestionId = useRef(null)
   const timerRef = useRef(null)
   const answeredRoundId = useRef(null)
+  const searchTimerRef = useRef(null)
 
   // Загрузка профиля для получения монет
   const loadProfile = async () => {
@@ -114,6 +116,46 @@ function DuelPage() {
 
     return () => clearInterval(checkInterval)
   }, [duel, state])
+
+  // Таймер поиска соперника - 30 секунд максимум
+  useEffect(() => {
+    if (state !== STATES.WAITING_OPPONENT) {
+      if (searchTimerRef.current) {
+        clearInterval(searchTimerRef.current)
+        searchTimerRef.current = null
+      }
+      return
+    }
+
+    setSearchTimeLeft(30)
+    
+    searchTimerRef.current = setInterval(() => {
+      setSearchTimeLeft(prev => {
+        if (prev <= 1) {
+          // Время вышло - отменяем дуэль
+          clearInterval(searchTimerRef.current)
+          searchTimerRef.current = null
+          
+          if (duel) {
+            api.cancelDuel(duel.duel_id).catch(console.error)
+          }
+          
+          setError('Соперник не найден. Попробуйте ещё раз.')
+          setState(STATES.MENU)
+          hapticFeedback('error')
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => {
+      if (searchTimerRef.current) {
+        clearInterval(searchTimerRef.current)
+        searchTimerRef.current = null
+      }
+    }
+  }, [state, duel])
 
   const checkDuelStatus = async (duelId) => {
     try {
@@ -542,8 +584,11 @@ function DuelPage() {
           </div>
           
           <h2 className="text-2xl font-bold mb-2 text-white">Ожидаем соперника</h2>
-          <p className="text-white/40 mb-6">
+          <p className="text-white/40 mb-2">
             Код дуэли: <span className="font-mono font-bold text-game-primary">{duel?.code}</span>
+          </p>
+          <p className={`text-lg font-bold mb-4 ${searchTimeLeft <= 10 ? 'text-red-400' : 'text-white/60'}`}>
+            {searchTimeLeft} сек
           </p>
           
           <button
