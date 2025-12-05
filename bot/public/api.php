@@ -380,8 +380,27 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
 
     // Получаем текущий раунд с вопросом
     $currentRound = $duelService->getCurrentRound($duel);
+    
+    // Проверяем и применяем таймауты для текущего раунда
+    if ($currentRound && $currentRound->closed_at === null) {
+        $duelService->maybeCompleteRound($currentRound);
+        $currentRound->refresh();
+        
+        // Если раунд закрылся по таймауту, проверяем завершение дуэли
+        if ($currentRound->closed_at !== null) {
+            $duelService->maybeCompleteDuel($duel);
+            $duel->refresh();
+            
+            // Получаем новый текущий раунд
+            $currentRound = $duelService->getCurrentRound($duel);
+        }
+    }
+    
     $question = null;
     $roundStatus = null;
+    
+    // Перезагружаем раунды после проверки таймаутов
+    $duel->load('rounds.question.answers', 'rounds.question.category');
     
     // Получаем последний закрытый раунд (для показа результата)
     $lastClosedRound = $duel->rounds
