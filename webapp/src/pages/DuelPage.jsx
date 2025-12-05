@@ -260,6 +260,7 @@ function DuelPage() {
         if (data.status === 'finished') {
           setState(STATES.FINISHED)
         } else if (data.question) {
+          // Новый вопрос — сбрасываем состояние и запускаем таймер
           if (currentQuestionId.current !== data.question.id) {
             currentQuestionId.current = data.question.id
             answeredRoundId.current = null
@@ -285,8 +286,11 @@ function DuelPage() {
             } else {
               setTimeLeft(timeLimit)
             }
-          }
-          if (state !== STATES.PLAYING && state !== STATES.SHOWING_RESULT && state !== STATES.WAITING_OPPONENT_ANSWER) {
+            
+            // При новом вопросе ВСЕГДА переходим в PLAYING
+            setState(STATES.PLAYING)
+          } else if (state !== STATES.PLAYING && state !== STATES.SHOWING_RESULT && state !== STATES.WAITING_OPPONENT_ANSWER) {
+            // Тот же вопрос, но ещё не играем
             setState(STATES.PLAYING)
           }
         } else if (data.status === 'waiting') {
