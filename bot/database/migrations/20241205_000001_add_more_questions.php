@@ -3,10 +3,16 @@
 declare(strict_types=1);
 
 use Illuminate\Database\Capsule\Manager as Capsule;
+use Illuminate\Database\Schema\Builder;
 use QuizBot\Infrastructure\Database\Migration;
 
-return new class extends Migration {
-    public function up(): void
+return new class implements Migration {
+    public function name(): string
+    {
+        return '20241205_000001_add_more_questions';
+    }
+
+    public function up(Builder $schema): void
     {
         // Получаем ID категорий
         $categories = [];
@@ -304,7 +310,7 @@ return new class extends Migration {
         ]);
     }
 
-    public function down(): void
+    public function down(Builder $schema): void
     {
         // Удаление вопросов не требуется
     }
