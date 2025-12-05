@@ -108,6 +108,11 @@ try {
             handleJoinDuel($container, $telegramUser, $body);
             break;
 
+        // POST /duel/{id}/cancel - отменить свою дуэль
+        case preg_match('#^/duel/(\d+)/cancel$#', $path, $matches) && $requestMethod === 'POST':
+            handleCancelDuel($container, $telegramUser, (int) $matches[1]);
+            break;
+
         // GET /truefalse/question - получить вопрос "Правда или ложь"
         case $path === '/truefalse/question' && $requestMethod === 'GET':
             handleGetTrueFalseQuestion($container, $telegramUser);
@@ -603,6 +608,47 @@ function handleDuelAnswer($container, ?array $telegramUser, array $body): void
         'opponent_correct' => $opponentCorrect,
         'round_closed' => $roundClosed,
     ]);
+}
+
+/**
+ * Отмена дуэли пользователем (только своей, в статусе waiting)
+ */
+function handleCancelDuel($container, ?array $telegramUser, int $duelId): void
+{
+    if (!$telegramUser) {
+        jsonError('Не авторизован', 401);
+    }
+
+    /** @var UserService $userService */
+    $userService = $container->get(UserService::class);
+    
+    $user = $userService->findByTelegramId((int) $telegramUser['id']);
+    
+    if (!$user) {
+        jsonError('Пользователь не найден', 404);
+    }
+
+    $duel = \QuizBot\Domain\Model\Duel::query()->find($duelId);
+    
+    if (!$duel) {
+        jsonError('Дуэль не найдена', 404);
+    }
+
+    // Можно отменить только свою дуэль
+    if ($duel->initiator_user_id !== $user->getKey()) {
+        jsonError('Можно отменить только свою дуэль', 403);
+    }
+
+    // Можно отменить только в статусе waiting
+    if ($duel->status !== 'waiting') {
+        jsonError('Дуэль уже началась или завершена', 400);
+    }
+
+    $duel->status = 'cancelled';
+    $duel->finished_at = \Illuminate\Support\Carbon::now();
+    $duel->save();
+
+    jsonResponse(['cancelled' => true, 'duel_id' => $duelId]);
 }
 
 /**
