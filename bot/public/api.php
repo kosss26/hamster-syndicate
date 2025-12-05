@@ -555,11 +555,23 @@ function handleDuelAnswer($container, ?array $telegramUser, array $body): void
 
     // Обрабатываем ответ (answerId = null означает таймаут)
     $round = $duelService->submitAnswer($currentRound, $user, $answerId !== null ? (int) $answerId : null);
-    $round->loadMissing('question.answers');
+    $round->loadMissing('question.answers', 'question.category');
     
     // Определяем результат для текущего пользователя
     $isInitiator = $duel->initiator_user_id === $user->getKey();
     $payload = $isInitiator ? $round->initiator_payload : $round->opponent_payload;
+    
+    // Записываем в статистику
+    /** @var StatisticsService $statisticsService */
+    $statisticsService = $container->get(StatisticsService::class);
+    $statisticsService->recordAnswer(
+        $user,
+        $round->question?->category_id,
+        $round->question?->getKey(),
+        $payload['is_correct'] ?? false,
+        (int)(($payload['time_elapsed'] ?? 0) * 1000), // секунды в мс
+        'duel'
+    );
     $opponentPayload = $isInitiator ? $round->opponent_payload : $round->initiator_payload;
     
     // Находим ID правильного ответа
