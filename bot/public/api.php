@@ -330,6 +330,7 @@ function handleCreateDuel($container, ?array $telegramUser, array $body): void
         
         // Сразу стартуем дуэль
         $duel = $duelService->startDuel($duel);
+        $duel->loadMissing('initiator.profile');
         
         jsonResponse([
             'duel_id' => $duel->getKey(),
@@ -337,6 +338,10 @@ function handleCreateDuel($container, ?array $telegramUser, array $body): void
             'code' => $duel->code,
             'initiator_id' => $duel->initiator_user_id,
             'opponent_id' => $duel->opponent_user_id,
+            'opponent' => $duel->initiator ? [
+                'name' => $duel->initiator->first_name,
+                'rating' => $duel->initiator->profile?->rating ?? 1000,
+            ] : null,
             'matched' => true,
         ]);
         return;
@@ -383,7 +388,7 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
         $duel = $duelService->startDuel($duel);
     }
 
-    $duel->loadMissing('rounds.question.answers', 'rounds.question.category', 'initiator', 'opponent');
+    $duel->loadMissing('rounds.question.answers', 'rounds.question.category', 'initiator.profile', 'opponent.profile');
 
     // Определяем роль текущего пользователя
     $isInitiator = $user && $duel->initiator_user_id === $user->getKey();
@@ -511,10 +516,12 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
         'initiator' => $duel->initiator ? [
             'id' => $duel->initiator->getKey(),
             'name' => $duel->initiator->first_name,
+            'rating' => $duel->initiator->profile?->rating ?? 1000,
         ] : null,
         'opponent' => $duel->opponent ? [
             'id' => $duel->opponent->getKey(),
             'name' => $duel->opponent->first_name,
+            'rating' => $duel->opponent->profile?->rating ?? 1000,
         ] : null,
         'question' => $question,
         'round_status' => $roundStatus,

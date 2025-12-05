@@ -43,6 +43,8 @@ function DuelPage() {
   const [hintUsed, setHintUsed] = useState(false) // Использована ли подсказка в раунде
   const [searchTimeLeft, setSearchTimeLeft] = useState(30) // Таймер поиска соперника
   const [inviteCode, setInviteCode] = useState('') // Код для присоединения к дуэли
+  const [opponent, setOpponent] = useState(null) // Данные оппонента {name, rating}
+  const [myRating, setMyRating] = useState(0) // Мой рейтинг
   
   const currentQuestionId = useRef(null)
   const timerRef = useRef(null)
@@ -56,6 +58,7 @@ function DuelPage() {
       const response = await api.getProfile()
       if (response.success) {
         setCoins(response.data.coins || 0)
+        setMyRating(response.data.rating || 1000)
       }
     } catch (err) {
       console.error('Failed to load profile:', err)
@@ -221,16 +224,19 @@ function DuelPage() {
         
         if (data.status === 'finished') {
           setState(STATES.FINISHED)
-        } else if (data.status === 'waiting' && state === STATES.WAITING_OPPONENT) {
+        } else if (state === STATES.WAITING_OPPONENT && (data.opponent || data.status === 'in_progress')) {
+          // Соперник найден! Показываем экран FOUND
           if (data.opponent) {
-            setState(STATES.FOUND)
-            hapticFeedback('success')
-            setTimeout(() => {
-              loadDuel(duelId)
-            }, 2000)
+            setOpponent({
+              name: data.opponent.name || 'Соперник',
+              rating: data.opponent.rating || 1000
+            })
           }
-        } else if (state === STATES.WAITING_OPPONENT && data.question) {
-          loadDuel(duelId)
+          setState(STATES.FOUND)
+          hapticFeedback('success')
+          setTimeout(() => {
+            loadDuel(duelId)
+          }, 3000)
         } else if (state === STATES.WAITING_OPPONENT_ANSWER) {
           const currentRoundId = data.round_status?.round_id
           const lastClosedRound = data.last_closed_round
@@ -354,12 +360,19 @@ function DuelPage() {
         setDuel(data)
         
         if (data.opponent_id) {
+          // Сохраняем данные оппонента
+          if (data.opponent) {
+            setOpponent({
+              name: data.opponent.name || 'Соперник',
+              rating: data.opponent.rating || 1000
+            })
+          }
           setState(STATES.FOUND)
           hapticFeedback('success')
           
           setTimeout(() => {
             loadDuel(data.duel_id)
-          }, 2000)
+          }, 3000)
         } else {
           setState(STATES.WAITING_OPPONENT)
         }
@@ -907,10 +920,11 @@ function DuelPage() {
               transition={{ delay: 0.4 }}
               className="text-center"
             >
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-game-primary to-purple-600 flex items-center justify-center text-3xl mb-3 shadow-glow mx-auto">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-game-primary to-purple-600 flex items-center justify-center text-3xl mb-2 shadow-glow mx-auto">
                 {user?.first_name?.[0] || '?'}
               </div>
               <p className="font-medium text-white">{user?.first_name || 'Ты'}</p>
+              <p className="text-sm text-game-primary font-bold">⭐ {myRating}</p>
             </motion.div>
             
             <motion.div
@@ -928,10 +942,11 @@ function DuelPage() {
               transition={{ delay: 0.4 }}
               className="text-center"
             >
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-game-danger to-orange-500 flex items-center justify-center text-3xl mb-3 shadow-glow-danger mx-auto">
-                👤
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-game-danger to-orange-500 flex items-center justify-center text-3xl mb-2 shadow-glow-danger mx-auto">
+                {opponent?.name?.[0] || '👤'}
               </div>
-              <p className="font-medium text-white">Соперник</p>
+              <p className="font-medium text-white">{opponent?.name || 'Соперник'}</p>
+              <p className="text-sm text-game-warning font-bold">⭐ {opponent?.rating || '?'}</p>
             </motion.div>
           </div>
         </motion.div>
