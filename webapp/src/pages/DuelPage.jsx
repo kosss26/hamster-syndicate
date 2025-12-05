@@ -58,7 +58,7 @@ function DuelPage() {
       const response = await api.getProfile()
       if (response.success) {
         setCoins(response.data.coins || 0)
-        setMyRating(response.data.rating || 1000)
+        setMyRating(response.data.rating ?? 0)
       }
     } catch (err) {
       console.error('Failed to load profile:', err)
@@ -229,7 +229,7 @@ function DuelPage() {
           if (data.opponent) {
             setOpponent({
               name: data.opponent.name || 'Соперник',
-              rating: data.opponent.rating || 1000
+              rating: data.opponent.rating ?? 0
             })
           }
           setState(STATES.FOUND)
@@ -364,7 +364,7 @@ function DuelPage() {
           if (data.opponent) {
             setOpponent({
               name: data.opponent.name || 'Соперник',
-              rating: data.opponent.rating || 1000
+              rating: data.opponent.rating ?? 0
             })
           }
           setState(STATES.FOUND)
@@ -920,20 +920,30 @@ function DuelPage() {
               transition={{ delay: 0.4 }}
               className="text-center"
             >
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-game-primary to-purple-600 flex items-center justify-center text-3xl mb-2 shadow-glow mx-auto">
-                {user?.first_name?.[0] || '?'}
+              <div className="relative">
+                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-game-primary to-purple-600 flex items-center justify-center text-4xl mb-3 shadow-glow mx-auto border-4 border-white/20">
+                  {user?.first_name?.[0] || '?'}
+                </div>
+                <motion.div 
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 0.7, type: "spring" }}
+                  className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-3 py-1 bg-gradient-to-r from-amber-500 to-yellow-400 rounded-full shadow-lg"
+                >
+                  <span className="text-sm font-bold text-black">🏆 {myRating}</span>
+                </motion.div>
               </div>
-              <p className="font-medium text-white">{user?.first_name || 'Ты'}</p>
-              <p className="text-sm text-game-primary font-bold">⭐ {myRating}</p>
+              <p className="font-semibold text-white mt-3">{user?.first_name || 'Ты'}</p>
             </motion.div>
             
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ delay: 0.6, type: "spring" }}
-              className="text-2xl text-white/30 font-bold"
+              className="flex flex-col items-center"
             >
-              VS
+              <div className="text-4xl mb-2">⚔️</div>
+              <div className="text-lg text-white/50 font-bold">VS</div>
             </motion.div>
             
             <motion.div 
@@ -942,11 +952,20 @@ function DuelPage() {
               transition={{ delay: 0.4 }}
               className="text-center"
             >
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-game-danger to-orange-500 flex items-center justify-center text-3xl mb-2 shadow-glow-danger mx-auto">
-                {opponent?.name?.[0] || '👤'}
+              <div className="relative">
+                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-game-danger to-orange-500 flex items-center justify-center text-4xl mb-3 shadow-glow-danger mx-auto border-4 border-white/20">
+                  {opponent?.name?.[0] || '👤'}
+                </div>
+                <motion.div 
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 0.7, type: "spring" }}
+                  className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-3 py-1 bg-gradient-to-r from-amber-500 to-yellow-400 rounded-full shadow-lg"
+                >
+                  <span className="text-sm font-bold text-black">🏆 {opponent?.rating ?? 0}</span>
+                </motion.div>
               </div>
-              <p className="font-medium text-white">{opponent?.name || 'Соперник'}</p>
-              <p className="text-sm text-game-warning font-bold">⭐ {opponent?.rating || '?'}</p>
+              <p className="font-semibold text-white mt-3">{opponent?.name || 'Соперник'}</p>
             </motion.div>
           </div>
         </motion.div>

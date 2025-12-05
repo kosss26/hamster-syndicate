@@ -340,7 +340,7 @@ function handleCreateDuel($container, ?array $telegramUser, array $body): void
             'opponent_id' => $duel->opponent_user_id,
             'opponent' => $duel->initiator ? [
                 'name' => $duel->initiator->first_name,
-                'rating' => $duel->initiator->profile?->rating ?? 1000,
+                'rating' => $duel->initiator->profile?->rating ?? 0,
             ] : null,
             'matched' => true,
         ]);
@@ -516,12 +516,12 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
         'initiator' => $duel->initiator ? [
             'id' => $duel->initiator->getKey(),
             'name' => $duel->initiator->first_name,
-            'rating' => $duel->initiator->profile?->rating ?? 1000,
+            'rating' => $duel->initiator->profile?->rating ?? 0,
         ] : null,
         'opponent' => $duel->opponent ? [
             'id' => $duel->opponent->getKey(),
             'name' => $duel->opponent->first_name,
-            'rating' => $duel->opponent->profile?->rating ?? 1000,
+            'rating' => $duel->opponent->profile?->rating ?? 0,
         ] : null,
         'question' => $question,
         'round_status' => $roundStatus,
