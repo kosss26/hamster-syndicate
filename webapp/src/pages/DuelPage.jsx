@@ -36,13 +36,29 @@ function DuelPage() {
   const [correctAnswer, setCorrectAnswer] = useState(null)
   const [lastResult, setLastResult] = useState(null)
   const [opponentAnswer, setOpponentAnswer] = useState(null)
+  const [coins, setCoins] = useState(0) // Монеты игрока
+  const [hiddenAnswers, setHiddenAnswers] = useState([]) // Скрытые ответы после 50/50
+  const [hintUsed, setHintUsed] = useState(false) // Использована ли подсказка в раунде
   
   const currentQuestionId = useRef(null)
   const timerRef = useRef(null)
   const answeredRoundId = useRef(null)
 
+  // Загрузка профиля для получения монет
+  const loadProfile = async () => {
+    try {
+      const response = await api.getProfile()
+      if (response.success) {
+        setCoins(response.data.coins || 0)
+      }
+    } catch (err) {
+      console.error('Failed to load profile:', err)
+    }
+  }
+
   useEffect(() => {
     showBackButton(true)
+    loadProfile()
   }, [])
 
   useEffect(() => {
@@ -206,6 +222,8 @@ function DuelPage() {
             setCorrectAnswer(null)
             setOpponentAnswer(null)
             setLastResult(null)
+            setHiddenAnswers([])
+            setHintUsed(false)
             
             const timeLimit = data.round_status?.time_limit || 30
             if (data.round_status?.question_sent_at) {
@@ -345,6 +363,32 @@ function DuelPage() {
     })
     
     setState(STATES.WAITING_OPPONENT_ANSWER)
+  }
+
+  // Использование подсказки 50/50
+  const useHint = async () => {
+    if (hintUsed || selectedAnswer !== null || !duel) return
+    
+    const HINT_COST = 10
+    if (coins < HINT_COST) {
+      hapticFeedback('error')
+      return
+    }
+    
+    try {
+      const response = await api.useHint(duel.duel_id)
+      
+      if (response.success) {
+        const data = response.data
+        setHiddenAnswers(data.hidden_answer_ids || [])
+        setCoins(data.coins_remaining)
+        setHintUsed(true)
+        hapticFeedback('success')
+      }
+    } catch (err) {
+      console.error('Failed to use hint:', err)
+      hapticFeedback('error')
+    }
   }
 
   const getAnswerClass = (answerId) => {
@@ -678,44 +722,65 @@ function DuelPage() {
 
           {/* Answers */}
           <div className="flex-1 flex flex-col gap-3">
-            {question.answers.map((answer, index) => (
-              <motion.button
-                key={answer.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
-                onClick={() => handleAnswerSelect(answer.id)}
-                disabled={selectedAnswer !== null}
-                className={`btn-answer ${getAnswerClass(answer.id)}`}
-              >
-                <div className="flex items-center gap-4">
-                  <span className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center font-bold text-white/50">
-                    {String.fromCharCode(65 + index)}
-                  </span>
-                  <span className="flex-1 text-left text-white">{answer.text}</span>
-                  
-                  {selectedAnswer === answer.id && lastResult?.is_correct && (
-                    <motion.span 
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      className="text-2xl"
-                    >
-                      ✓
-                    </motion.span>
-                  )}
-                  {selectedAnswer === answer.id && lastResult && !lastResult.is_correct && !lastResult.timeout && (
-                    <motion.span 
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      className="text-2xl"
-                    >
-                      ✗
-                    </motion.span>
-                  )}
-                </div>
-              </motion.button>
-            ))}
+            {question.answers
+              .filter(answer => !hiddenAnswers.includes(answer.id))
+              .map((answer, index) => (
+                <motion.button
+                  key={answer.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  onClick={() => handleAnswerSelect(answer.id)}
+                  disabled={selectedAnswer !== null}
+                  className={`btn-answer ${getAnswerClass(answer.id)}`}
+                >
+                  <div className="flex items-center gap-4">
+                    <span className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center font-bold text-white/50">
+                      {String.fromCharCode(65 + index)}
+                    </span>
+                    <span className="flex-1 text-left text-white">{answer.text}</span>
+                    
+                    {selectedAnswer === answer.id && lastResult?.is_correct && (
+                      <motion.span 
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className="text-2xl"
+                      >
+                        ✓
+                      </motion.span>
+                    )}
+                    {selectedAnswer === answer.id && lastResult && !lastResult.is_correct && !lastResult.timeout && (
+                      <motion.span 
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className="text-2xl"
+                      >
+                        ✗
+                      </motion.span>
+                    )}
+                  </div>
+                </motion.button>
+              ))}
           </div>
+
+          {/* Кнопка подсказки 50/50 */}
+          {state === STATES.PLAYING && selectedAnswer === null && !hintUsed && (
+            <div className="mt-4">
+              <button
+                onClick={useHint}
+                disabled={coins < 10}
+                className={`w-full py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all ${
+                  coins >= 10 
+                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 active:scale-95' 
+                    : 'bg-white/10 opacity-50'
+                }`}
+              >
+                <span className="text-lg">💡</span>
+                <span className="font-semibold">50/50</span>
+                <span className="text-sm opacity-75">({coins}/10 💰)</span>
+              </button>
+            </div>
+          )}
 
           {/* Результат раунда */}
           <AnimatePresence>

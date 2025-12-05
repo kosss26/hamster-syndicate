@@ -98,6 +98,11 @@ try {
             handleDuelAnswer($container, $telegramUser, $body);
             break;
 
+        // POST /duel/hint - использовать подсказку в дуэли
+        case $path === '/duel/hint' && $requestMethod === 'POST':
+            handleDuelHint($container, $telegramUser, $body);
+            break;
+
         // GET /truefalse/question - получить вопрос "Правда или ложь"
         case $path === '/truefalse/question' && $requestMethod === 'GET':
             handleGetTrueFalseQuestion($container, $telegramUser);
@@ -560,6 +565,114 @@ function handleDuelAnswer($container, ?array $telegramUser, array $body): void
         'opponent_correct' => $opponentCorrect,
         'round_closed' => $roundClosed,
     ]);
+}
+
+/**
+ * Использование подсказки 50/50 в дуэли
+ */
+function handleDuelHint($container, ?array $telegramUser, array $body): void
+{
+    if (!$telegramUser) {
+        jsonError('Не авторизован', 401);
+    }
+
+    $duelId = $body['duelId'] ?? null;
+    $hintType = $body['hintType'] ?? 'fifty_fifty';
+
+    if (!$duelId) {
+        jsonError('Не указан ID дуэли', 400);
+    }
+
+    try {
+        /** @var UserService $userService */
+        $userService = $container->get(UserService::class);
+        
+        $user = $userService->findByTelegramId((int) $telegramUser['id']);
+        
+        if (!$user) {
+            jsonError('Пользователь не найден', 404);
+        }
+
+        $user = $userService->ensureProfile($user);
+        $profile = $user->profile;
+
+        if (!$profile) {
+            jsonError('Профиль не найден', 404);
+        }
+
+        // Стоимость подсказки
+        $hintCost = 10;
+
+        // Проверяем монеты
+        if ($profile->coins < $hintCost) {
+            jsonError('Недостаточно монет. Нужно: ' . $hintCost, 400);
+        }
+
+        /** @var DuelService $duelService */
+        $duelService = $container->get(DuelService::class);
+        
+        $duel = $duelService->findById((int) $duelId);
+        
+        if (!$duel) {
+            jsonError('Дуэль не найдена', 404);
+        }
+
+        $currentRound = $duelService->getCurrentRound($duel);
+        
+        if (!$currentRound) {
+            jsonError('Нет активного раунда', 400);
+        }
+
+        // Проверяем, не использована ли уже подсказка в этом раунде
+        $isInitiator = $duel->initiator_user_id === $user->getKey();
+        $myPayload = $isInitiator ? $currentRound->initiator_payload : $currentRound->opponent_payload;
+        
+        if (isset($myPayload['hint_used']) && $myPayload['hint_used']) {
+            jsonError('Подсказка уже использована в этом раунде', 400);
+        }
+
+        // Загружаем вопрос с ответами
+        $currentRound->loadMissing('question.answers');
+        $question = $currentRound->question;
+        
+        if (!$question) {
+            jsonError('Вопрос не найден', 404);
+        }
+
+        $answers = $question->answers;
+        
+        // Находим правильный ответ
+        $correctAnswer = $answers->firstWhere('is_correct', true);
+        if (!$correctAnswer) {
+            jsonError('Правильный ответ не найден', 500);
+        }
+
+        // Находим неправильные ответы и убираем 2
+        $incorrectAnswers = $answers->where('is_correct', false)->values();
+        $toRemove = $incorrectAnswers->shuffle()->take(2);
+        $hiddenAnswerIds = $toRemove->pluck('id')->toArray();
+
+        // Списываем монеты
+        $profile->coins = max(0, $profile->coins - $hintCost);
+        $profile->save();
+
+        // Сохраняем информацию об использовании подсказки в payload раунда
+        $fieldPayload = $isInitiator ? 'initiator_payload' : 'opponent_payload';
+        $payload = $currentRound->{$fieldPayload} ?? [];
+        $payload['hint_used'] = true;
+        $payload['hint_type'] = $hintType;
+        $payload['hidden_answers'] = $hiddenAnswerIds;
+        $currentRound->{$fieldPayload} = $payload;
+        $currentRound->save();
+
+        jsonResponse([
+            'success' => true,
+            'hidden_answer_ids' => $hiddenAnswerIds,
+            'coins_remaining' => $profile->coins,
+        ]);
+    } catch (Throwable $e) {
+        jsonError('Ошибка: ' . $e->getMessage(), 500);
+    }
 }
 
 /**

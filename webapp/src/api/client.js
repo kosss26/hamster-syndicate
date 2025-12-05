@@ -66,6 +66,11 @@ export const api = {
     method: 'POST'
   }),
 
+  useHint: (duelId, hintType = 'fifty_fifty') => request('/duel/hint', {
+    method: 'POST',
+    body: JSON.stringify({ duelId, hintType })
+  }),
+
   // Правда или ложь
   getTrueFalseQuestion: () => request('/truefalse/question'),
   
