@@ -232,38 +232,38 @@ function DuelPage() {
           const currentRoundId = data.round_status?.round_id
           const lastClosedRound = data.last_closed_round
           
-          if (answeredRoundId.current && lastClosedRound && 
-              lastClosedRound.round_id === answeredRoundId.current &&
-              currentRoundId !== answeredRoundId.current) {
+          // Раунд закрылся (оба ответили или таймаут)
+          const roundClosed = (
+            // Наш раунд в lastClosedRound
+            (answeredRoundId.current && lastClosedRound && 
+             lastClosedRound.round_id === answeredRoundId.current) ||
+            // Или round_status показывает что оппонент ответил
+            data.round_status?.opponent_answered ||
+            // Или текущий раунд уже другой
+            (answeredRoundId.current && currentRoundId && 
+             currentRoundId !== answeredRoundId.current)
+          )
+          
+          if (roundClosed) {
+            // Берём данные из lastClosedRound или round_status
+            const opponentCorrect = lastClosedRound?.round_id === answeredRoundId.current
+              ? lastClosedRound.opponent_correct
+              : data.round_status?.opponent_correct
+            const correctAnswerId = lastClosedRound?.round_id === answeredRoundId.current
+              ? lastClosedRound.correct_answer_id
+              : data.round_status?.correct_answer_id
+            
             setOpponentAnswer({
               answered: true,
-              correct: lastClosedRound.opponent_correct
+              correct: opponentCorrect ?? false
             })
             
-            if (lastClosedRound.correct_answer_id) {
-              setCorrectAnswer(lastClosedRound.correct_answer_id)
+            if (correctAnswerId && !correctAnswer) {
+              setCorrectAnswer(correctAnswerId)
             }
             
             setState(STATES.SHOWING_RESULT)
-            hapticFeedback(lastClosedRound.opponent_correct ? 'warning' : 'success')
-            
-            setTimeout(() => {
-              currentQuestionId.current = null
-              answeredRoundId.current = null
-              loadDuel(duelId)
-            }, 3000)
-          } else if (data.round_status?.opponent_answered) {
-            setOpponentAnswer({
-              answered: true,
-              correct: data.round_status.opponent_correct
-            })
-            
-            if (!correctAnswer && data.round_status.correct_answer_id) {
-              setCorrectAnswer(data.round_status.correct_answer_id)
-            }
-            
-            setState(STATES.SHOWING_RESULT)
-            hapticFeedback(data.round_status.opponent_correct ? 'warning' : 'success')
+            hapticFeedback(opponentCorrect ? 'warning' : 'success')
             
             setTimeout(() => {
               currentQuestionId.current = null
