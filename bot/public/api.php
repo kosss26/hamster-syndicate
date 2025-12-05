@@ -445,8 +445,10 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
             }
         }
         
-        // Перемешиваем ответы
+        // Перемешиваем ответы детерминированно (одинаково для обоих игроков)
+        mt_srand($currentRound->getKey());
         shuffle($answers);
+        mt_srand(); // Сбрасываем seed
         
         $question = [
             'id' => $q?->getKey(),
@@ -710,14 +712,14 @@ function handleGetTrueFalseQuestion($container, ?array $telegramUser): void
     }
 
     try {
-        /** @var UserService $userService */
-        $userService = $container->get(UserService::class);
-        
-        $user = $userService->findByTelegramId((int) $telegramUser['id']);
-        
-        if (!$user) {
-            jsonError('Пользователь не найден', 404);
-        }
+    /** @var UserService $userService */
+    $userService = $container->get(UserService::class);
+    
+    $user = $userService->findByTelegramId((int) $telegramUser['id']);
+    
+    if (!$user) {
+        jsonError('Пользователь не найден', 404);
+    }
 
         // Проверяем наличие фактов напрямую в БД
         $factsCount = \QuizBot\Domain\Model\TrueFalseFact::query()
@@ -728,25 +730,25 @@ function handleGetTrueFalseQuestion($container, ?array $telegramUser): void
             jsonError('Нет фактов в базе данных. Выполните: php bin/seed.php', 404);
         }
 
-        /** @var TrueFalseService $trueFalseService */
-        $trueFalseService = $container->get(TrueFalseService::class);
-        
-        // Проверяем, есть ли текущий факт
-        $fact = $trueFalseService->getCurrentFact($user);
-        
-        if (!$fact) {
-            // Начинаем новую сессию
-            $fact = $trueFalseService->startSession($user);
-        }
-        
-        if (!$fact) {
-            jsonError('Не удалось загрузить факт', 500);
-        }
+    /** @var TrueFalseService $trueFalseService */
+    $trueFalseService = $container->get(TrueFalseService::class);
+    
+    // Проверяем, есть ли текущий факт
+    $fact = $trueFalseService->getCurrentFact($user);
+    
+    if (!$fact) {
+        // Начинаем новую сессию
+        $fact = $trueFalseService->startSession($user);
+    }
+    
+    if (!$fact) {
+        jsonError('Не удалось загрузить факт', 500);
+    }
 
-        jsonResponse([
-            'id' => $fact->getKey(),
-            'statement' => $fact->statement,
-        ]);
+    jsonResponse([
+        'id' => $fact->getKey(),
+        'statement' => $fact->statement,
+    ]);
     } catch (Throwable $e) {
         jsonError('Ошибка: ' . $e->getMessage() . ' в ' . $e->getFile() . ':' . $e->getLine(), 500);
     }

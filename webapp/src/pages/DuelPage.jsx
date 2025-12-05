@@ -122,7 +122,7 @@ function DuelPage() {
       clearInterval(timerRef.current)
       timerRef.current = null
     }
-    
+
     if (state !== STATES.PLAYING) return
     if (!question) return
     
@@ -302,11 +302,8 @@ function DuelPage() {
             currentQuestionId.current = data.question.id
             answeredRoundId.current = null
             
-            const sortedQuestion = {
-              ...data.question,
-              answers: [...data.question.answers].sort((a, b) => a.id - b.id)
-            }
-            setQuestion(sortedQuestion)
+            // Ответы уже перемешаны на сервере (одинаково для обоих игроков)
+            setQuestion(data.question)
             setSelectedAnswer(null)
             hasAnsweredRef.current = false
             setCorrectAnswer(null)
