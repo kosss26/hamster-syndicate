@@ -89,7 +89,29 @@ function DuelPage() {
     
     // Отправляем "пустой" ответ на сервер чтобы закрыть раунд
     try {
-      await api.submitAnswer(duel.duel_id, round, null)
+      const response = await api.submitAnswer(duel.duel_id, round, null)
+      if (response.success && response.data?.round_id) {
+        answeredRoundId.current = response.data.round_id
+        
+        // Если раунд уже закрыт (оппонент тоже ответил/таймаут)
+        if (response.data.opponent_answered) {
+          setOpponentAnswer({
+            answered: true,
+            correct: response.data.opponent_correct
+          })
+          if (response.data.correct_answer_id) {
+            setCorrectAnswer(response.data.correct_answer_id)
+          }
+          setState(STATES.SHOWING_RESULT)
+          
+          // Через 3 секунды переход к следующему раунду
+          setTimeout(() => {
+            currentQuestionId.current = null
+            answeredRoundId.current = null
+            loadDuel(duel.duel_id)
+          }, 3000)
+        }
+      }
     } catch (err) {
       console.error('Failed to submit timeout:', err)
     }
@@ -103,8 +125,6 @@ function DuelPage() {
     
     if (state !== STATES.PLAYING) return
     if (!question) return
-
-    console.log('Starting timer for question:', question.id, 'timeLeft:', timeLeft)
     
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
