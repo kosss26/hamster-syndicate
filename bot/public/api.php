@@ -381,10 +381,26 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
     // Получаем текущий раунд с вопросом
     $currentRound = $duelService->getCurrentRound($duel);
     
+    /** @var \Monolog\Logger $logger */
+    $logger = $container->get(\Monolog\Logger::class);
+    
     // Проверяем и применяем таймауты для текущего раунда
     if ($currentRound && $currentRound->closed_at === null) {
+        $logger->debug('Checking timeout for round', [
+            'round_id' => $currentRound->getKey(),
+            'round_number' => $currentRound->round_number,
+            'question_sent_at' => $currentRound->question_sent_at ? $currentRound->question_sent_at->toAtomString() : null,
+            'time_limit' => $currentRound->time_limit,
+            'initiator_payload' => $currentRound->initiator_payload,
+            'opponent_payload' => $currentRound->opponent_payload,
+        ]);
+        
         $duelService->maybeCompleteRound($currentRound);
         $currentRound->refresh();
+        
+        $logger->debug('After maybeCompleteRound', [
+            'closed_at' => $currentRound->closed_at ? $currentRound->closed_at->toAtomString() : null,
+        ]);
         
         // Если раунд закрылся по таймауту, проверяем завершение дуэли
         if ($currentRound->closed_at !== null) {
@@ -393,6 +409,9 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
             
             // Получаем новый текущий раунд
             $currentRound = $duelService->getCurrentRound($duel);
+            $logger->debug('New current round', [
+                'round_id' => $currentRound ? $currentRound->getKey() : null,
+            ]);
         }
     }
     

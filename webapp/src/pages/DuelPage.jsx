@@ -397,14 +397,14 @@ function DuelPage() {
             answered: true,
             correct: data.opponent_correct
           })
-          
-          setState(STATES.SHOWING_RESULT)
-          
-          setTimeout(() => {
+        
+        setState(STATES.SHOWING_RESULT)
+        
+        setTimeout(() => {
             currentQuestionId.current = null
             answeredRoundId.current = null
-            loadDuel(duel.duel_id)
-          }, 3000)
+          loadDuel(duel.duel_id)
+        }, 3000)
         } else {
           setOpponentAnswer({
             answered: false,
@@ -482,11 +482,11 @@ function DuelPage() {
         <div className="noise-overlay" />
 
         <div className="relative z-10 p-4 flex flex-col min-h-screen">
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center pt-8 mb-8"
-          >
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center pt-8 mb-8"
+        >
             <motion.div 
               className="text-6xl mb-4"
               animate={{ scale: [1, 1.1, 1] }}
@@ -496,24 +496,24 @@ function DuelPage() {
             </motion.div>
             <h1 className="text-3xl font-bold text-gradient-primary">Дуэль</h1>
             <p className="text-white/40 mt-2">Выбери режим игры</p>
-          </motion.div>
+        </motion.div>
 
-          {error && (
-            <motion.div
+        {error && (
+          <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               className="glass rounded-2xl p-4 mb-4 border border-game-danger/30"
-            >
-              <p className="text-game-danger text-sm">{error}</p>
-            </motion.div>
-          )}
+          >
+            <p className="text-game-danger text-sm">{error}</p>
+          </motion.div>
+        )}
 
-          <div className="flex-1 flex flex-col gap-4">
-            <motion.button
+        <div className="flex-1 flex flex-col gap-4">
+          <motion.button
               initial={{ opacity: 0, x: -30 }}
-              animate={{ opacity: 1, x: 0 }}
-              onClick={startSearch}
-              disabled={loading}
+            animate={{ opacity: 1, x: 0 }}
+            onClick={startSearch}
+            disabled={loading}
               className="bento-card p-6 text-left group disabled:opacity-50"
             >
               <div className="bento-glow bg-gradient-to-br from-game-primary/30 to-purple-500/20 blur-2xl" />
@@ -523,32 +523,32 @@ function DuelPage() {
                   className="w-16 h-16 rounded-2xl bg-gradient-to-br from-game-primary to-purple-600 flex items-center justify-center text-3xl shadow-glow"
                   whileHover={{ scale: 1.1, rotate: 5 }}
                 >
-                  🎲
+                🎲
                 </motion.div>
-                <div>
+              <div>
                   <h3 className="font-bold text-lg text-white">Случайный соперник</h3>
                   <p className="text-white/40 text-sm">Найдём тебе достойного противника</p>
-                </div>
               </div>
-            </motion.button>
+            </div>
+          </motion.button>
 
-            <motion.button
+          <motion.button
               initial={{ opacity: 0, x: 30 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.1 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1 }}
               className="bento-card p-6 text-left opacity-50 cursor-not-allowed"
-              disabled
-            >
+            disabled
+          >
               <div className="flex items-center gap-5">
                 <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-3xl">
-                  👥
-                </div>
-                <div>
+                👥
+              </div>
+              <div>
                   <h3 className="font-bold text-lg text-white">Пригласить друга</h3>
                   <p className="text-white/40 text-sm">Скоро будет доступно</p>
-                </div>
               </div>
-            </motion.button>
+            </div>
+          </motion.button>
           </div>
         </div>
       </div>
@@ -582,7 +582,7 @@ function DuelPage() {
             >
               <span className="text-4xl">🔍</span>
             </motion.div>
-          </div>
+            </div>
           
           <h2 className="text-2xl font-bold mb-2 text-white">Ищем соперника...</h2>
           <p className="text-white/40">Это займёт несколько секунд</p>
@@ -613,7 +613,7 @@ function DuelPage() {
             >
               <span className="text-4xl">⏳</span>
             </motion.div>
-          </div>
+            </div>
           
           <h2 className="text-2xl font-bold mb-2 text-white">Ожидаем соперника</h2>
           <p className="text-white/40 mb-2">
@@ -712,134 +712,134 @@ function DuelPage() {
         <div className="noise-overlay" />
 
         <div className="relative z-10 p-4 flex flex-col min-h-screen">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-4">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
             <div className="glass rounded-xl px-3 py-2">
               <span className="text-white/50 text-xs">Раунд</span>
               <span className="font-bold ml-1 text-white">{round}/{totalRounds}</span>
-            </div>
-            
-            {/* Timer */}
+          </div>
+          
+          {/* Timer */}
             <div className="relative w-16 h-16">
-              <svg className="w-full h-full -rotate-90">
-                <circle
+            <svg className="w-full h-full -rotate-90">
+              <circle
                   cx="32"
                   cy="32"
                   r="28"
-                  fill="none"
-                  stroke="rgba(255,255,255,0.1)"
-                  strokeWidth="4"
-                />
+                fill="none"
+                stroke="rgba(255,255,255,0.1)"
+                strokeWidth="4"
+              />
                 <motion.circle
                   cx="32"
                   cy="32"
                   r="28"
-                  fill="none"
+                fill="none"
                   stroke={timerColor}
-                  strokeWidth="4"
-                  strokeLinecap="round"
+                strokeWidth="4"
+                strokeLinecap="round"
                   strokeDasharray={176}
                   strokeDashoffset={176 - (176 * timerProgress)}
                   className="timer-glow"
                   style={{ filter: `drop-shadow(0 0 8px ${timerColor})` }}
-                />
-              </svg>
-              <div className="absolute inset-0 flex items-center justify-center">
+              />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
                 <span className={`font-bold text-lg ${timeLeft <= 10 ? 'text-game-danger' : 'text-white'}`}>
-                  {timeLeft}
-                </span>
-              </div>
-            </div>
-
-            <div className="glass rounded-xl px-3 py-2 flex items-center gap-2">
-              <span className="text-game-success font-bold">{score.player}</span>
-              <span className="text-white/30">:</span>
-              <span className="text-game-danger font-bold">{score.opponent}</span>
+                {timeLeft}
+              </span>
             </div>
           </div>
 
-          {/* Progress */}
-          <div className="flex gap-1 mb-6">
-            {Array.from({ length: totalRounds }).map((_, i) => (
+            <div className="glass rounded-xl px-3 py-2 flex items-center gap-2">
+            <span className="text-game-success font-bold">{score.player}</span>
+              <span className="text-white/30">:</span>
+            <span className="text-game-danger font-bold">{score.opponent}</span>
+          </div>
+        </div>
+
+        {/* Progress */}
+        <div className="flex gap-1 mb-6">
+          {Array.from({ length: totalRounds }).map((_, i) => (
               <motion.div
-                key={i}
+              key={i}
                 className={`flex-1 h-1.5 rounded-full transition-all duration-300 ${
                   i < round - 1 ? 'bg-game-success shadow-glow-success' : 
                   i === round - 1 ? 'bg-game-primary shadow-glow' : 
-                  'bg-white/10'
-                }`}
+                'bg-white/10'
+              }`}
                 initial={i === round - 1 ? { scale: 0.8 } : {}}
                 animate={i === round - 1 ? { scale: 1 } : {}}
-              />
-            ))}
-          </div>
+            />
+          ))}
+        </div>
 
-          {/* Category */}
-          <motion.div 
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center mb-4"
-          >
+        {/* Category */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center mb-4"
+        >
             <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass text-sm">
               <span>📜</span>
               <span className="text-white/70">{question.category}</span>
-            </span>
-          </motion.div>
+          </span>
+        </motion.div>
 
-          {/* Question */}
-          <motion.div 
+        {/* Question */}
+        <motion.div
             key={question.id}
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             className="glass rounded-3xl p-6 mb-6"
-          >
+        >
             <p className="text-lg font-medium leading-relaxed text-center text-white">
-              {question.text}
-            </p>
-          </motion.div>
+            {question.text}
+          </p>
+        </motion.div>
 
-          {/* Answers */}
-          <div className="flex-1 flex flex-col gap-3">
+        {/* Answers */}
+        <div className="flex-1 flex flex-col gap-3">
             {question.answers
               .filter(answer => !hiddenAnswers.includes(answer.id))
               .map((answer, index) => (
-                <motion.button
-                  key={answer.id}
+            <motion.button
+              key={answer.id}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  onClick={() => handleAnswerSelect(answer.id)}
-                  disabled={selectedAnswer !== null}
-                  className={`btn-answer ${getAnswerClass(answer.id)}`}
-                >
+              transition={{ delay: index * 0.1 }}
+              onClick={() => handleAnswerSelect(answer.id)}
+              disabled={selectedAnswer !== null}
+              className={`btn-answer ${getAnswerClass(answer.id)}`}
+            >
                   <div className="flex items-center gap-4">
                     <span className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center font-bold text-white/50">
-                      {String.fromCharCode(65 + index)}
-                    </span>
+                  {String.fromCharCode(65 + index)}
+                </span>
                     <span className="flex-1 text-left text-white">{answer.text}</span>
                     
-                    {selectedAnswer === answer.id && lastResult?.is_correct && (
-                      <motion.span 
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
+                {selectedAnswer === answer.id && lastResult?.is_correct && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
                         className="text-2xl"
-                      >
-                        ✓
-                      </motion.span>
-                    )}
-                    {selectedAnswer === answer.id && lastResult && !lastResult.is_correct && !lastResult.timeout && (
-                      <motion.span 
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
+                  >
+                    ✓
+                  </motion.span>
+                )}
+                {selectedAnswer === answer.id && lastResult && !lastResult.is_correct && !lastResult.timeout && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
                         className="text-2xl"
-                      >
-                        ✗
-                      </motion.span>
-                    )}
-                  </div>
-                </motion.button>
-              ))}
-          </div>
+                  >
+                    ✗
+                  </motion.span>
+                )}
+              </div>
+            </motion.button>
+          ))}
+        </div>
 
           {/* Кнопка подсказки 50/50 */}
           {state === STATES.PLAYING && selectedAnswer === null && !hintUsed && (
@@ -860,57 +860,57 @@ function DuelPage() {
             </div>
           )}
 
-          {/* Результат раунда */}
-          <AnimatePresence>
+        {/* Результат раунда */}
+        <AnimatePresence>
             {(state === STATES.SHOWING_RESULT || state === STATES.WAITING_OPPONENT_ANSWER) && lastResult && (
-              <motion.div
+            <motion.div
                 initial={{ opacity: 0, y: 100 }}
-                animate={{ opacity: 1, y: 0 }}
+              animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 100 }}
                 className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-dark-950 via-dark-950/95 to-transparent"
-              >
+            >
                 <div className="glass rounded-3xl p-5">
-                  {/* Твой результат */}
+                {/* Твой результат */}
                   <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3">
                       <div className="w-12 h-12 rounded-full bg-gradient-to-br from-game-primary to-purple-600 flex items-center justify-center font-bold text-white">
-                        {user?.first_name?.[0] || '?'}
-                      </div>
+                      {user?.first_name?.[0] || '?'}
+                    </div>
                       <span className="font-medium text-white">Ты</span>
-                    </div>
-                    <div className={`flex items-center gap-2 ${lastResult.is_correct ? 'text-game-success' : 'text-game-danger'}`}>
-                      {lastResult.timeout ? (
-                        <>
-                          <span>⏱️</span>
-                          <span className="font-bold">Время вышло</span>
-                        </>
-                      ) : lastResult.is_correct ? (
-                        <>
-                          <span>✅</span>
-                          <span className="font-bold">+{lastResult.points_earned || 10}</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>❌</span>
-                          <span className="font-bold">Неверно</span>
-                        </>
-                      )}
-                    </div>
                   </div>
-                  
+                  <div className={`flex items-center gap-2 ${lastResult.is_correct ? 'text-game-success' : 'text-game-danger'}`}>
+                    {lastResult.timeout ? (
+                      <>
+                        <span>⏱️</span>
+                        <span className="font-bold">Время вышло</span>
+                      </>
+                    ) : lastResult.is_correct ? (
+                      <>
+                        <span>✅</span>
+                        <span className="font-bold">+{lastResult.points_earned || 10}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>❌</span>
+                        <span className="font-bold">Неверно</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                
                   <div className="border-t border-white/10 my-3" />
-                  
-                  {/* Результат соперника */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
+                
+                {/* Результат соперника */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
                       <div className="w-12 h-12 rounded-full bg-gradient-to-br from-game-danger to-orange-500 flex items-center justify-center">
-                        👤
-                      </div>
-                      <span className="font-medium text-white/70">Соперник</span>
+                      👤
                     </div>
+                    <span className="font-medium text-white/70">Соперник</span>
+                  </div>
                     <div className="flex items-center gap-2">
                       {opponentAnswer && opponentAnswer.answered ? (
-                        opponentAnswer.correct ? (
+                      opponentAnswer.correct ? (
                           <span className="text-game-success font-bold flex items-center gap-2">
                             <span>✅</span> Верно
                           </span>
@@ -918,8 +918,8 @@ function DuelPage() {
                           <span className="text-game-danger font-bold flex items-center gap-2">
                             <span>❌</span> Неверно
                           </span>
-                        )
-                      ) : (
+                      )
+                    ) : (
                         <span className="text-white/40 flex items-center gap-2">
                           <motion.span
                             animate={{ opacity: [0.5, 1, 0.5] }}
@@ -927,15 +927,15 @@ function DuelPage() {
                           >
                             ⏳
                           </motion.span>
-                          <span>Ожидание...</span>
+                        <span>Ожидание...</span>
                         </span>
-                      )}
-                    </div>
+                    )}
                   </div>
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
         </div>
       </div>
     )
@@ -954,12 +954,12 @@ function DuelPage() {
         <div className="aurora-blob aurora-blob-3" />
         <div className="noise-overlay" />
 
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           className="relative z-10 text-center w-full max-w-sm"
         >
-          <motion.div 
+          <motion.div
             initial={{ scale: 0, rotate: -180 }}
             animate={{ scale: 1, rotate: 0 }}
             transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
@@ -990,18 +990,18 @@ function DuelPage() {
             <span className="text-game-danger">{score.opponent}</span>
           </motion.div>
 
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6 }}
             className="glass rounded-2xl p-5 mb-8"
           >
-            <div className="text-center">
+              <div className="text-center">
               <div className={`text-3xl font-bold ${
                 isWinner ? 'text-game-success' : isDraw ? 'text-white/50' : 'text-game-danger'
               }`}>
                 {ratingChange}
-              </div>
+                </div>
               <div className="text-sm text-white/40">Рейтинг</div>
             </div>
           </motion.div>
