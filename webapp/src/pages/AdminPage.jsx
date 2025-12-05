@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useTelegram, showBackButton, hapticFeedback } from '../hooks/useTelegram'
 import api from '../api/client'
 
@@ -13,7 +14,6 @@ function AdminPage() {
   const [showConfirm, setShowConfirm] = useState(null)
   const [actionLoading, setActionLoading] = useState(false)
   
-  // Форма добавления вопроса
   const [showAddQuestion, setShowAddQuestion] = useState(false)
   const [newQuestion, setNewQuestion] = useState({
     category_id: '',
@@ -122,540 +122,389 @@ function AdminPage() {
     }
   }
 
+  const tabs = [
+    { id: 'stats', label: '📊 Статистика' },
+    { id: 'users', label: '👥 Игроки' },
+    { id: 'duels', label: '⚔️ Дуэли' },
+    { id: 'questions', label: '❓ Вопросы' }
+  ]
+
   if (loading) {
     return (
-      <div style={{ 
-        minHeight: '100vh', 
-        background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: 'white'
-      }}>
-        <p>Загрузка...</p>
+      <div className="min-h-screen bg-aurora relative overflow-hidden flex items-center justify-center">
+        <div className="aurora-blob aurora-blob-1" />
+        <div className="noise-overlay" />
+        
+        <div className="relative z-10 text-center">
+          <div className="spinner mx-auto mb-4" />
+          <p className="text-white/40">Загрузка...</p>
+        </div>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div style={{ 
-        minHeight: '100vh', 
-        background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
-        padding: '20px',
-        color: 'white'
-      }}>
-        <h1 style={{ color: '#ef4444' }}>⛔ Доступ запрещён</h1>
-        <p style={{ opacity: 0.7 }}>{error}</p>
-        <button
-          onClick={() => navigate('/')}
-          style={{
-            marginTop: '20px',
-            padding: '12px 24px',
-            background: '#6366f1',
-            border: 'none',
-            borderRadius: '8px',
-            color: 'white',
-            cursor: 'pointer'
-          }}
-        >
-          На главную
-        </button>
+      <div className="min-h-screen bg-aurora relative overflow-hidden p-4">
+        <div className="aurora-blob aurora-blob-1" />
+        <div className="noise-overlay" />
+        
+        <div className="relative z-10 pt-8">
+          <h1 className="text-2xl font-bold text-game-danger mb-4">⛔ Доступ запрещён</h1>
+          <p className="text-white/50 mb-6">{error}</p>
+          <button
+            onClick={() => navigate('/')}
+            className="px-6 py-3 bg-gradient-to-r from-game-primary to-purple-600 rounded-xl text-white font-medium shadow-glow"
+          >
+            На главную
+          </button>
+        </div>
       </div>
     )
   }
 
   return (
-    <div style={{ 
-      minHeight: '100vh', 
-      background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
-      padding: '20px',
-      paddingBottom: '100px',
-      color: 'white'
-    }}>
-      <h1 style={{ fontSize: '24px', marginBottom: '8px', textAlign: 'center' }}>
-        ⚙️ Админ-панель
-      </h1>
-      <p style={{ textAlign: 'center', opacity: 0.6, marginBottom: '20px', fontSize: '14px' }}>
-        Управление ботом
-      </p>
+    <div className="min-h-screen bg-aurora relative overflow-hidden">
+      <div className="aurora-blob aurora-blob-1" style={{ opacity: 0.3 }} />
+      <div className="aurora-blob aurora-blob-2" style={{ opacity: 0.3 }} />
+      <div className="noise-overlay" />
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', overflowX: 'auto' }}>
-        {['stats', 'users', 'duels', 'questions'].map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            style={{
-              padding: '10px 16px',
-              borderRadius: '10px',
-              border: 'none',
-              background: activeTab === tab ? '#6366f1' : 'rgba(255,255,255,0.1)',
-              color: 'white',
-              fontWeight: '500',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-              fontSize: '13px'
-            }}
-          >
-            {tab === 'stats' && '📊 Статистика'}
-            {tab === 'users' && '👥 Игроки'}
-            {tab === 'duels' && '⚔️ Дуэли'}
-            {tab === 'questions' && '❓ Вопросы'}
-          </button>
-        ))}
-      </div>
+      <div className="relative z-10 p-4 pb-24">
+        {/* Header */}
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center mb-6"
+        >
+          <h1 className="text-2xl font-bold text-white mb-1">⚙️ Админ-панель</h1>
+          <p className="text-white/40 text-sm">Управление ботом</p>
+        </motion.div>
 
-      {/* Stats Tab */}
-      {activeTab === 'stats' && stats && (
-        <div>
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: '1fr 1fr', 
-            gap: '12px',
-            marginBottom: '20px'
-          }}>
-            <StatCard title="Всего игроков" value={stats.total_users} icon="👥" color="#6366f1" />
-            <StatCard title="Активных сегодня" value={stats.active_today} icon="🔥" color="#f59e0b" />
-            <StatCard title="Всего дуэлей" value={stats.total_duels} icon="⚔️" color="#ef4444" />
-            <StatCard title="Активных дуэлей" value={stats.active_duels} icon="🎮" color="#22c55e" />
-            <StatCard title="Вопросов" value={stats.total_questions} icon="❓" color="#8b5cf6" />
-            <StatCard title="Фактов П/Л" value={stats.total_facts} icon="🧠" color="#ec4899" />
-          </div>
-
-          <div style={{ 
-            background: 'rgba(255,255,255,0.1)', 
-            padding: '16px', 
-            borderRadius: '12px',
-            marginBottom: '16px'
-          }}>
-            <h3 style={{ fontSize: '14px', marginBottom: '12px', opacity: 0.7 }}>
-              Последние 24 часа
-            </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', textAlign: 'center' }}>
-              <div>
-                <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#22c55e' }}>{stats.duels_today}</p>
-                <p style={{ fontSize: '11px', opacity: 0.6 }}>Дуэлей</p>
-              </div>
-              <div>
-                <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#6366f1' }}>{stats.new_users_today}</p>
-                <p style={{ fontSize: '11px', opacity: 0.6 }}>Новых</p>
-              </div>
-              <div>
-                <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#f59e0b' }}>{stats.tf_games_today}</p>
-                <p style={{ fontSize: '11px', opacity: 0.6 }}>П/Л игр</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Users Tab */}
-      {activeTab === 'users' && stats?.recent_users && (
-        <div>
-          <h3 style={{ fontSize: '14px', marginBottom: '12px', opacity: 0.7 }}>
-            Последние игроки
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {stats.recent_users.map((u, i) => (
-              <div 
-                key={u.id}
-                style={{
-                  background: 'rgba(255,255,255,0.1)',
-                  padding: '12px',
-                  borderRadius: '10px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px'
-                }}
-              >
-                <div style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #6366f1, #9333ea)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 'bold'
-                }}>
-                  {u.first_name?.[0] || '?'}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontWeight: '500' }}>{u.first_name} {u.last_name || ''}</p>
-                  <p style={{ fontSize: '12px', opacity: 0.6 }}>@{u.username || 'нет'} • ID: {u.telegram_id}</p>
-                </div>
-                <div style={{ textAlign: 'right', fontSize: '12px' }}>
-                  <p style={{ color: '#6366f1', fontWeight: 'bold' }}>{u.rating}</p>
-                  <p style={{ opacity: 0.5 }}>рейтинг</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Duels Tab */}
-      {activeTab === 'duels' && stats?.recent_duels && (
-        <div>
-          {/* Cancel all active duels */}
-          {stats.active_duels > 0 && (
+        {/* Tabs */}
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.1 }}
+          className="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide"
+        >
+          {tabs.map(tab => (
             <button
-              onClick={() => setShowConfirm({ type: 'all' })}
-              style={{
-                width: '100%',
-                padding: '12px',
-                background: 'rgba(239,68,68,0.2)',
-                border: '1px solid rgba(239,68,68,0.5)',
-                borderRadius: '10px',
-                color: '#ef4444',
-                cursor: 'pointer',
-                marginBottom: '16px',
-                fontWeight: '500'
-              }}
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-4 py-2.5 rounded-xl font-medium text-sm whitespace-nowrap transition-all ${
+                activeTab === tab.id
+                  ? 'bg-gradient-to-r from-game-primary to-purple-600 text-white shadow-glow'
+                  : 'glass text-white/50 hover:text-white/70'
+              }`}
             >
-              🛑 Завершить все активные дуэли ({stats.active_duels})
+              {tab.label}
             </button>
-          )}
+          ))}
+        </motion.div>
 
-          <h3 style={{ fontSize: '14px', marginBottom: '12px', opacity: 0.7 }}>
-            Последние дуэли
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {stats.recent_duels.map((d, i) => (
-              <div 
-                key={d.id}
-                style={{
-                  background: 'rgba(255,255,255,0.1)',
-                  padding: '12px',
-                  borderRadius: '10px'
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <span style={{ 
-                    fontSize: '11px', 
-                    padding: '4px 8px', 
-                    borderRadius: '6px',
-                    background: d.status === 'finished' ? 'rgba(34,197,94,0.3)' : 
-                               d.status === 'in_progress' ? 'rgba(99,102,241,0.3)' : 
-                               d.status === 'cancelled' ? 'rgba(107,114,128,0.3)' :
-                               'rgba(251,191,36,0.3)',
-                    color: d.status === 'finished' ? '#22c55e' : 
-                           d.status === 'in_progress' ? '#6366f1' : 
-                           d.status === 'cancelled' ? '#9ca3af' : '#fbbf24'
-                  }}>
-                    {d.status}
-                  </span>
-                  <span style={{ fontSize: '11px', opacity: 0.5 }}>{d.code}</span>
-                </div>
-                <p style={{ fontSize: '13px' }}>
-                  {d.initiator_name} vs {d.opponent_name || '???'}
-                </p>
-                {d.status === 'finished' && (
-                  <p style={{ fontSize: '12px', opacity: 0.6, marginTop: '4px' }}>
-                    Счёт: {d.initiator_score} : {d.opponent_score}
-                  </p>
-                )}
-                {['waiting', 'matched', 'in_progress'].includes(d.status) && (
-                  <button
-                    onClick={() => setShowConfirm({ type: 'single', id: d.id, code: d.code })}
-                    style={{
-                      marginTop: '8px',
-                      padding: '6px 12px',
-                      background: 'rgba(239,68,68,0.2)',
-                      border: '1px solid rgba(239,68,68,0.5)',
-                      borderRadius: '6px',
-                      color: '#ef4444',
-                      cursor: 'pointer',
-                      fontSize: '12px'
-                    }}
-                  >
-                    ✕ Завершить
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Questions Tab */}
-      {activeTab === 'questions' && (
-        <div>
-          <button
-            onClick={() => setShowAddQuestion(true)}
-            style={{
-              width: '100%',
-              padding: '14px',
-              background: 'linear-gradient(135deg, #22c55e, #16a34a)',
-              border: 'none',
-              borderRadius: '12px',
-              color: 'white',
-              cursor: 'pointer',
-              marginBottom: '16px',
-              fontWeight: '600',
-              fontSize: '15px'
-            }}
+        {/* Stats Tab */}
+        {activeTab === 'stats' && stats && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
           >
-            ➕ Добавить вопрос
-          </button>
-
-          <div style={{ 
-            background: 'rgba(255,255,255,0.1)', 
-            padding: '16px', 
-            borderRadius: '12px',
-            marginBottom: '16px'
-          }}>
-            <h3 style={{ fontSize: '14px', marginBottom: '12px' }}>📊 По категориям</h3>
-            {stats?.categories?.map((cat, i) => (
-              <div key={i} style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                padding: '8px 0',
-                borderBottom: i < stats.categories.length - 1 ? '1px solid rgba(255,255,255,0.1)' : 'none'
-              }}>
-                <span style={{ fontSize: '13px' }}>{cat.title}</span>
-                <span style={{ fontSize: '13px', color: '#6366f1', fontWeight: 'bold' }}>{cat.count}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Refresh button */}
-      <button
-        onClick={loadAdminData}
-        style={{
-          width: '100%',
-          padding: '14px',
-          background: 'rgba(255,255,255,0.1)',
-          border: 'none',
-          borderRadius: '12px',
-          color: 'white',
-          cursor: 'pointer',
-          marginTop: '20px'
-        }}
-      >
-        🔄 Обновить данные
-      </button>
-
-      {/* Confirm Modal */}
-      {showConfirm && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.8)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '20px',
-          zIndex: 1000
-        }}>
-          <div style={{
-            background: '#1a1a2e',
-            padding: '24px',
-            borderRadius: '16px',
-            maxWidth: '320px',
-            width: '100%'
-          }}>
-            <h3 style={{ marginBottom: '12px', textAlign: 'center' }}>⚠️ Подтверждение</h3>
-            <p style={{ opacity: 0.8, textAlign: 'center', marginBottom: '20px', fontSize: '14px' }}>
-              {showConfirm.type === 'all' 
-                ? `Завершить ВСЕ активные дуэли (${stats.active_duels} шт)?`
-                : `Завершить дуэль ${showConfirm.code}?`
-              }
-            </p>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button
-                onClick={() => setShowConfirm(null)}
-                disabled={actionLoading}
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  background: 'rgba(255,255,255,0.1)',
-                  border: 'none',
-                  borderRadius: '10px',
-                  color: 'white',
-                  cursor: 'pointer'
-                }}
-              >
-                Отмена
-              </button>
-              <button
-                onClick={() => showConfirm.type === 'all' ? cancelAllDuels() : cancelDuel(showConfirm.id)}
-                disabled={actionLoading}
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  background: '#ef4444',
-                  border: 'none',
-                  borderRadius: '10px',
-                  color: 'white',
-                  cursor: 'pointer',
-                  opacity: actionLoading ? 0.5 : 1
-                }}
-              >
-                {actionLoading ? '...' : 'Завершить'}
-              </button>
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <StatCard title="Всего игроков" value={stats.total_users} icon="👥" gradient="from-game-primary/20" />
+              <StatCard title="Активных сегодня" value={stats.active_today} icon="🔥" gradient="from-game-warning/20" />
+              <StatCard title="Всего дуэлей" value={stats.total_duels} icon="⚔️" gradient="from-game-danger/20" />
+              <StatCard title="Активных дуэлей" value={stats.active_duels} icon="🎮" gradient="from-game-success/20" />
+              <StatCard title="Вопросов" value={stats.total_questions} icon="❓" gradient="from-purple-500/20" />
+              <StatCard title="Фактов П/Л" value={stats.total_facts} icon="🧠" gradient="from-pink-500/20" />
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* Add Question Modal */}
-      {showAddQuestion && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.9)',
-          overflowY: 'auto',
-          padding: '20px',
-          zIndex: 1000
-        }}>
-          <div style={{
-            background: '#1a1a2e',
-            padding: '20px',
-            borderRadius: '16px',
-            maxWidth: '400px',
-            margin: '0 auto'
-          }}>
-            <h3 style={{ marginBottom: '16px', textAlign: 'center' }}>➕ Новый вопрос</h3>
-            
-            <label style={{ display: 'block', marginBottom: '12px' }}>
-              <span style={{ fontSize: '12px', opacity: 0.7, display: 'block', marginBottom: '4px' }}>Категория</span>
-              <select
-                value={newQuestion.category_id}
-                onChange={(e) => setNewQuestion({...newQuestion, category_id: e.target.value})}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background: 'rgba(255,255,255,0.1)',
-                  color: 'white',
-                  fontSize: '14px'
-                }}
-              >
-                <option value="">Выберите категорию</option>
-                {stats?.categories?.map((cat, i) => (
-                  <option key={i} value={cat.id || i + 1}>{cat.title}</option>
-                ))}
-              </select>
-            </label>
+            <div className="glass rounded-2xl p-4">
+              <h3 className="text-sm text-white/50 mb-4">Последние 24 часа</h3>
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div>
+                  <p className="text-3xl font-bold text-game-success">{stats.duels_today}</p>
+                  <p className="text-xs text-white/40">Дуэлей</p>
+                </div>
+                <div>
+                  <p className="text-3xl font-bold text-game-primary">{stats.new_users_today}</p>
+                  <p className="text-xs text-white/40">Новых</p>
+                </div>
+                <div>
+                  <p className="text-3xl font-bold text-game-warning">{stats.tf_games_today}</p>
+                  <p className="text-xs text-white/40">П/Л игр</p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
-            <label style={{ display: 'block', marginBottom: '12px' }}>
-              <span style={{ fontSize: '12px', opacity: 0.7, display: 'block', marginBottom: '4px' }}>Текст вопроса</span>
-              <textarea
-                value={newQuestion.question_text}
-                onChange={(e) => setNewQuestion({...newQuestion, question_text: e.target.value})}
-                placeholder="Введите вопрос..."
-                rows={3}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background: 'rgba(255,255,255,0.1)',
-                  color: 'white',
-                  fontSize: '14px',
-                  resize: 'vertical'
-                }}
-              />
-            </label>
-
-            <div style={{ marginBottom: '12px' }}>
-              <span style={{ fontSize: '12px', opacity: 0.7, display: 'block', marginBottom: '8px' }}>
-                Варианты ответов (первый = правильный)
-              </span>
-              {newQuestion.answers.map((answer, i) => (
-                <div key={i} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
-                  <input
-                    type="radio"
-                    name="correct"
-                    checked={newQuestion.correct_answer === i}
-                    onChange={() => setNewQuestion({...newQuestion, correct_answer: i})}
-                    style={{ accentColor: '#22c55e' }}
-                  />
-                  <input
-                    value={answer}
-                    onChange={(e) => {
-                      const answers = [...newQuestion.answers]
-                      answers[i] = e.target.value
-                      setNewQuestion({...newQuestion, answers})
-                    }}
-                    placeholder={`Ответ ${i + 1}${i === 0 ? ' (правильный)' : ''}`}
-                    style={{
-                      flex: 1,
-                      padding: '10px',
-                      borderRadius: '8px',
-                      border: newQuestion.correct_answer === i ? '2px solid #22c55e' : 'none',
-                      background: 'rgba(255,255,255,0.1)',
-                      color: 'white',
-                      fontSize: '14px'
-                    }}
-                  />
+        {/* Users Tab */}
+        {activeTab === 'users' && stats?.recent_users && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <h3 className="text-sm text-white/50 mb-3">Последние игроки</h3>
+            <div className="space-y-2">
+              {stats.recent_users.map((u, i) => (
+                <div key={u.id} className="glass rounded-xl p-3 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-game-primary to-purple-600 flex items-center justify-center font-bold text-white">
+                    {u.first_name?.[0] || '?'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-white truncate">{u.first_name} {u.last_name || ''}</p>
+                    <p className="text-xs text-white/40 truncate">@{u.username || 'нет'} • ID: {u.telegram_id}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-game-primary">{u.rating}</p>
+                    <p className="text-2xs text-white/40">рейтинг</p>
+                  </div>
                 </div>
               ))}
             </div>
+          </motion.div>
+        )}
 
-            <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+        {/* Duels Tab */}
+        {activeTab === 'duels' && stats?.recent_duels && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            {stats.active_duels > 0 && (
               <button
-                onClick={() => setShowAddQuestion(false)}
-                disabled={actionLoading}
-                style={{
-                  flex: 1,
-                  padding: '14px',
-                  background: 'rgba(255,255,255,0.1)',
-                  border: 'none',
-                  borderRadius: '10px',
-                  color: 'white',
-                  cursor: 'pointer'
-                }}
+                onClick={() => setShowConfirm({ type: 'all' })}
+                className="w-full p-4 mb-4 glass rounded-xl border border-game-danger/30 text-game-danger font-medium hover:bg-game-danger/10 transition-colors"
               >
-                Отмена
+                🛑 Завершить все активные дуэли ({stats.active_duels})
               </button>
-              <button
-                onClick={addQuestion}
-                disabled={actionLoading}
-                style={{
-                  flex: 1,
-                  padding: '14px',
-                  background: '#22c55e',
-                  border: 'none',
-                  borderRadius: '10px',
-                  color: 'white',
-                  cursor: 'pointer',
-                  fontWeight: '600',
-                  opacity: actionLoading ? 0.5 : 1
-                }}
-              >
-                {actionLoading ? 'Добавляю...' : 'Добавить'}
-              </button>
+            )}
+
+            <h3 className="text-sm text-white/50 mb-3">Последние дуэли</h3>
+            <div className="space-y-2">
+              {stats.recent_duels.map((d) => (
+                <div key={d.id} className="glass rounded-xl p-3">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className={`text-xs px-2 py-1 rounded-lg ${
+                      d.status === 'finished' ? 'bg-game-success/20 text-game-success' :
+                      d.status === 'in_progress' ? 'bg-game-primary/20 text-game-primary' :
+                      d.status === 'cancelled' ? 'bg-white/10 text-white/40' :
+                      'bg-game-warning/20 text-game-warning'
+                    }`}>
+                      {d.status}
+                    </span>
+                    <span className="text-xs text-white/40 font-mono">{d.code}</span>
+                  </div>
+                  <p className="text-sm text-white">
+                    {d.initiator_name} vs {d.opponent_name || '???'}
+                  </p>
+                  {d.status === 'finished' && (
+                    <p className="text-xs text-white/50 mt-1">
+                      Счёт: {d.initiator_score} : {d.opponent_score}
+                    </p>
+                  )}
+                  {['waiting', 'matched', 'in_progress'].includes(d.status) && (
+                    <button
+                      onClick={() => setShowConfirm({ type: 'single', id: d.id, code: d.code })}
+                      className="mt-2 px-3 py-1.5 text-xs bg-game-danger/20 text-game-danger rounded-lg border border-game-danger/30"
+                    >
+                      ✕ Завершить
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
-          </div>
-        </div>
-      )}
+          </motion.div>
+        )}
+
+        {/* Questions Tab */}
+        {activeTab === 'questions' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <button
+              onClick={() => setShowAddQuestion(true)}
+              className="w-full p-4 mb-4 bg-gradient-to-r from-game-success to-emerald-600 rounded-xl text-white font-semibold shadow-glow-success"
+            >
+              ➕ Добавить вопрос
+            </button>
+
+            <div className="glass rounded-2xl p-4">
+              <h3 className="text-sm text-white/50 mb-3">📊 По категориям</h3>
+              {stats?.categories?.map((cat, i) => (
+                <div 
+                  key={i} 
+                  className={`flex justify-between py-3 ${
+                    i < stats.categories.length - 1 ? 'border-b border-white/5' : ''
+                  }`}
+                >
+                  <span className="text-sm text-white/70">{cat.title}</span>
+                  <span className="text-sm font-bold text-game-primary">{cat.count}</span>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Refresh Button */}
+        <button
+          onClick={loadAdminData}
+          className="w-full mt-6 p-4 glass rounded-xl text-white/70 hover:text-white transition-colors"
+        >
+          🔄 Обновить данные
+        </button>
+      </div>
+
+      {/* Confirm Modal */}
+      <AnimatePresence>
+        {showConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-dark-950 rounded-2xl p-6 max-w-xs w-full"
+            >
+              <h3 className="text-lg font-bold text-white text-center mb-3">⚠️ Подтверждение</h3>
+              <p className="text-white/60 text-center text-sm mb-6">
+                {showConfirm.type === 'all' 
+                  ? `Завершить ВСЕ активные дуэли (${stats.active_duels} шт)?`
+                  : `Завершить дуэль ${showConfirm.code}?`
+                }
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowConfirm(null)}
+                  disabled={actionLoading}
+                  className="flex-1 py-3 glass rounded-xl text-white/70"
+                >
+                  Отмена
+                </button>
+                <button
+                  onClick={() => showConfirm.type === 'all' ? cancelAllDuels() : cancelDuel(showConfirm.id)}
+                  disabled={actionLoading}
+                  className="flex-1 py-3 bg-game-danger rounded-xl text-white font-medium disabled:opacity-50"
+                >
+                  {actionLoading ? '...' : 'Завершить'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Add Question Modal */}
+      <AnimatePresence>
+        {showAddQuestion && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/90 overflow-y-auto p-4 z-50"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-dark-950 rounded-2xl p-5 max-w-md mx-auto my-4"
+            >
+              <h3 className="text-lg font-bold text-white text-center mb-4">➕ Новый вопрос</h3>
+              
+              <div className="mb-4">
+                <label className="text-xs text-white/50 block mb-2">Категория</label>
+                <select
+                  value={newQuestion.category_id}
+                  onChange={(e) => setNewQuestion({...newQuestion, category_id: e.target.value})}
+                  className="w-full p-3 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-game-primary"
+                >
+                  <option value="">Выберите категорию</option>
+                  {stats?.categories?.map((cat, i) => (
+                    <option key={i} value={cat.id || i + 1}>{cat.title}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="mb-4">
+                <label className="text-xs text-white/50 block mb-2">Текст вопроса</label>
+                <textarea
+                  value={newQuestion.question_text}
+                  onChange={(e) => setNewQuestion({...newQuestion, question_text: e.target.value})}
+                  placeholder="Введите вопрос..."
+                  rows={3}
+                  className="w-full p-3 rounded-xl bg-white/5 border border-white/10 text-white text-sm resize-none focus:outline-none focus:border-game-primary"
+                />
+              </div>
+
+              <div className="mb-4">
+                <label className="text-xs text-white/50 block mb-2">
+                  Варианты ответов (отметьте правильный)
+                </label>
+                {newQuestion.answers.map((answer, i) => (
+                  <div key={i} className="flex gap-2 mb-2 items-center">
+                    <input
+                      type="radio"
+                      name="correct"
+                      checked={newQuestion.correct_answer === i}
+                      onChange={() => setNewQuestion({...newQuestion, correct_answer: i})}
+                      className="w-4 h-4 accent-game-success"
+                    />
+                    <input
+                      value={answer}
+                      onChange={(e) => {
+                        const answers = [...newQuestion.answers]
+                        answers[i] = e.target.value
+                        setNewQuestion({...newQuestion, answers})
+                      }}
+                      placeholder={`Ответ ${i + 1}`}
+                      className={`flex-1 p-2.5 rounded-xl bg-white/5 text-white text-sm focus:outline-none ${
+                        newQuestion.correct_answer === i 
+                          ? 'border-2 border-game-success' 
+                          : 'border border-white/10'
+                      }`}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowAddQuestion(false)}
+                  disabled={actionLoading}
+                  className="flex-1 py-3 glass rounded-xl text-white/70"
+                >
+                  Отмена
+                </button>
+                <button
+                  onClick={addQuestion}
+                  disabled={actionLoading}
+                  className="flex-1 py-3 bg-game-success rounded-xl text-white font-medium disabled:opacity-50"
+                >
+                  {actionLoading ? 'Добавляю...' : 'Добавить'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
 
-function StatCard({ title, value, icon, color }) {
+function StatCard({ title, value, icon, gradient }) {
   return (
-    <div style={{ 
-      background: 'rgba(255,255,255,0.1)', 
-      padding: '16px', 
-      borderRadius: '12px',
-      textAlign: 'center'
-    }}>
-      <span style={{ fontSize: '24px' }}>{icon}</span>
-      <p style={{ fontSize: '24px', fontWeight: 'bold', color, marginTop: '8px' }}>{value ?? '—'}</p>
-      <p style={{ fontSize: '11px', opacity: 0.6 }}>{title}</p>
+    <div className="relative overflow-hidden rounded-xl p-4 text-center">
+      <div className={`absolute inset-0 bg-gradient-to-br ${gradient} to-transparent`} />
+      <div className="absolute inset-0 glass" />
+      <div className="relative">
+        <span className="text-2xl">{icon}</span>
+        <p className="text-2xl font-bold text-white mt-2">{value ?? '—'}</p>
+        <p className="text-xs text-white/40">{title}</p>
+      </div>
     </div>
   )
 }

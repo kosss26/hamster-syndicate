@@ -22,8 +22,8 @@ function App() {
       telegram.expand()
       
       // Настройка темы
-      telegram.setHeaderColor('#1a1a2e')
-      telegram.setBackgroundColor('#1a1a2e')
+      telegram.setHeaderColor('#0a0a0f')
+      telegram.setBackgroundColor('#0a0a0f')
       
       // Включаем кнопку "Назад"
       telegram.BackButton.onClick(() => {
@@ -50,10 +50,24 @@ function App() {
 
   if (!isReady) {
     return (
-      <div className="min-h-screen bg-gradient-game flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-game-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-telegram-hint">Загрузка...</p>
+      <div className="min-h-screen bg-aurora relative overflow-hidden flex items-center justify-center">
+        {/* Aurora Background */}
+        <div className="aurora-blob aurora-blob-1" />
+        <div className="aurora-blob aurora-blob-2" />
+        <div className="noise-overlay" />
+        
+        <div className="relative z-10 text-center">
+          {/* Animated Logo */}
+          <div className="relative mb-6">
+            <div className="absolute inset-0 rounded-full bg-game-primary/30 blur-2xl animate-pulse" />
+            <div className="relative text-7xl animate-bounce-in">⚔️</div>
+          </div>
+          
+          {/* Spinner */}
+          <div className="spinner mx-auto mb-4" />
+          
+          {/* Text */}
+          <p className="text-white/40 text-sm">Загрузка...</p>
         </div>
       </div>
     )
@@ -62,7 +76,7 @@ function App() {
   return (
     <TelegramContext.Provider value={{ tg, user }}>
       <BrowserRouter basename="/webapp">
-        <div className="min-h-screen bg-gradient-game">
+        <div className="min-h-screen">
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/duel" element={<DuelPage />} />
@@ -80,4 +94,3 @@ function App() {
 }
 
 export default App
-
