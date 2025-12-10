@@ -266,6 +266,98 @@ class SampleDataSeeder
                 ['1961', false]
             ]),
 
+
+                $this->makeQuestion('history_spanish_civil_war_start', 'В каком году началась Гражданская война в Испании?', 'Война началась в 1936 году.', [
+                ['1936', true],
+                ['1931', false],
+                ['1939', false],
+                ['1941', false]
+            ]),
+                $this->makeQuestion('history_marathon_battle', 'Против кого греки сражались в битве при Марафоне?', 'Афиняне победили персов в 490 году до н.э.', [
+                ['Против персов', true],
+                ['Против македонян', false],
+                ['Против римлян', false],
+                ['Против карфагенян', false]
+            ]),
+                $this->makeQuestion('history_munich_agreement_year', 'В каком году был подписан Мюнхенский сговор?', 'Мюнхенское соглашение заключили в 1938 году.', [
+                ['1938', true],
+                ['1936', false],
+                ['1939', false],
+                ['1940', false]
+            ]),
+                $this->makeQuestion('history_russian_empire_found', 'Когда была провозглашена Российская империя?', 'Титул империи принят Петром I в 1721 году.', [
+                ['1721', true],
+                ['1700', false],
+                ['1762', false],
+                ['1689', false]
+            ]),
+                $this->makeQuestion('history_nato_foundation', 'В каком году было создано НАТО?', 'Североатлантический альянс образован в 1949 году.', [
+                ['1949', true],
+                ['1945', false],
+                ['1955', false],
+                ['1960', false]
+            ]),
+                $this->makeQuestion('history_cuban_missile_crisis_year', 'В каком году произошёл Карибский кризис?', 'Кризис случился в октябре 1962 года.', [
+                ['1962', true],
+                ['1959', false],
+                ['1965', false],
+                ['1970', false]
+            ]),
+                $this->makeQuestion('history_black_death_century', 'В каком веке Европа пережила Чёрную смерть?', 'Пандемия чумы достигла пика в XIV веке.', [
+                ['XIV век', true],
+                ['XIII век', false],
+                ['XV век', false],
+                ['XII век', false]
+            ]),
+                $this->makeQuestion('history_ottoman_capture_cyprus', 'Какая держава завоевала Кипр у Венеции в XVI веке?', 'Османская империя захватила Кипр в 1570–1571 гг.', [
+                ['Османская империя', true],
+                ['Испания', false],
+                ['Франция', false],
+                ['Англия', false]
+            ]),
+                $this->makeQuestion('history_battle_of_hastings_ruler', 'Кто возглавлял нормандцев в битве при Гастингсе?', 'Вильгельм Завоеватель победил Гарольда II.', [
+                ['Вильгельм Завоеватель', true],
+                ['Ричард Львиное Сердце', false],
+                ['Генрих II', false],
+                ['Эдуард III', false]
+            ]),
+                $this->makeQuestion('history_berlin_airlift_planes', 'Как называли операцию снабжения Западного Берлина по воздуху в 1948–1949?', 'Операция получила название Berlin Airlift (Воздушный мост).', [
+                ['Berlin Airlift (Воздушный мост)', true],
+                ['Operation Overlord', false],
+                ['Operation Torch', false],
+                ['Operation Market Garden', false]
+            ]),
+                $this->makeQuestion('history_sputnik2_animal', 'Какое животное полетело на «Спутнике-2»?', 'На борту «Спутника-2» летала собака Лайка.', [
+                ['Собака Лайка', true],
+                ['Собака Белка', false],
+                ['Обезьяна Хэм', false],
+                ['Черепаха', false]
+            ]),
+                $this->makeQuestion('history_punic_wars_count', 'Сколько Пунических войн вели Рим и Карфаген?', 'Всего было три Пунические войны.', [
+                ['Три', true],
+                ['Две', false],
+                ['Четыре', false],
+                ['Пять', false]
+            ]),
+                $this->makeQuestion('history_gold_rush_california', 'В каком году началась золотая лихорадка в Калифорнии?', 'Золотая лихорадка стартовала в 1848 году.', [
+                ['1848', true],
+                ['1855', false],
+                ['1836', false],
+                ['1861', false]
+            ]),
+                $this->makeQuestion('history_chernobyl_year', 'В каком году произошла авария на Чернобыльской АЭС?', 'Катастрофа произошла в 1986 году.', [
+                ['1986', true],
+                ['1983', false],
+                ['1989', false],
+                ['1991', false]
+            ]),
+                $this->makeQuestion('history_first_flight_date', 'В каком году состоялся первый полёт братьев Райт?', 'Полёт состоялся в 1903 году.', [
+                ['1903', true],
+                ['1899', false],
+                ['1908', false],
+                ['1912', false]
+            ]),
+
             ],
             'science_tech' => [
                 [
@@ -760,6 +852,98 @@ class SampleDataSeeder
                 ['Сет', false],
                 ['Пит-стоп', false],
                 ['Сплит', false]
+            ]),
+
+
+                $this->makeQuestion('sport_chess_titles', 'Как называется высшее спортивное звание в шахматах?', 'Высшее звание — гроссмейстер.', [
+                ['Гроссмейстер', true],
+                ['Мастер спорта', false],
+                ['Арбитр', false],
+                ['Тренер', false]
+            ]),
+                $this->makeQuestion('sport_mlb_usa', 'В какой стране базируется лига MLB?', 'MLB — профессиональная бейсбольная лига США и Канады.', [
+                ['США/Канада', true],
+                ['Мексика', false],
+                ['Япония', false],
+                ['Куба', false]
+            ]),
+                $this->makeQuestion('sport_handball_players', 'Сколько полевых игроков у команды в гандболе (без вратаря)?', 'На площадке 6 полевых игроков + вратарь.', [
+                ['6', true],
+                ['5', false],
+                ['7', false],
+                ['8', false]
+            ]),
+                $this->makeQuestion('sport_nhl_trophy', 'Как называется трофей, вручаемый победителю плей-офф НХЛ?', 'Это Кубок Стэнли.', [
+                ['Кубок Стэнли', true],
+                ['Кубок Гагарина', false],
+                ['Кубок Президента', false],
+                ['Мемориал Харта', false]
+            ]),
+                $this->makeQuestion('sport_boxing_weight_heavy', 'Как называется весовая категория свыше 90,7 кг в боксе?', 'Это супертяжёлая весовая категория.', [
+                ['Супертяжёлый вес', true],
+                ['Тяжёлый вес', false],
+                ['Средний вес', false],
+                ['Полутяжёлый', false]
+            ]),
+                $this->makeQuestion('sport_curling_target', 'Как называется дом в керлинге?', 'Круглая мишень на льду называется домом.', [
+                ['Дом', true],
+                ['База', false],
+                ['Пятачок', false],
+                ['Круг', false]
+            ]),
+                $this->makeQuestion('sport_formula1_pit', 'Как называется остановка болида для обслуживания в гонке?', 'Это пит-стоп.', [
+                ['Пит-стоп', true],
+                ['Лап', false],
+                ['Стинт', false],
+                ['Сплит', false]
+            ]),
+                $this->makeQuestion('sport_golf_major_count', 'Сколько мейджоров в мужском гольфе?', 'Четыре: Masters, US Open, The Open, PGA.', [
+                ['Четыре', true],
+                ['Три', false],
+                ['Пять', false],
+                ['Шесть', false]
+            ]),
+                $this->makeQuestion('sport_mma_octagon', 'Как называется восьмиугольная площадка в ММА?', 'Площадка — октагон.', [
+                ['Октагон', true],
+                ['Ринг', false],
+                ['Клетка', false],
+                ['Татами', false]
+            ]),
+                $this->makeQuestion('sport_olympic_rings_colors', 'Сколько колец на олимпийском флаге?', 'Пять переплетённых колец.', [
+                ['Пять', true],
+                ['Четыре', false],
+                ['Шесть', false],
+                ['Три', false]
+            ]),
+                $this->makeQuestion('sport_tour_de_france', 'Как называется многодневная велогонка во Франции?', 'Это Тур де Франс.', [
+                ['Тур де Франс', true],
+                ['Джиро д’Италия', false],
+                ['Вуэльта', false],
+                ['Критериум', false]
+            ]),
+                $this->makeQuestion('sport_ufc_meaning', 'Расшифруйте UFC.', 'Ultimate Fighting Championship.', [
+                ['Ultimate Fighting Championship', true],
+                ['United Fight Club', false],
+                ['Universal Fight Circuit', false],
+                ['Ultimate Fight Contest', false]
+            ]),
+                $this->makeQuestion('sport_nfl_super_bowl', 'Как называется финальная игра сезона НФЛ?', 'Финал НФЛ — Супербоул.', [
+                ['Супербоул', true],
+                ['Про Боул', false],
+                ['Финал NFC', false],
+                ['Классик Боул', false]
+            ]),
+                $this->makeQuestion('sport_cricket_runs', 'Что засчитывается в крикете при пробеге игроков между калитками?', 'Это называется «ран».', [
+                ['Ран', true],
+                ['Пойнт', false],
+                ['Трай', false],
+                ['Гол', false]
+            ]),
+                $this->makeQuestion('sport_hockey_power_play', 'Как называют численное преимущество в хоккее при удалении соперника?', 'Это «power play».', [
+                ['Power play', true],
+                ['Bullpen', false],
+                ['Double', false],
+                ['Offside', false]
             ]),
 
             ],
@@ -2097,6 +2281,98 @@ class SampleDataSeeder
                 ['Испания', false]
             ]),
 
+
+                $this->makeQuestion('science_tech_ohms_law', 'Как формулируется закон Ома для участка цепи?', 'Напряжение пропорционально току при постоянном сопротивлении: U = I·R.', [
+                ['U = I·R', true],
+                ['P = U·I', false],
+                ['I = R·U', false],
+                ['U = R/I', false]
+            ]),
+                $this->makeQuestion('science_tech_planck_constant', 'Что обозначает постоянная Планка?', 'Постоянная Планка связывает энергию кванта с его частотой (E = h·ν).', [
+                ['Связь энергии и частоты', true],
+                ['Связь массы и энергии', false],
+                ['Связь длины волны и скорости', false],
+                ['Связь тока и сопротивления', false]
+            ]),
+                $this->makeQuestion('science_tech_noble_gases', 'Сколько элементов входит в группу благородных газов?', 'В классической таблице — 6: He, Ne, Ar, Kr, Xe, Rn (плюс Og как сверхтяжёлый).', [
+                ['Шесть основных (плюс Og)', true],
+                ['Четыре', false],
+                ['Пять', false],
+                ['Два', false]
+            ]),
+                $this->makeQuestion('science_tech_mitochondria_function', 'Какова основная функция митохондрий?', 'Митохондрии синтезируют АТФ — энергию клетки.', [
+                ['Синтез АТФ', true],
+                ['Хранение ДНК ядра', false],
+                ['Синтез белков', false],
+                ['Фотосинтез', false]
+            ]),
+                $this->makeQuestion('science_tech_photosynthesis_eq', 'Какой газ поглощают растения при фотосинтезе?', 'Растения поглощают CO₂ и выделяют O₂.', [
+                ['Углекислый газ', true],
+                ['Кислород', false],
+                ['Азот', false],
+                ['Метан', false]
+            ]),
+                $this->makeQuestion('science_tech_superconductor_temp', 'Что происходит с сопротивлением идеального сверхпроводника ниже критической температуры?', 'Оно падает до нуля.', [
+                ['Становится нулевым', true],
+                ['Становится бесконечным', false],
+                ['Растёт в 2 раза', false],
+                ['Меняется случайно', false]
+            ]),
+                $this->makeQuestion('science_tech_brute_force', 'Что такое brute force в кибербезопасности?', 'Перебор паролей/ключей для взлома.', [
+                ['Перебор паролей/ключей', true],
+                ['Шифрование трафика', false],
+                ['Резервное копирование', false],
+                ['Сканирование портов', false]
+            ]),
+                $this->makeQuestion('science_tech_dnssec', 'Для чего предназначен DNSSEC?', 'DNSSEC защищает от подмены ответов DNS с помощью криптоподписи.', [
+                ['Защита от подмены DNS-ответов', true],
+                ['Ускорение резолвинга', false],
+                ['Сжатие трафика', false],
+                ['Балансировка нагрузки', false]
+            ]),
+                $this->makeQuestion('science_tech_vaccination_principle', 'В чём принцип работы вакцин?', 'Введение антигена формирует иммунную память.', [
+                ['Формирует иммунную память', true],
+                ['Снижает температуру тела', false],
+                ['Усиливает метаболизм', false],
+                ['Уничтожает нейроны', false]
+            ]),
+                $this->makeQuestion('science_tech_earth_age', 'Сколько примерно лет Земле?', 'Возраст Земли оценивают в ~4,54 млрд лет.', [
+                ['~4,5 млрд лет', true],
+                ['~500 млн лет', false],
+                ['~1 млрд лет', false],
+                ['~10 млрд лет', false]
+            ]),
+                $this->makeQuestion('science_tech_cern_location', 'В каких странах расположен основной комплекс CERN?', 'Комплекс на границе Франции и Швейцарии.', [
+                ['Франция и Швейцария', true],
+                ['Германия и Австрия', false],
+                ['Италия и Швейцария', false],
+                ['Бельгия и Нидерланды', false]
+            ]),
+                $this->makeQuestion('science_tech_mri_field', 'Какой тип поля используется в МРТ?', 'МРТ применяет сильное магнитное поле и радиоволны.', [
+                ['Магнитное поле', true],
+                ['Ультрафиолет', false],
+                ['Рентген', false],
+                ['Микроволны', false]
+            ]),
+                $this->makeQuestion('science_tech_cpu_gpu_diff', 'Чем GPU отличается от CPU?', 'GPU оптимизирован для массового параллелизма, CPU — для универсальных задач.', [
+                ['Параллелизм vs универсальность', true],
+                ['GPU хранит данные, CPU — нет', false],
+                ['CPU без кеша, GPU с кешем', false],
+                ['GPU не выполняет вычисления', false]
+            ]),
+                $this->makeQuestion('science_tech_ssl_tls', 'Для чего используют протоколы SSL/TLS?', 'Они шифруют и аутентифицируют сетевое соединение.', [
+                ['Шифрование/аутентификация соединений', true],
+                ['Передача изображений', false],
+                ['Балансировка нагрузки', false],
+                ['Оптимизация HTML', false]
+            ]),
+                $this->makeQuestion('science_tech_h264', 'Что такое H.264?', 'Это стандарт видео-кодека AVC для сжатия видео.', [
+                ['Видео-кодек AVC', true],
+                ['Аудио-кодек', false],
+                ['Сетевой протокол', false],
+                ['Файловая система', false]
+            ]),
+
             ],
             'culture' => [
                 $this->makeQuestion('culture_carmen_composer', "Кто написал оперу «Кармен»?", "Автор музыки — французский композитор Жорж Бизе.", [
@@ -2753,6 +3029,98 @@ class SampleDataSeeder
                 ['Базз', false],
                 ['Джесси', false],
                 ['Зург', false]
+            ]),
+
+
+                $this->makeQuestion('culture_moby_dick_author', 'Кто написал роман «Моби Дик»?', 'Автор романа — Герман Мелвилл.', [
+                ['Герман Мелвилл', true],
+                ['Марк Твен', false],
+                ['Джек Лондон', false],
+                ['Натанель Готорн', false]
+            ]),
+                $this->makeQuestion('culture_great_gatsby', 'Кто написал «Великий Гэтсби»?', 'Автор — Фрэнсис Скотт Фицджеральд.', [
+                ['Ф. Скотт Фицджеральд', true],
+                ['Эрнест Хемингуэй', false],
+                ['Рэй Брэдбери', false],
+                ['Дж. Д. Сэлинджер', false]
+            ]),
+                $this->makeQuestion('culture_bauhaus_country', 'В какой стране возникло движение Баухаус?', 'Баухаус появился в Германии.', [
+                ['Германия', true],
+                ['Франция', false],
+                ['Италия', false],
+                ['США', false]
+            ]),
+                $this->makeQuestion('culture_dark_side_moon_year', 'В каком году вышел альбом Pink Floyd «The Dark Side of the Moon»?', 'Альбом выпустили в 1973 году.', [
+                ['1973', true],
+                ['1969', false],
+                ['1977', false],
+                ['1980', false]
+            ]),
+                $this->makeQuestion('culture_first_oscar_year', 'В каком году вручили первую премию «Оскар»?', 'Первая церемония прошла в 1929 году.', [
+                ['1929', true],
+                ['1935', false],
+                ['1925', false],
+                ['1940', false]
+            ]),
+                $this->makeQuestion('culture_lotr_author', 'Кто написал «Властелина колец»?', 'Автор — Дж. Р. Р. Толкин.', [
+                ['Дж. Р. Р. Толкин', true],
+                ['Дж. К. Роулинг', false],
+                ['Терри Пратчетт', false],
+                ['Урсула Ле Гуин', false]
+            ]),
+                $this->makeQuestion('culture_breaking_bad_city', 'В каком городе разворачиваются события сериала «Во все тяжкие»?', 'Сериал снимали в Альбукерке.', [
+                ['Альбукерке', true],
+                ['Лос-Анджелес', false],
+                ['Сиэтл', false],
+                ['Чикаго', false]
+            ]),
+                $this->makeQuestion('culture_fairy_tales_author', 'Кто написал «Снежную королеву»?', 'Автор сказки — Ханс Кристиан Андерсен.', [
+                ['Ханс Кристиан Андерсен', true],
+                ['Братья Гримм', false],
+                ['Шарль Перро', false],
+                ['Льюис Кэрролл', false]
+            ]),
+                $this->makeQuestion('culture_kino_viktor_coi', 'В какой группе пел Виктор Цой?', 'Виктор Цой — лидер группы «Кино».', [
+                ['Кино', true],
+                ['ДДТ', false],
+                ['Наутилус Помпилиус', false],
+                ['Алиса', false]
+            ]),
+                $this->makeQuestion('culture_minecraft_year', 'В каком году вышла первая публичная версия Minecraft?', 'Публичная альфа появилась в 2010 году.', [
+                ['2010', true],
+                ['2008', false],
+                ['2012', false],
+                ['2014', false]
+            ]),
+                $this->makeQuestion('culture_golden_mask', 'Какая страна проводит театральную премию «Золотая маска»?', '«Золотая маска» — российская театральная премия.', [
+                ['Россия', true],
+                ['Франция', false],
+                ['США', false],
+                ['Италия', false]
+            ]),
+                $this->makeQuestion('culture_grammy_trophy', 'Как называется музыкальная премия с золотым граммофоном?', 'Это премия Grammy.', [
+                ['Grammy', true],
+                ['Emmy', false],
+                ['BAFTA', false],
+                ['Tony', false]
+            ]),
+                $this->makeQuestion('culture_tarantino_first_film', 'Какой был дебютный полнометражный фильм Квентина Тарантино?', 'Дебют — «Бешеные псы» (1992).', [
+                ['Бешеные псы', true],
+                ['Криминальное чтиво', false],
+                ['Убить Билла', false],
+                ['Джеки Браун', false]
+            ]),
+                $this->makeQuestion('culture_manga_language', 'На каком языке изначально публикуется манга?', 'Манга публикуется на японском языке.', [
+                ['На японском', true],
+                ['На китайском', false],
+                ['На английском', false],
+                ['На корейском', false]
+            ]),
+                $this->makeQuestion('culture_grammy_first_year', 'В каком году впервые вручили премию Grammy?', 'Первая церемония Grammy прошла в 1959 году.', [
+                ['1959', true],
+                ['1949', false],
+                ['1965', false],
+                ['1970', false]
             ]),
 
             ],
@@ -3417,6 +3785,98 @@ class SampleDataSeeder
                 ['Чили и Аргентина', false],
                 ['Колумбия и Эквадор', false],
                 ['Бразилия и Уругвай', false]
+            ]),
+
+
+                $this->makeQuestion('geo_amazon_outflow', 'В какой океан впадает Амазонка?', 'Амазонка впадает в Атлантический океан.', [
+                ['В Атлантический океан', true],
+                ['В Тихий океан', false],
+                ['В Индийский океан', false],
+                ['В Северный Ледовитый океан', false]
+            ]),
+                $this->makeQuestion('geo_urals_boundary', 'Что разделяют Уральские горы?', 'Урал условно делит Европу и Азию.', [
+                ['Европу и Азию', true],
+                ['Азию и Африку', false],
+                ['Северную и Южную Америку', false],
+                ['Европу и Африку', false]
+            ]),
+                $this->makeQuestion('geo_nile_length', 'Какая река долго считалась самой длинной в мире?', 'Долгое время самой длинной считали Нил.', [
+                ['Нил', true],
+                ['Амазонка', false],
+                ['Миссисипи', false],
+                ['Янцзы', false]
+            ]),
+                $this->makeQuestion('geo_capital_nigeria', 'Назовите столицу Нигерии.', 'Столица Нигерии — Абуджа.', [
+                ['Абуджа', true],
+                ['Лагос', false],
+                ['Кано', false],
+                ['Порт-Харкорт', false]
+            ]),
+                $this->makeQuestion('geo_capital_australia', 'Какова столица Австралии?', 'Столица Австралии — Канберра.', [
+                ['Канберра', true],
+                ['Сидней', false],
+                ['Мельбурн', false],
+                ['Брисбен', false]
+            ]),
+                $this->makeQuestion('geo_balkan_countries', 'Какие страны не входят на Балканы?', 'Варианты, не на Балканах: Австрия, Германия.', [
+                ['Австрия и Германия', true],
+                ['Сербия и Черногория', false],
+                ['Болгария и Греция', false],
+                ['Албания и Северная Македония', false]
+            ]),
+                $this->makeQuestion('geo_great_wall_country', 'В какой стране находится Великая китайская стена?', 'Стена находится в Китае.', [
+                ['Китай', true],
+                ['Монголия', false],
+                ['Корея', false],
+                ['Россия', false]
+            ]),
+                $this->makeQuestion('geo_eiffel_city', 'В каком городе стоит Эйфелева башня?', 'Башня расположена в Париже.', [
+                ['Париж', true],
+                ['Лондон', false],
+                ['Берлин', false],
+                ['Мадрид', false]
+            ]),
+                $this->makeQuestion('geo_capital_brazil', 'Какова столица Бразилии?', 'Столица — Бразилиа.', [
+                ['Бразилиа', true],
+                ['Рио-де-Жанейро', false],
+                ['Сан-Паулу', false],
+                ['Салвадор', false]
+            ]),
+                $this->makeQuestion('geo_montblanc_range', 'В какой горной системе находится Монблан?', 'Монблан расположен в Альпах.', [
+                ['В Альпах', true],
+                ['В Пиренеях', false],
+                ['В Карпатах', false],
+                ['В Аппалачах', false]
+            ]),
+                $this->makeQuestion('geo_capital_egypt', 'Какова столица Египта?', 'Столица Египта — Каир.', [
+                ['Каир', true],
+                ['Александрия', false],
+                ['Луксор', false],
+                ['Гиза', false]
+            ]),
+                $this->makeQuestion('geo_capital_indonesia', 'Какова столица Индонезии?', 'Столица — Джакарта.', [
+                ['Джакарта', true],
+                ['Бали', false],
+                ['Сулабеси', false],
+                ['Бандунг', false]
+            ]),
+                $this->makeQuestion('geo_aral_sea', 'На границе каких стран располагалось Аральское море?', 'Аральское море между Казахстаном и Узбекистаном.', [
+                ['Казахстан и Узбекистан', true],
+                ['Россия и Казахстан', false],
+                ['Туркменистан и Иран', false],
+                ['Монголия и Китай', false]
+            ]),
+                $this->makeQuestion('geo_capital_chile', 'Какова столица Чили?', 'Столица Чили — Сантьяго.', [
+                ['Сантьяго', true],
+                ['Лима', false],
+                ['Монтевидео', false],
+                ['Богота', false]
+            ]),
+                $this->makeQuestion('geo_great_lakes_count', 'Сколько Великих озёр в Северной Америке?', 'Великих озёр пять.', [
+                ['Пять', true],
+                ['Четыре', false],
+                ['Шесть', false],
+                ['Три', false]
             ]),
 
             ],
@@ -6693,6 +7153,97 @@ class SampleDataSeeder
             ]),
             ],
             'modern_tech' => [
+                $this->makeQuestion('modern_tech_ai_gpt_release', 'В каком году вышла GPT-3?', 'GPT-3 представили в 2020 году.', [
+                ['2020', true],
+                ['2018', false],
+                ['2021', false],
+                ['2019', false]
+            ]),
+                $this->makeQuestion('modern_tech_usb_c_year', 'Когда стандартизировали USB Type-C?', 'Спецификацию утвердили в 2014 году.', [
+                ['2014', true],
+                ['2012', false],
+                ['2016', false],
+                ['2018', false]
+            ]),
+                $this->makeQuestion('modern_tech_spotify_launch', 'В каком году запустился Spotify?', 'Сервис стартовал в 2008 году.', [
+                ['2008', true],
+                ['2005', false],
+                ['2010', false],
+                ['2012', false]
+            ]),
+                $this->makeQuestion('modern_tech_vue_creator', 'Кто создал фреймворк Vue.js?', 'Автор Vue.js — Эван Ю.', [
+                ['Эван Ю', true],
+                ['Рич Хикки', false],
+                ['Брендан Айк', false],
+                ['Райан Даль', false]
+            ]),
+                $this->makeQuestion('modern_tech_zoom_origin', 'В какой стране основан Zoom?', 'Zoom основан в США, основатель — Эрик Юань.', [
+                ['США', true],
+                ['Китай', false],
+                ['Япония', false],
+                ['Канада', false]
+            ]),
+                $this->makeQuestion('modern_tech_4k_resolution', 'Какое разрешение называют 4K UHD?', 'Стандартное 4K UHD — 3840×2160 пикселей.', [
+                ['3840×2160', true],
+                ['2560×1440', false],
+                ['1920×1080', false],
+                ['7680×4320', false]
+            ]),
+                $this->makeQuestion('modern_tech_smart_contract', 'Что такое смарт-контракт?', 'Это программа в блокчейне, автоматически исполняющая условия.', [
+                ['Программа в блокчейне', true],
+                ['PDF-договор', false],
+                ['Шаблон NDA', false],
+                ['Файл кошелька', false]
+            ]),
+                $this->makeQuestion('modern_tech_cloud_native', 'Что означает термин cloud-native?', 'Приложения, спроектированные для работы в облаке с микросервисами/контейнерами.', [
+                ['Дизайн под облако и микросервисы', true],
+                ['Приложения только офлайн', false],
+                ['Моноолит на одном сервере', false],
+                ['Только мобильные приложения', false]
+            ]),
+                $this->makeQuestion('modern_tech_progressive_web_app', 'Что такое PWA?', 'Progressive Web App — веб-приложение с возможностью установки и офлайн-кэша.', [
+                ['Прогрессивное веб-приложение', true],
+                ['Отдельная мобильная ОС', false],
+                ['Протокол стриминга', false],
+                ['СУБД', false]
+            ]),
+                $this->makeQuestion('modern_tech_ci_cd', 'Что означает CI/CD?', 'Continuous Integration / Continuous Delivery или Deployment.', [
+                ['Непрерывная интеграция и доставка', true],
+                ['Централизованная инфраструктура', false],
+                ['Кодировка изображений', false],
+                ['Драйверы устройств', false]
+            ]),
+                $this->makeQuestion('modern_tech_openai_year', 'В каком году основана OpenAI?', 'OpenAI основана в 2015 году.', [
+                ['2015', true],
+                ['2010', false],
+                ['2018', false],
+                ['2020', false]
+            ]),
+                $this->makeQuestion('modern_tech_cloudflare_ddos', 'Как называется бесплатная DDoS-защита Cloudflare для сайтов?', 'Это Universal DDoS Protection (в составе Free плана).', [
+                ['Universal DDoS Protection', true],
+                ['Magic Transit', false],
+                ['Shield Basic', false],
+                ['Akamai Guard', false]
+            ]),
+                $this->makeQuestion('modern_tech_ssl_cert', 'Какой протокол используют для выдачи HTTPS-сертификатов Let’s Encrypt?', 'Let’s Encrypt использует протокол ACME.', [
+                ['ACME', true],
+                ['OCSP', false],
+                ['TLS-PSK', false],
+                ['SFTP', false]
+            ]),
+                $this->makeQuestion('modern_tech_sass_meaning', 'Расшифруйте SASS в веб-разработке.', 'SASS — Syntactically Awesome Style Sheets.', [
+                ['Syntactically Awesome Style Sheets', true],
+                ['Simple and Secure Styles', false],
+                ['Server Applied Style Syntax', false],
+                ['Styled and Scoped Sheets', false]
+            ]),
+                $this->makeQuestion('modern_tech_firefox_engine', 'Какой движок использует Firefox?', 'Firefox работает на движке Gecko.', [
+                ['Gecko', true],
+                ['Blink', false],
+                ['WebKit', false],
+                ['Trident', false]
+            ]),
+
                 $this->makeQuestion('modern_tech_android_first', 'В каком году вышла первая версия Android?', 'Android 1.0 представлен в 2008 году.', [
                 ['2008', true],
                 ['2006', false],
