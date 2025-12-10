@@ -6537,6 +6537,311 @@ class SampleDataSeeder
                 ['2020', false]
             ]),
 
+
+                $this->makeQuestion('culture_extra_movie_001', 'Кто поставил фильм «Гладиатор» (2000)?', 'Режиссёр — Ридли Скотт.', [
+                ['Ридли Скотт', true], ['Джеймс Кэмерон', false], ['Питер Джексон', false], ['Дэвид Финчер', false]
+            ]),
+                $this->makeQuestion('culture_extra_movie_002', 'Кто сыграл Нео в «Матрице»?', 'Киану Ривз — исполнитель роли.', [
+                ['Киану Ривз', true], ['Джонни Депп', false], ['Брэд Питт', false], ['Хью Джекман', false]
+            ]),
+                $this->makeQuestion('culture_extra_movie_003', 'Кто снял «Темный рыцарь»?', 'Режиссёр — Кристофер Нолан.', [
+                ['Кристофер Нолан', true], ['Зак Снайдер', false], ['Дени Вильнёв', false], ['Мартин Скорсезе', false]
+            ]),
+                $this->makeQuestion('culture_extra_movie_004', 'Кто снял «Криминальное чтиво»?', 'Фильм поставил Квентин Тарантино.', [
+                ['Квентин Тарантино', true], ['Роберт Родригес', false], ['Оливер Стоун', false], ['Ридли Скотт', false]
+            ]),
+                $this->makeQuestion('culture_extra_movie_005', 'Кто поставил трилогию «Властелин колец»?', 'Режиссёр — Питер Джексон.', [
+                ['Питер Джексон', true], ['Гильермо дель Торо', false], ['Джордж Лукас', false], ['Джос Уидон', false]
+            ]),
+                $this->makeQuestion('culture_extra_movie_006', 'Кто режиссёр фильма «Бегущий по лезвию 2049»?', 'Дени Вильнёв поставил сиквел.', [
+                ['Дени Вильнёв', true], ['Ридли Скотт', false], ['Джеймс Кэмерон', false], ['Гай Ричи', false]
+            ]),
+                $this->makeQuestion('culture_extra_movie_007', 'Кто сыграл Джокера в «Тёмном рыцаре»?', 'Хит Леджер получил «Оскар».', [
+                ['Хит Леджер', true], ['Хоакин Феникс', false], ['Джаред Лето', false], ['Уиллем Дефо', false]
+            ]),
+                $this->makeQuestion('culture_extra_movie_008', 'Кто сыграл Тони Старка в MCU?', 'Роберт Дауни-младший.', [
+                ['Роберт Дауни-младший', true], ['Крис Эванс', false], ['Марк Руффало', false], ['Крис Хемсворт', false]
+            ]),
+                $this->makeQuestion('culture_extra_movie_009', 'Кто снял «Интерстеллар»?', 'Фильм поставил Кристофер Нолан.', [
+                ['Кристофер Нолан', true], ['Дени Вильнёв', false], ['Ридли Скотт', false], ['Джеймс Кэмерон', false]
+            ]),
+                $this->makeQuestion('culture_extra_movie_010', 'Кто режиссёр «Бойцовского клуба»?', 'Режиссёр — Дэвид Финчер.', [
+                ['Дэвид Финчер', true], ['Гай Ричи', false], ['Ричард Линклейтер', false], ['Майкл Бэй', false]
+            ]),
+                $this->makeQuestion('culture_extra_movie_011', 'Кто поставил фильм «Дюна» (2021)?', 'Режиссёр — Дени Вильнёв.', [
+                ['Дени Вильнёв', true], ['Ридли Скотт', false], ['Питер Джексон', false], ['Кристофер Нолан', false]
+            ]),
+                $this->makeQuestion('culture_extra_movie_012', 'Кто режиссёр «Шёпот великанов» (The BFG)?', 'Фильм снял Стивен Спилберг.', [
+                ['Стивен Спилберг', true], ['Роберт Земекис', false], ['Джордж Лукас', false], ['Гильермо дель Торо', false]
+            ]),
+                $this->makeQuestion('culture_extra_movie_013', 'Кто снял «Остров проклятых»?', 'Режиссёр — Мартин Скорсезе.', [
+                ['Мартин Скорсезе', true], ['Брайан Де Пальма', false], ['Сэм Мендес', false], ['Пол Томас Андерсон', false]
+            ]),
+                $this->makeQuestion('culture_extra_movie_014', 'Кто снял «Крестный отец»?', 'Режиссёр — Фрэнсис Форд Коппола.', [
+                ['Фрэнсис Форд Коппола', true], ['Сидни Люмет', false], ['Брэд Бёрд', false], ['Джон Ву', false]
+            ]),
+                $this->makeQuestion('culture_extra_movie_015', 'Кто снял «Шоу Трумана»?', 'Режиссёр — Питер Уир.', [
+                ['Питер Уир', true], ['Рон Ховард', false], ['Джон Карпентер', false], ['Спилберг', false]
+            ]),
+                $this->makeQuestion('culture_extra_movie_016', 'Кто поставил «Безумного Макса: Дорога ярости»?', 'Режиссёр — Джордж Миллер.', [
+                ['Джордж Миллер', true], ['Джеймс Ван', false], ['Джос Уидон', false], ['Братья Руссо', false]
+            ]),
+                $this->makeQuestion('culture_extra_movie_017', 'Кто снял «Терминатор 2: Судный день»?', 'Режиссёр — Джеймс Кэмерон.', [
+                ['Джеймс Кэмерон', true], ['Пол Верховен', false], ['Джордж Лукас', false], ['Ридли Скотт', false]
+            ]),
+                $this->makeQuestion('culture_extra_movie_018', 'Кто режиссёр «Такси» (1998)?', 'Фильм поставил Жерар Пирес, продюсер — Люк Бессон.', [
+                ['Жерар Пирес', true], ['Люк Бессон', false], ['Франсис Вебер', false], ['Люк Жаке', false]
+            ]),
+                $this->makeQuestion('culture_extra_movie_019', 'Кто снял «Паразитов»?', 'Режиссёр — Пон Чжун Хо.', [
+                ['Пон Чжун Хо', true], ['Пак Чхан Ук', false], ['Такэси Китано', false], ['Хаяо Миядзаки', false]
+            ]),
+                $this->makeQuestion('culture_extra_movie_020', 'Кто снял «Ла-Ла Ленд»?', 'Режиссёр — Дэмьен Шазелл.', [
+                ['Дэмьен Шазелл', true], ['Брэд Бёрд', false], ['Эдгар Райт', false], ['Ноа Баумбах', false]
+            ]),
+                $this->makeQuestion('culture_extra_music_021', 'Кто лидер группы Coldplay?', 'Крис Мартин — вокалист Coldplay.', [
+                ['Крис Мартин', true], ['Том Йорк', false], ['Дэйв Грол', false], ['Боно', false]
+            ]),
+                $this->makeQuestion('culture_extra_music_022', 'Кто фронтмен U2?', 'Боно — вокалист U2.', [
+                ['Боно', true], ['Крис Мартин', false], ['Мэтт Беллами', false], ['Эдди Веддер', false]
+            ]),
+                $this->makeQuestion('culture_extra_music_023', 'Кто поёт «Shape of You»?', 'Эд Ширан — автор и исполнитель.', [
+                ['Эд Ширан', true], ['Сэм Смит', false], ['Шон Мендес', false], ['Льюис Капальди', false]
+            ]),
+                $this->makeQuestion('culture_extra_music_024', 'Кто автор альбома «Thriller»?', 'Майкл Джексон.', [
+                ['Майкл Джексон', true], ['Принс', false], ['Стинг', false], ['Дэвид Боуи', false]
+            ]),
+                $this->makeQuestion('culture_extra_music_025', 'Кто исполняет «Smells Like Teen Spirit»?', 'Группа Nirvana.', [
+                ['Nirvana', true], ['Pearl Jam', false], ['Radiohead', false], ['Foo Fighters', false]
+            ]),
+                $this->makeQuestion('culture_extra_music_026', 'Кто вокалист Queen?', 'Фредди Меркьюри — легендарный фронтмен.', [
+                ['Фредди Меркьюри', true], ['Брайан Мэй', false], ['Роджер Тейлор', false], ['Роберт Плант', false]
+            ]),
+                $this->makeQuestion('culture_extra_music_027', 'Из какой страны группа ABBA?', 'ABBA — шведский коллектив.', [
+                ['Швеция', true], ['Норвегия', false], ['Германия', false], ['США', false]
+            ]),
+                $this->makeQuestion('culture_extra_music_028', 'Кто автор песни «Imagine»?', 'Джон Леннон написал «Imagine».', [
+                ['Джон Леннон', true], ['Пол Маккартни', false], ['Джордж Харрисон', false], ['Ринго Старр', false]
+            ]),
+                $this->makeQuestion('culture_extra_music_029', 'Кто исполняет «Rolling in the Deep»?', 'Песня принадлежит Адель.', [
+                ['Адель', true], ['Рианна', false], ['Бейонсе', false], ['Лана Дель Рей', false]
+            ]),
+                $this->makeQuestion('culture_extra_music_030', 'Кто написал «Bohemian Rhapsody»?', 'Автор — Фредди Меркьюри (Queen).', [
+                ['Фредди Меркьюри', true], ['Брайан Мэй', false], ['Роджер Тейлор', false], ['Элтон Джон', false]
+            ]),
+                $this->makeQuestion('culture_extra_music_031', 'Какая страна родина группы Rammstein?', 'Rammstein — немецкая группа.', [
+                ['Германия', true], ['США', false], ['Швеция', false], ['Дания', false]
+            ]),
+                $this->makeQuestion('culture_extra_music_032', 'Кто основал группу Linkin Park?', 'Майк Шинода и Брэд Делсон среди основателей.', [
+                ['Майк Шинода', true], ['Дэйв Грол', false], ['Том Морелло', false], ['Дэймон Албарн', false]
+            ]),
+                $this->makeQuestion('culture_extra_music_033', 'Кто поёт «Bad Guy»?', 'Песню исполняет Билли Айлиш.', [
+                ['Билли Айлиш', true], ['Тейлор Свифт', false], ['Селена Гомес', false], ['Оливия Родриго', false]
+            ]),
+                $this->makeQuestion('culture_extra_music_034', 'Кто лидер группы Imagine Dragons?', 'Дэн Рейнольдс — фронтмен.', [
+                ['Дэн Рейнольдс', true], ['Крис Мартин', false], ['Мэтт Беллами', false], ['Честер Беннингтон', false]
+            ]),
+                $this->makeQuestion('culture_extra_music_035', 'Кто поёт «Blinding Lights»?', 'The Weeknd — исполнитель.', [
+                ['The Weeknd', true], ['Drake', false], ['Post Malone', false], ['Кендрик Ламар', false]
+            ]),
+                $this->makeQuestion('culture_extra_music_036', 'Кто автор песни «Hallelujah»?', 'Леонард Коэн написал «Hallelujah».', [
+                ['Леонард Коэн', true], ['Джефф Бакли', false], ['Боб Дилан', false], ['Элтон Джон', false]
+            ]),
+                $this->makeQuestion('culture_extra_music_037', 'Кто исполнитель «Heroes»?', 'Дэвид Боуи — автор и исполнитель.', [
+                ['Дэвид Боуи', true], ['Брайан Ино', false], ['Марк Нопфлер', false], ['Моррисси', false]
+            ]),
+                $this->makeQuestion('culture_extra_music_038', 'Кто фронтмен Radiohead?', 'Том Йорк — вокалист Radiohead.', [
+                ['Том Йорк', true], ['Ноэл Галлахер', false], ['Боно', false], ['Дэйв Грол', false]
+            ]),
+                $this->makeQuestion('culture_extra_music_039', 'Из какой страны группа Måneskin?', 'Måneskin — из Италии.', [
+                ['Италия', true], ['Испания', false], ['Швеция', false], ['Франция', false]
+            ]),
+                $this->makeQuestion('culture_extra_music_040', 'Кто поёт «Skyfall»?', 'Песня к Бонду исполняет Адель.', [
+                ['Адель', true], ['Рианна', false], ['Сиа', false], ['Флоренс Уэлч', false]
+            ]),
+                $this->makeQuestion('culture_extra_lit_041', 'Кто написал «Американского психопата»?', 'Автор — Брет Истон Эллис.', [
+                ['Брет Истон Эллис', true], ['Чак Паланик', false], ['Дон Делилло', false], ['Ирвин Уэлш', false]
+            ]),
+                $this->makeQuestion('culture_extra_lit_042', 'Кто автор «Маленького принца»?', 'Антуан де Сент-Экзюпери.', [
+                ['Антуан де Сент-Экзюпери', true], ['Роальд Даль', false], ['Жюль Верн', false], ['Льюис Кэрролл', false]
+            ]),
+                $this->makeQuestion('culture_extra_lit_043', 'Кто написал «Имя ветра»?', 'Автор — Патрик Ротфусс.', [
+                ['Патрик Ротфусс', true], ['Брендон Сандерсон', false], ['Джордж Мартин', false], ['Нил Гейман', false]
+            ]),
+                $this->makeQuestion('culture_extra_lit_044', 'Кто написал «Автостопом по галактике»?', 'Автор — Дуглас Адамс.', [
+                ['Дуглас Адамс', true], ['Клиффорд Саймак', false], ['Роберт Шекли', false], ['Терри Пратчетт', false]
+            ]),
+                $this->makeQuestion('culture_extra_lit_045', 'Кто написал «451 градус по Фаренгейту»?', 'Рэй Брэдбери — автор романа.', [
+                ['Рэй Брэдбери', true], ['Айзек Азимов', false], ['Артур Кларк', false], ['Станислав Лем', false]
+            ]),
+                $this->makeQuestion('culture_extra_lit_046', 'Кто автор «Цветов для Элджернона»?', 'Дэниел Киз написал повесть.', [
+                ['Дэниел Киз', true], ['Роберт Шекли', false], ['Филип Дик', false], ['Рэй Брэдбери', false]
+            ]),
+                $this->makeQuestion('culture_extra_lit_047', 'Кто написал «Хроники Амбера»?', 'Автор — Роджер Желязны.', [
+                ['Роджер Желязны', true], ['Урсула Ле Гуин', false], ['Питер Бигл', false], ['Клиффорд Саймак', false]
+            ]),
+                $this->makeQuestion('culture_extra_lit_048', 'Кто написал «Над пропастью во ржи»?', 'Автор — Джером Д. Сэлинджер.', [
+                ['Дж. Д. Сэлинджер', true], ['Джек Керуак', false], ['Трумен Капоте', false], ['Фрэнсис Фицджеральд', false]
+            ]),
+                $this->makeQuestion('culture_extra_lit_049', 'Кто автор «Унесённых ветром»?', 'Маргарет Митчелл написала роман.', [
+                ['Маргарет Митчелл', true], ['Джейн Остин', false], ['Шарлотта Бронте', false], ['Дафна дю Морье', false]
+            ]),
+                $this->makeQuestion('culture_extra_lit_050', 'Кто написал «Чайку по имени Джонатан Ливингстон»?', 'Автор — Ричард Бах.', [
+                ['Ричард Бах', true], ['Пауло Коэльо', false], ['Джеймс Джойс', false], ['О. Генри', false]
+            ]),
+                $this->makeQuestion('culture_extra_lit_051', 'Кто написал «Три товарища»?', 'Эрих Мария Ремарк — автор.', [
+                ['Эрих Мария Ремарк', true], ['Хемингуэй', false], ['Фицджеральд', false], ['Томас Манн', false]
+            ]),
+                $this->makeQuestion('culture_extra_lit_052', 'Кто написал «Собачье сердце»?', 'Михаил Булгаков.', [
+                ['Михаил Булгаков', true], ['Ильф и Петров', false], ['Владимир Набоков', false], ['Максим Горький', false]
+            ]),
+                $this->makeQuestion('culture_extra_lit_053', 'Кто автор «Трудно быть богом»?', 'Братья Стругацкие.', [
+                ['Аркадий и Борис Стругацкие', true], ['Евгений Замятин', false], ['Курт Воннегут', false], ['Роберт Хайнлайн', false]
+            ]),
+                $this->makeQuestion('culture_extra_lit_054', 'Кто написал «Мы»?', 'Евгений Замятин — автор антиутопии.', [
+                ['Евгений Замятин', true], ['Хаксли', false], ['Оруэлл', false], ['Платонов', false]
+            ]),
+                $this->makeQuestion('culture_extra_lit_055', 'Кто автор «Мастер и Маргарита»?', 'Михаил Булгаков.', [
+                ['Михаил Булгаков', true], ['Пастернак', false], ['Ахматова', false], ['Маяковский', false]
+            ]),
+                $this->makeQuestion('culture_extra_game_056', 'Кто создал Half-Life?', 'Half-Life разработала Valve.', [
+                ['Valve', true], ['id Software', false], ['Bethesda', false], ['Ubisoft', false]
+            ]),
+                $this->makeQuestion('culture_extra_game_057', 'Кто разработал Skyrim?', 'The Elder Scrolls V: Skyrim — Bethesda.', [
+                ['Bethesda', true], ['Valve', false], ['CD Projekt RED', false], ['Rockstar', false]
+            ]),
+                $this->makeQuestion('culture_extra_game_058', 'Кто разработал Red Dead Redemption 2?', 'Rockstar Games.', [
+                ['Rockstar Games', true], ['EA', false], ['Ubisoft', false], ['CD Projekt', false]
+            ]),
+                $this->makeQuestion('culture_extra_game_059', 'Кто разработал The Last of Us?', 'Студия Naughty Dog.', [
+                ['Naughty Dog', true], ['Rockstar', false], ['CD Projekt RED', false], ['EA', false]
+            ]),
+                $this->makeQuestion('culture_extra_game_060', 'Кто разработал Portal?', 'Portal создала Valve.', [
+                ['Valve', true], ['id Software', false], ['Epic Games', false], ['Ubisoft', false]
+            ]),
+                $this->makeQuestion('culture_extra_game_061', 'Кто разработал Doom (2016)?', 'id Software.', [
+                ['id Software', true], ['Valve', false], ['Epic', false], ['Capcom', false]
+            ]),
+                $this->makeQuestion('culture_extra_game_062', 'Кто разработал Resident Evil?', 'Capcom.', [
+                ['Capcom', true], ['Konami', false], ['Sega', false], ['Square Enix', false]
+            ]),
+                $this->makeQuestion('culture_extra_game_063', 'Кто разработал Silent Hill?', 'Konami.', [
+                ['Konami', true], ['Capcom', false], ['Namco', false], ['Sony', false]
+            ]),
+                $this->makeQuestion('culture_extra_game_064', 'Кто автор серии Metal Gear?', 'Хидео Кодзима.', [
+                ['Хидео Кодзима', true], ['Сид Мейер', false], ['Тодд Говард', false], ['Уилл Райт', false]
+            ]),
+                $this->makeQuestion('culture_extra_game_065', 'Кто разработал Civilization?', 'Сид Мейер/компания Firaxis.', [
+                ['Сид Мейер / Firaxis', true], ['Blizzard', false], ['Valve', false], ['Bioware', false]
+            ]),
+                $this->makeQuestion('culture_extra_series_066', 'Кто создал сериал «Во все тяжкие»?', 'Автор — Винс Гиллиган.', [
+                ['Винс Гиллиган', true], ['Джонатан Нолан', false], ['Дэн Хармон', false], ['Дэймон Линделоф', false]
+            ]),
+                $this->makeQuestion('culture_extra_series_067', 'Кто автор сериала «Остаться в живых»?', 'Сериал создали Дэймон Линделоф и Дж. Дж. Абрамс.', [
+                ['Дэймон Линделоф и Дж. Дж. Абрамс', true], ['Винс Гиллиган', false], ['Ноа Хоули', false], ['Крис Картер', false]
+            ]),
+                $this->makeQuestion('culture_extra_series_068', 'Кто создал «Мир Дикого Запада» (сериал)?', 'Джонатан Нолан и Лиза Джой.', [
+                ['Джонатан Нолан и Лиза Джой', true], ['Кристофер Нолан', false], ['Винс Гиллиган', false], ['Джос Уидон', false]
+            ]),
+                $this->makeQuestion('culture_extra_series_069', 'На каком канале выходил «Игра престолов»?', 'На HBO.', [
+                ['HBO', true], ['Netflix', false], ['Amazon', false], ['Hulu', false]
+            ]),
+                $this->makeQuestion('culture_extra_series_070', 'Кто сыграл Джона Сноу?', 'Кит Харингтон.', [
+                ['Кит Харингтон', true], ['Педро Паскаль', false], ['Шон Бин', false], ['Ричард Мэдден', false]
+            ]),
+                $this->makeQuestion('culture_extra_series_071', 'Кто сыграл Дейенерис Таргариен?', 'Эмилия Кларк.', [
+                ['Эмилия Кларк', true], ['Софи Тёрнер', false], ['Лина Хиди', false], ['Мэйси Уильямс', false]
+            ]),
+                $this->makeQuestion('culture_extra_series_072', 'Кто сыграл Геральта в сериале «Ведьмак» (Netflix)?', 'Геральта сыграл Генри Кавилл.', [
+                ['Генри Кавилл', true], ['Анджей Сапковский', false], ['Педро Паскаль', false], ['Крис Хемсворт', false]
+            ]),
+                $this->makeQuestion('culture_extra_series_073', 'Кто автор сериала «Карточный домик»?', 'Бью Уиллимон адаптировал шоу.', [
+                ['Бью Уиллимон', true], ['Аарон Соркин', false], ['Винс Гиллиган', false], ['Джос Уидон', false]
+            ]),
+                $this->makeQuestion('culture_extra_series_074', 'Кто сыграл Шелдона Купера?', 'Джим Парсонс.', [
+                ['Джим Парсонс', true], ['Джон Галеки', false], ['Саймон Хелберг', false], ['Кунал Найяр', false]
+            ]),
+                $this->makeQuestion('culture_extra_series_075', 'Кто сыграл Майкла Скоффилда в «Побеге из тюрьмы»?', 'Вентворт Миллер.', [
+                ['Вентворт Миллер', true], ['Доминик Пёрселл', false], ['Аарон Пол', false], ['Брайан Крэнстон', false]
+            ]),
+                $this->makeQuestion('culture_extra_series_076', 'Кто сыграл Тони Сопрано?', 'Джеймс Гандольфини.', [
+                ['Джеймс Гандольфини', true], ['Боб Оденкёрк', false], ['Кевин Спейси', false], ['Джон Хэмм', false]
+            ]),
+                $this->makeQuestion('culture_extra_series_077', 'Кто сыграл Дон Дрейпера в «Безумцах»?', 'Джон Хэмм.', [
+                ['Джон Хэмм', true], ['Брайан Крэнстон', false], ['Кевин Спейси', false], ['Мэттью Райз', false]
+            ]),
+                $this->makeQuestion('culture_extra_series_078', 'На каком сервисе вышел «Очень странные дела»?', 'Сериал вышел на Netflix.', [
+                ['Netflix', true], ['HBO', false], ['Amazon', false], ['Disney+', false]
+            ]),
+                $this->makeQuestion('culture_extra_series_079', 'Кто сыграл Уолтера Уайта?', 'Брайан Крэнстон.', [
+                ['Брайан Крэнстон', true], ['Боб Оденкёрк', false], ['Аарон Пол', false], ['Дин Норрис', false]
+            ]),
+                $this->makeQuestion('culture_extra_series_080', 'Кто сыграл Джесси Пинкмана?', 'Аарон Пол.', [
+                ['Аарон Пол', true], ['Боб Оденкёрк', false], ['Брайан Крэнстон', false], ['Джонатан Бэнкс', false]
+            ]),
+                $this->makeQuestion('culture_extra_series_081', 'Кто сыграл Тириона Ланнистера?', 'Питер Динклэйдж.', [
+                ['Питер Динклэйдж', true], ['Кит Харингтон', false], ['Шон Бин', false], ['Марк Эдди', false]
+            ]),
+                $this->makeQuestion('culture_extra_series_082', 'Кто сыграл Гендальфа в «Властелине колец»?', 'Йен Маккеллен.', [
+                ['Йен Маккеллен', true], ['Кристофер Ли', false], ['Вигго Мортенсен', false], ['Шон Бин', false]
+            ]),
+                $this->makeQuestion('culture_extra_series_083', 'Кто сыграл Арагорна?', 'Вигго Мортенсен.', [
+                ['Вигго Мортенсен', true], ['Орландо Блум', false], ['Шон Бин', false], ['Элайджа Вуд', false]
+            ]),
+                $this->makeQuestion('culture_extra_series_084', 'Кто сыграл Фродо Бэггинса?', 'Элайджа Вуд.', [
+                ['Элайджа Вуд', true], ['Доминик Монаган', false], ['Билли Бойд', false], ['Шон Эстин', false]
+            ]),
+                $this->makeQuestion('culture_extra_series_085', 'Кто сыграл Леголаса?', 'Орландо Блум.', [
+                ['Орландо Блум', true], ['Элайджа Вуд', false], ['Доминик Монаган', false], ['Хьюго Уивинг', false]
+            ]),
+                $this->makeQuestion('culture_extra_misc_086', 'Кто автор комикса «Хранители»?', 'Алан Мур и Дэйв Гиббонс.', [
+                ['Алан Мур', true], ['Стен Ли', false], ['Джек Кирби', false], ['Фрэнк Миллер', false]
+            ]),
+                $this->makeQuestion('culture_extra_misc_087', 'Кто создал «Человека-паука»?', 'Стэн Ли и Стив Дитко.', [
+                ['Стэн Ли и Стив Дитко', true], ['Джек Кирби', false], ['Тодд Макфарлейн', false], ['Джим Ли', false]
+            ]),
+                $this->makeQuestion('culture_extra_misc_088', 'Кто автор «Сэндмена» (комикс)?', 'Нил Гейман.', [
+                ['Нил Гейман', true], ['Алан Мур', false], ['Грант Моррисон', false], ['Энн Райс', false]
+            ]),
+                $this->makeQuestion('culture_extra_misc_089', 'Кто создал «Бэтмена»?', 'Боб Кейн и Билл Фингер.', [
+                ['Боб Кейн и Билл Фингер', true], ['Стэн Ли', false], ['Джек Кирби', false], ['Джери Сигел', false]
+            ]),
+                $this->makeQuestion('culture_extra_misc_090', 'Как зовут автора манги «Берсерк»?', 'Кэнтаро Миура.', [
+                ['Кэнтаро Миура', true], ['Йошихиро Тогаси', false], ['Эйитиро Ода', false], ['Хадзимэ Исаяма', false]
+            ]),
+                $this->makeQuestion('culture_extra_misc_091', 'Кто создал мангу «Атака титанов»?', 'Хадзимэ Исаяма.', [
+                ['Хадзимэ Исаяма', true], ['Эйитиро Ода', false], ['Масаси Кисимото', false], ['Тит Кубо', false]
+            ]),
+                $this->makeQuestion('culture_extra_misc_092', 'Кто автор манги «Блич»?', 'Тит Кубо.', [
+                ['Тит Кубо', true], ['Масаси Кисимото', false], ['Эйитиро Ода', false], ['Наоки Урасавы', false]
+            ]),
+                $this->makeQuestion('culture_extra_misc_093', 'Кто автор манги «Детектив Конан»?', 'Госё Аояма.', [
+                ['Госё Аояма', true], ['Ёсито Окусэ', false], ['Такэси Обата', false], ['Цугуми Обха', false]
+            ]),
+                $this->makeQuestion('culture_extra_misc_094', 'Кто автор манги «One Punch Man»?', 'ONE (первичная веб-версия), рисунок — Юске Мурата.', [
+                ['ONE и Юске Мурата', true], ['Эйитиро Ода', false], ['Масаси Кисимото', false], ['Хирохико Араки', false]
+            ]),
+                $this->makeQuestion('culture_extra_misc_095', 'Как называется первый сезон аниме про титанов?', '«Attack on Titan» / «Shingeki no Kyojin».', [
+                ['Attack on Titan', true], ['Naruto', false], ['Bleach', false], ['One Piece', false]
+            ]),
+                $this->makeQuestion('culture_extra_misc_096', 'Кто сыграл Нормана Бейтса в «Психо» Хичкока?', 'Энтони Перкинс.', [
+                ['Энтони Перкинс', true], ['Грегори Пек', false], ['Кэрри Грант', false], ['Джеймс Стюарт', false]
+            ]),
+                $this->makeQuestion('culture_extra_misc_097', 'Кто режиссёр «Психо»?', 'Альфред Хичкок.', [
+                ['Альфред Хичкок', true], ['Билли Уайлдер', false], ['Стэнли Кубрик', false], ['Джон Хьюстон', false]
+            ]),
+                $this->makeQuestion('culture_extra_misc_098', 'Кто снял «Космическую одиссею 2001 года»?', 'Стэнли Кубрик.', [
+                ['Стэнли Кубрик', true], ['Ридли Скотт', false], ['Спилберг', false], ['Коппола', false]
+            ]),
+                $this->makeQuestion('culture_extra_misc_099', 'Кто сыграл главную роль в «Таксисте»?', 'Роберт Де Ниро.', [
+                ['Роберт Де Ниро', true], ['Аль Пачино', false], ['Дастин Хоффман', false], ['Джек Николсон', false]
+            ]),
+                $this->makeQuestion('culture_extra_misc_100', 'Кто сыграл главную роль в «Ла-Ла Ленд» (Миа)?', 'Эмма Стоун.', [
+                ['Эмма Стоун', true], ['Эмма Уотсон', false], ['Дженнифер Лоуренс', false], ['Марго Робби', false]
+            ]),
+                $this->makeQuestion('culture_extra_misc_101', 'Кто сыграл Себастьяна в «Ла-Ла Ленд»?', 'Райан Гослинг.', [
+                ['Райан Гослинг', true], ['Райан Рейнольдс', false], ['Эдди Редмэйн', false], ['Джозеф Гордон-Левитт', false]
+            ]),
+
             ],
             'geo' => [
                 $this->makeQuestion('geo_capital_canada', "Какова столица Канады?", "Столицей Канады является город Оттава.", [
@@ -8305,6 +8610,311 @@ class SampleDataSeeder
                 ['Алматы', false],
                 ['Пекин', false],
                 ['Ханой', false]
+            ]),
+
+
+                $this->makeQuestion('geo_extra_capital_001', 'Какова столица Австрии?', 'Вена — столица Австрии.', [
+                ['Вена', true], ['Зальцбург', false], ['Грац', false], ['Линц', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_002', 'Какова столица Швейцарии?', 'Берн — фактическая столица.', [
+                ['Берн', true], ['Цюрих', false], ['Женева', false], ['Лозанна', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_003', 'Какова столица Швеции?', 'Стокгольм.', [
+                ['Стокгольм', true], ['Осло', false], ['Копенгаген', false], ['Хельсинки', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_004', 'Какова столица Норвегии?', 'Осло — столица Норвегии.', [
+                ['Осло', true], ['Берген', false], ['Тронхейм', false], ['Ставангер', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_005', 'Какова столица Дании?', 'Копенгаген.', [
+                ['Копенгаген', true], ['Орхус', false], ['Оденсе', false], ['Ольборг', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_006', 'Какова столица Финляндии?', 'Хельсинки.', [
+                ['Хельсинки', true], ['Турку', false], ['Тампере', false], ['Оулу', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_007', 'Какова столица Исландии?', 'Рейкьявик.', [
+                ['Рейкьявик', true], ['Акюрейри', false], ['Коупавогюр', false], ['Сельфосс', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_008', 'Какова столица Ирландии?', 'Дублин — столица Ирландии.', [
+                ['Дублин', true], ['Белфаст', false], ['Корк', false], ['Голуэй', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_009', 'Какова столица Бельгии?', 'Брюссель.', [
+                ['Брюссель', true], ['Антверпен', false], ['Гент', false], ['Льеж', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_010', 'Какова столица Нидерландов?', 'Амстердам — столица, правительство в Гааге.', [
+                ['Амстердам', true], ['Гаага', false], ['Роттердам', false], ['Утрехт', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_011', 'Какова столица Германии?', 'Берлин — столица Германии.', [
+                ['Берлин', true], ['Мюнхен', false], ['Гамбург', false], ['Кёльн', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_012', 'Какова столица Франции?', 'Париж — столица Франции.', [
+                ['Париж', true], ['Марсель', false], ['Лион', false], ['Тулуза', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_013', 'Какова столица Испании?', 'Мадрид — столица Испании.', [
+                ['Мадрид', true], ['Барселона', false], ['Валенсия', false], ['Севилья', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_014', 'Какова столица Португалии?', 'Лиссабон.', [
+                ['Лиссабон', true], ['Порту', false], ['Брага', false], ['Коимбра', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_015', 'Какова столица Италии?', 'Рим — столица Италии.', [
+                ['Рим', true], ['Милан', false], ['Неаполь', false], ['Турин', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_016', 'Какова столица Польши?', 'Варшава.', [
+                ['Варшава', true], ['Краков', false], ['Гданьск', false], ['Вроцлав', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_017', 'Какова столица Чехии?', 'Прага — столица Чехии.', [
+                ['Прага', true], ['Брно', false], ['Острава', false], ['Пльзень', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_018', 'Какова столица Словакии?', 'Братислава — столица.', [
+                ['Братислава', true], ['Кошице', false], ['Попрад', false], ['Жилина', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_019', 'Какова столица Венгрии?', 'Будапешт — столица Венгрии.', [
+                ['Будапешт', true], ['Дебрецен', false], ['Сегед', false], ['Мишкольц', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_020', 'Какова столица Украины?', 'Киев — столица Украины.', [
+                ['Киев', true], ['Львов', false], ['Одесса', false], ['Харьков', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_021', 'Какова столица Румынии?', 'Бухарест — столица.', [
+                ['Бухарест', true], ['Клуж-Напока', false], ['Яссы', false], ['Тимишоара', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_022', 'Какова столица Болгарии?', 'София — столица Болгарии.', [
+                ['София', true], ['Пловдив', false], ['Варна', false], ['Бургас', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_023', 'Какова столица Сербии?', 'Белград.', [
+                ['Белград', true], ['Нови-Сад', false], ['Ниш', false], ['Крагуевац', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_024', 'Какова столица Хорватии?', 'Загреб — столица Хорватии.', [
+                ['Загреб', true], ['Сплит', false], ['Дубровник', false], ['Риека', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_025', 'Какова столица Словении?', 'Любляна.', [
+                ['Любляна', true], ['Марибор', false], ['Целе', false], ['Копер', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_026', 'Какова столица Греции?', 'Афины — столица Греции.', [
+                ['Афины', true], ['Салоники', false], ['Патры', false], ['Ираклион', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_027', 'Какова столица Турции?', 'Анкара.', [
+                ['Анкара', true], ['Стамбул', false], ['Измир', false], ['Анталья', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_028', 'Какова столица Кипра?', 'Никосия.', [
+                ['Никосия', true], ['Лимасол', false], ['Ларнака', false], ['Пафос', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_029', 'Какова столица США?', 'Вашингтон, округ Колумбия.', [
+                ['Вашингтон', true], ['Нью-Йорк', false], ['Лос-Анджелес', false], ['Чикаго', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_030', 'Какова столица Канады?', 'Оттава.', [
+                ['Оттава', true], ['Торонто', false], ['Монреаль', false], ['Ванкувер', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_031', 'Какова столица Мексики?', 'Мехико.', [
+                ['Мехико', true], ['Гвадалахара', false], ['Монтеррей', false], ['Пуэбла', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_032', 'Какова столица Бразилии?', 'Бразилиа — столица Бразилии.', [
+                ['Бразилиа', true], ['Рио-де-Жанейро', false], ['Сан-Паулу', false], ['Салвадор', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_033', 'Какова столица Аргентины?', 'Буэнос-Айрес.', [
+                ['Буэнос-Айрес', true], ['Кордова', false], ['Мендоса', false], ['Росарио', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_034', 'Какова столица Чили?', 'Сантьяго — столица Чили.', [
+                ['Сантьяго', true], ['Вальпараисо', false], ['Лима', false], ['Кито', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_035', 'Какова столица Перу?', 'Лима.', [
+                ['Лима', true], ['Куско', false], ['Арекипа', false], ['Трухильо', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_036', 'Какова столица Колумбии?', 'Богота.', [
+                ['Богота', true], ['Медельин', false], ['Кали', false], ['Барранкилья', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_037', 'Какова столица Венесуэлы?', 'Каракас.', [
+                ['Каракас', true], ['Валенсия', false], ['Маракайбо', false], ['Баркисимето', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_038', 'Какова столица Эквадора?', 'Кито — столица.', [
+                ['Кито', true], ['Гуаякиль', false], ['Куэнка', false], ['Лоха', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_039', 'Какова столица Боливии?', 'Конституционная — Сукре, административная — Ла-Пас.', [
+                ['Сукре / Ла-Пас', true], ['Только Ла-Пас', false], ['Только Сукре', false], ['Санта-Крус', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_040', 'Какова столица Уругвая?', 'Монтевидео.', [
+                ['Монтевидео', true], ['Пунта-дель-Эсте', false], ['Сальто', false], ['Пайсанду', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_041', 'Какова столица Парагвая?', 'Асунсьон — столица Парагвая.', [
+                ['Асунсьон', true], ['Сьюдад-дель-Эсте', false], ['Ла-Пас', false], ['Сукре', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_042', 'Какова столица Кубы?', 'Гавана — столица Кубы.', [
+                ['Гавана', true], ['Сантьяго-де-Куба', false], ['Камагуэй', false], ['Сьенфуэгос', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_043', 'Какова столица Доминиканской Республики?', 'Санто-Доминго.', [
+                ['Санто-Доминго', true], ['Порт-о-Пренс', false], ['Сан-Хуан', false], ['Кингстон', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_044', 'Какова столица Канады?', 'Оттава — столица Канады.', [
+                ['Оттава', true], ['Торонто', false], ['Монреаль', false], ['Ванкувер', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_045', 'Какова столица Японии?', 'Токио — столица Японии.', [
+                ['Токио', true], ['Осака', false], ['Киото', false], ['Нагоя', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_046', 'Какова столица Китая?', 'Пекин — столица Китая.', [
+                ['Пекин', true], ['Шанхай', false], ['Шэньчжэнь', false], ['Гуанчжоу', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_047', 'Какова столица Южной Кореи?', 'Сеул.', [
+                ['Сеул', true], ['Пусан', false], ['Инчхон', false], ['Тэгу', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_048', 'Какова столица Северной Кореи?', 'Пхеньян.', [
+                ['Пхеньян', true], ['Сеул', false], ['Далянь', false], ['Харбин', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_049', 'Какова столица Индии?', 'Нью-Дели.', [
+                ['Нью-Дели', true], ['Мумбаи', false], ['Бангалор', false], ['Ченнаи', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_050', 'Какова столица Пакистана?', 'Исламабад.', [
+                ['Исламабад', true], ['Карачи', false], ['Лахор', false], ['Пешавар', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_051', 'Какова столица Бангладеш?', 'Дакка — столица.', [
+                ['Дакка', true], ['Читтагонг', false], ['Силхет', false], ['Кумилла', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_052', 'Какова столица Шри-Ланки?', 'Шри-Джаяварденепура-Котте (официально), Коломбо де-факто.', [
+                ['Котте / Коломбо', true], ['Коломбо', false], ['Канди', false], ['Галле', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_053', 'Какова столица Непала?', 'Катманду.', [
+                ['Катманду', true], ['Покхара', false], ['Лукла', false], ['Бирганж', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_054', 'Какова столица Бутана?', 'Тхимпху — столица Бутана.', [
+                ['Тхимпху', true], ['Паро', false], ['Пунакха', false], ['Гелефу', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_055', 'Какова столица Таиланда?', 'Бангкок.', [
+                ['Бангкок', true], ['Пхукет', false], ['Чиангмай', false], ['Паттайя', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_056', 'Какова столица Вьетнама?', 'Ханой.', [
+                ['Ханой', true], ['Хошимин', false], ['Дананг', false], ['Хюэ', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_057', 'Какова столица Лаоса?', 'Вьентьян.', [
+                ['Вьентьян', true], ['Луанпхабанг', false], ['Паксе', false], ['Саваннакхет', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_058', 'Какова столица Камбоджи?', 'Пномпень.', [
+                ['Пномпень', true], ['Сиемреап', false], ['Баттамбанг', false], ['Пойпет', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_059', 'Какова столица Малайзии?', 'Куала-Лумпур (адм. Путраджая).', [
+                ['Куала-Лумпур', true], ['Путраджая', false], ['Джохор-Бару', false], ['Кота-Кинабалу', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_060', 'Какова столица Сингапура?', 'Сингапур — город-государство.', [
+                ['Сингапур', true], ['Джохор-Бару', false], ['Бандар-Сери-Бегаван', false], ['Куала-Лумпур', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_061', 'Какова столица Индонезии?', 'Джакарта.', [
+                ['Джакарта', true], ['Сурабая', false], ['Бали (Денпасар)', false], ['Бандунг', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_062', 'Какова столица Филиппин?', 'Манила.', [
+                ['Манила', true], ['Себу', false], ['Давао', false], ['Кесон-Сити', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_063', 'Какова столица Монголии?', 'Улан-Батор.', [
+                ['Улан-Батор', true], ['Алматы', false], ['Пекин', false], ['Ханой', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_064', 'Какова столица Казахстана?', 'Астана (Нур-Султан ранее).', [
+                ['Астана', true], ['Алматы', false], ['Шымкент', false], ['Караганда', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_065', 'Какова столица Узбекистана?', 'Ташкент.', [
+                ['Ташкент', true], ['Самарканд', false], ['Бухара', false], ['Нукус', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_066', 'Какова столица Туркменистана?', 'Ашхабад.', [
+                ['Ашхабад', true], ['Ташкент', false], ['Бишкек', false], ['Алматы', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_067', 'Какова столица Кыргызстана?', 'Бишкек — столица.', [
+                ['Бишкек', true], ['Ош', false], ['Токмок', false], ['Джалал-Абад', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_068', 'Какова столица Таджикистана?', 'Душанбе.', [
+                ['Душанбе', true], ['Худжанд', false], ['Самарканд', false], ['Ташкент', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_069', 'Какова столица Ирана?', 'Тегеран — столица Ирана.', [
+                ['Тегеран', true], ['Исфахан', false], ['Шираз', false], ['Мешхед', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_070', 'Какова столица Ирака?', 'Багдад — столица.', [
+                ['Багдад', true], ['Басра', false], ['Мосул', false], ['Эрбиль', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_071', 'Какова столица Саудовской Аравии?', 'Эр-Рияд.', [
+                ['Эр-Рияд', true], ['Джидда', false], ['Дахран', false], ['Мекка', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_072', 'Какова столица Израиля?', 'Официальная — Иерусалим.', [
+                ['Иерусалим', true], ['Тель-Авив', false], ['Хайфа', false], ['Эйлат', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_073', 'Какова столица Египта?', 'Каир.', [
+                ['Каир', true], ['Александрия', false], ['Луксор', false], ['Гиза', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_074', 'Какова столица Нигерии?', 'Абуджа.', [
+                ['Абуджа', true], ['Лагос', false], ['Кано', false], ['Порт-Харкорт', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_075', 'Какова столица Эфиопии?', 'Аддис-Абеба.', [
+                ['Аддис-Абеба', true], ['Найроби', false], ['Хартум', false], ['Кампала', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_076', 'Какова столица Кении?', 'Найроби.', [
+                ['Найроби', true], ['Момбаса', false], ['Кампала', false], ['Аддис-Абеба', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_077', 'Какова столица Танзании?', 'Додома.', [
+                ['Додома', true], ['Дар-эс-Салам', false], ['Момбаса', false], ['Кампала', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_078', 'Какова столица ЮАР?', 'Претория административная (Кейптаун законодательная, Блумфонтейн судебная).', [
+                ['Претория/Кейптаун/Блумфонтейн', true], ['Йоханнесбург', false], ['Дурбан', false], ['Порт-Элизабет', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_079', 'Какова столица Марокко?', 'Рабат — столица Марокко.', [
+                ['Рабат', true], ['Касабланка', false], ['Марракеш', false], ['Танжер', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_080', 'Какова столица Алжира?', 'Алжир — столица страны.', [
+                ['Алжир', true], ['Оран', false], ['Константина', false], ['Аннаба', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_081', 'Какова столица Туниса?', 'Тунис — столица.', [
+                ['Тунис', true], ['Сфакс', false], ['Сусс', false], ['Бизерта', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_082', 'Какова столица Ливии?', 'Триполи.', [
+                ['Триполи', true], ['Бенгази', false], ['Мисрата', false], ['Сабха', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_083', 'Какова столица Судана?', 'Хартум.', [
+                ['Хартум', true], ['Джуба', false], ['Аддис-Абеба', false], ['Кампала', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_084', 'Какова столица Эритреи?', 'Асмэра.', [
+                ['Асмэра', true], ['Джибути', false], ['Аддис-Абеба', false], ['Могадишо', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_085', 'Какова столица Сомали?', 'Могадишо.', [
+                ['Могадишо', true], ['Харгейса', false], ['Джибути', false], ['Аддис-Абеба', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_086', 'Какова столица ЮАР (судебная)?', 'Блумфонтейн — судебная столица.', [
+                ['Блумфонтейн', true], ['Претория', false], ['Кейптаун', false], ['Йоханнесбург', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_087', 'Какова столица Ботсваны?', 'Габороне.', [
+                ['Габороне', true], ['Виндхук', false], ['Лусака', false], ['Хараре', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_088', 'Какова столица Замбии?', 'Лусака.', [
+                ['Лусака', true], ['Хараре', false], ['Габороне', false], ['Виндхук', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_089', 'Какова столица Зимбабве?', 'Хараре.', [
+                ['Хараре', true], ['Лусака', false], ['Виндхук', false], ['Габороне', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_090', 'Какова столица Намибии?', 'Виндхук.', [
+                ['Виндхук', true], ['Хараре', false], ['Габороне', false], ['Лусака', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_091', 'Какова столица Анголы?', 'Луанда.', [
+                ['Луанда', true], ['Лусака', false], ['Киншаса', false], ['Браззавиль', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_092', 'Какова столица ДР Конго?', 'Киншаса.', [
+                ['Киншаса', true], ['Браззавиль', false], ['Луанда', false], ['Либревиль', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_093', 'Какова столица Республики Конго?', 'Браззавиль.', [
+                ['Браззавиль', true], ['Киншаса', false], ['Луанда', false], ['Либревиль', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_094', 'Какова столица Габона?', 'Либревиль.', [
+                ['Либревиль', true], ['Яунде', false], ['Луанда', false], ['Кампала', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_095', 'Какова столица Камеруна?', 'Яунде.', [
+                ['Яунде', true], ['Дуала', false], ['Нджамена', false], ['Ломе', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_096', 'Какова столица Ганы?', 'Аккра.', [
+                ['Аккра', true], ['Кумаси', false], ['Ломе', false], ['Абуджа', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_097', 'Какова столица Кот-д’Ивуара?', 'Ямусукро (де-факто Абиджан).', [
+                ['Ямусукро / Абиджан', true], ['Абиджан', false], ['Ломе', false], ['Аккра', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_098', 'Какова столица Сенегала?', 'Дакар.', [
+                ['Дакар', true], ['Бамако', false], ['Ломе', false], ['Монровия', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_099', 'Какова столица Мали?', 'Бамако.', [
+                ['Бамако', true], ['Ниамей', false], ['Дакар', false], ['Ломе', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_100', 'Какова столица Нигера?', 'Ниамей.', [
+                ['Ниамей', true], ['Нджамена', false], ['Бамако', false], ['Абуджа', false]
+            ]),
+                $this->makeQuestion('geo_extra_capital_101', 'Какова столица Чада?', 'Нджамена.', [
+                ['Нджамена', true], ['Бамако', false], ['Ломе', false], ['Ниамей', false]
             ]),
 
             ],
