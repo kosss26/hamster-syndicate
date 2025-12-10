@@ -724,6 +724,664 @@ class SampleDataSeeder
 
             ],
             'science_tech' => [
+                $this->makeQuestion('science_tech_event_loop', 'Что такое event loop в JS?', 'Механизм обработки очереди задач и коллбэков.', [
+                ['Очередь задач/коллбэков', true],
+                ['Компилятор JS', false],
+                ['Менеджер пакетов', false],
+                ['CSS движок', false]
+            ]),
+                $this->makeQuestion('science_tech_promise', 'Что такое Promise в JS?', 'Обещание результата асинхронной операции.', [
+                ['Обещание результата', true],
+                ['Синхронная функция', false],
+                ['CSS свойство', false],
+                ['HTML тег', false]
+            ]),
+                $this->makeQuestion('science_tech_async_await', 'Зачем async/await?', 'Упрощает работу с промисами, делает код линейным.', [
+                ['Линейный синтаксис для промисов', true],
+                ['Ускоряет CPU', false],
+                ['Меняет CSS', false],
+                ['Удаляет куки', false]
+            ]),
+                $this->makeQuestion('science_tech_rest_put', 'Что делает PUT в REST?', 'Создаёт или заменяет ресурс по указанному URL.', [
+                ['Создаёт/заменяет ресурс', true],
+                ['Частичное обновление', false],
+                ['Удаляет ресурс', false],
+                ['Возвращает список', false]
+            ]),
+                $this->makeQuestion('science_tech_rest_patch', 'Что делает PATCH?', 'Частично обновляет ресурс.', [
+                ['Частичное обновление', true],
+                ['Удаление', false],
+                ['Создание', false],
+                ['Замена целиком', false]
+            ]),
+                $this->makeQuestion('science_tech_csrf_token', 'Как защищаются от CSRF?', 'Используют токен/куку SameSite/проверку Origin.', [
+                ['CSRF токен и SameSite', true],
+                ['Отключают HTTPS', false],
+                ['Шифруют картинки', false],
+                ['Стирают куки', false]
+            ]),
+                $this->makeQuestion('science_tech_csp', 'Зачем Content Security Policy?', 'Ограничить источники скриптов и ресурсов.', [
+                ['Ограничение источников', true],
+                ['Сжатие HTML', false],
+                ['Шифрование CSS', false],
+                ['Смена DNS', false]
+            ]),
+                $this->makeQuestion('science_tech_https_cert', 'Что подтверждает SSL-сертификат?', 'Принадлежность домена и ключа (удостоверение).', [
+                ['Домен и ключ', true],
+                ['Скорость сайта', false],
+                ['Доступ к БД', false],
+                ['Резервную копию', false]
+            ]),
+                $this->makeQuestion('science_tech_tls_versions', 'Какие версии TLS считаются устаревшими?', 'TLS 1.0/1.1 — deprecated.', [
+                ['1.0/1.1 устарели', true],
+                ['1.3 устарела', false],
+                ['1.2 устарела', false],
+                ['Все актуальны', false]
+            ]),
+                $this->makeQuestion('science_tech_websocket', 'Чем WebSocket полезен?', 'Двусторонняя связь в реальном времени.', [
+                ['Двусторонняя связь', true],
+                ['Только загрузка статики', false],
+                ['Сжатие изображений', false],
+                ['Хранение данных', false]
+            ]),
+                $this->makeQuestion('science_tech_service_worker', 'Что делает Service Worker?', 'Кеш/офлайн/фоновые задачи.', [
+                ['Кеш/офлайн задачи', true],
+                ['Меняет DOM напрямую', false],
+                ['Сжимает видео', false],
+                ['Хранит пароли', false]
+            ]),
+                $this->makeQuestion('science_tech_indexeddb', 'Что такое IndexedDB?', 'Браузерная БД для хранения структурированных данных.', [
+                ['Браузерная БД', true],
+                ['SQL-сервер', false],
+                ['Файловая система', false],
+                ['Кеш DNS', false]
+            ]),
+                $this->makeQuestion('science_tech_cpu_gpu_diff2', 'Чем GPU отличается от CPU?', 'Массовый параллелизм vs универсальность.', [
+                ['Параллелизм vs универсальность', true],
+                ['GPU не считает', false],
+                ['CPU без кеша', false],
+                ['GPU только для вывода', false]
+            ]),
+                $this->makeQuestion('science_tech_btree', 'Для чего B-деревья в БД?', 'Эффективные индексы на диске.', [
+                ['Индексы на диске', true],
+                ['Шифрование', false],
+                ['Компрессия', false],
+                ['Рендеринг', false]
+            ]),
+                $this->makeQuestion('science_tech_big_o', 'Что описывает Big O?', 'Асимптотическую сложность.', [
+                ['Асимптотическую сложность', true],
+                ['Размер памяти в байтах', false],
+                ['Адрес IP', false],
+                ['Частоту CPU', false]
+            ]),
+                $this->makeQuestion('science_tech_binary_tree', 'Сколько потомков максимум у узла бинарного дерева?', 'Не более двух.', [
+                ['2', true],
+                ['3', false],
+                ['4', false],
+                ['1', false]
+            ]),
+                $this->makeQuestion('science_tech_ssl_ocsp', 'Для чего OCSP?', 'Проверка статуса сертификата онлайн.', [
+                ['Проверка статуса сертификата', true],
+                ['Шифрование трафика', false],
+                ['Кеширование DNS', false],
+                ['Раздача статики', false]
+            ]),
+                $this->makeQuestion('science_tech_hsts_preload', 'Что делает preload HSTS?', 'Браузеры принудительно открывают домен по HTTPS из списка.', [
+                ['Принудительный HTTPS из списка', true],
+                ['Отключает HTTPS', false],
+                ['Меняет DNS', false],
+                ['Сжимает HTML', false]
+            ]),
+                $this->makeQuestion('science_tech_jwt_parts', 'Из каких частей состоит JWT?', 'Header.Payload.Signature.', [
+                ['Header.Payload.Signature', true],
+                ['User.Pass', false],
+                ['Key.Value', false],
+                ['Sig.Payload.Secret', false]
+            ]),
+                $this->makeQuestion('science_tech_oauth_scopes', 'Что такое scope в OAuth?', 'Границы/права, запрошенные клиентом.', [
+                ['Запрошенные права', true],
+                ['Статус 200', false],
+                ['Уровень кеша', false],
+                ['Тип шифра', false]
+            ]),
+                $this->makeQuestion('science_tech_refresh_token', 'Зачем refresh token?', 'Обновляет access token без логина.', [
+                ['Обновление access token', true],
+                ['Шифрование пароля', false],
+                ['Резервное копирование', false],
+                ['Кеширование', false]
+            ]),
+                $this->makeQuestion('science_tech_rate_limit', 'Что такое rate limit?', 'Ограничение числа запросов за период.', [
+                ['Ограничение запросов', true],
+                ['Сжатие ответов', false],
+                ['Статус сервера', false],
+                ['Кеш браузера', false]
+            ]),
+                $this->makeQuestion('science_tech_ddos', 'Что такое DDoS?', 'Распределённая атака перегрузкой запросами.', [
+                ['Перегрузка запросами', true],
+                ['Шифрование диска', false],
+                ['Резервное копирование', false],
+                ['Оптимизация кода', false]
+            ]),
+                $this->makeQuestion('science_tech_sql_view', 'Что такое VIEW в SQL?', 'Представление — виртуальная таблица на запросе.', [
+                ['Виртуальная таблица', true],
+                ['Физическая копия', false],
+                ['Индекс', false],
+                ['Лог транзакций', false]
+            ]),
+                $this->makeQuestion('science_tech_sql_transaction', 'Зачем транзакция?', 'Гарантировать атомарность/целостность группы операций.', [
+                ['Атомарность операций', true],
+                ['Сжатие БД', false],
+                ['Экспорт данных', false],
+                ['Шифрование таблиц', false]
+            ]),
+                $this->makeQuestion('science_tech_sql_join_inner', 'Что делает INNER JOIN?', 'Возвращает пересечение по условию соединения.', [
+                ['Пересечение', true],
+                ['Все строки слева', false],
+                ['Все строки справа', false],
+                ['Полное объединение', false]
+            ]),
+                $this->makeQuestion('science_tech_sql_join_left', 'Что делает LEFT JOIN?', 'Все строки левой таблицы + совпадения справа.', [
+                ['Все слева + совпадения справа', true],
+                ['Все справа', false],
+                ['Только пересечение', false],
+                ['Только правые', false]
+            ]),
+                $this->makeQuestion('science_tech_dns_ttl', 'Что такое TTL у DNS-записи?', 'Время жизни записи в кэше.', [
+                ['Время жизни записи', true],
+                ['Размер пакета', false],
+                ['Тип шифра', false],
+                ['Код страны', false]
+            ]),
+                $this->makeQuestion('science_tech_http_header_cache', 'Для чего Cache-Control?', 'Управляет кешированием ответа.', [
+                ['Управление кешем', true],
+                ['Управление шифром', false],
+                ['Управление куками', false],
+                ['Управление SQL', false]
+            ]),
+
+                $this->makeQuestion('science_tech_cpu_clock', 'Что измеряет тактовая частота CPU?', 'Количество циклов в секунду (ГГц).', [
+                ['Циклы в секунду', true],
+                ['Количество ядер', false],
+                ['Объём кеша', false],
+                ['Температуру', false]
+            ]),
+                $this->makeQuestion('science_tech_ram_latency', 'Что такое задержка памяти (latency)?', 'Время доступа к данным в памяти.', [
+                ['Время доступа', true],
+                ['Ёмкость', false],
+                ['Пропускная способность', false],
+                ['Температура', false]
+            ]),
+                $this->makeQuestion('science_tech_ssl_tls_handshake', 'Зачем нужен TLS handshake?', 'Согласование алгоритмов и ключей.', [
+                ['Согласование ключей', true],
+                ['Отрисовка HTML', false],
+                ['Сжатие PNG', false],
+                ['Перекодировка видео', false]
+            ]),
+                $this->makeQuestion('science_tech_dns_cache', 'Что такое DNS-кеш?', 'Локальное хранение ранее полученных DNS-ответов.', [
+                ['Кеш DNS-ответов', true],
+                ['Список вирусов', false],
+                ['Журнал браузера', false],
+                ['Хранилище cookies', false]
+            ]),
+                $this->makeQuestion('science_tech_browser_cookie', 'Что такое cookie?', 'Небольшой файл/запись с данными сессии.', [
+                ['Данные сессии', true],
+                ['Шифрованный архив', false],
+                ['HTML-шаблон', false],
+                ['Ключ SSH', false]
+            ]),
+                $this->makeQuestion('science_tech_localstorage', 'Что такое localStorage?', 'Хранилище ключ-значение в браузере без срока.', [
+                ['Ключ-значение в браузере', true],
+                ['Файл сервера', false],
+                ['Кеш DNS', false],
+                ['Шаблон HTML', false]
+            ]),
+                $this->makeQuestion('science_tech_sessionstorage', 'Чем sessionStorage отличается от localStorage?', 'Очищается после закрытия вкладки.', [
+                ['Живёт до закрытия вкладки', true],
+                ['Бессрочен', false],
+                ['Серверное хранилище', false],
+                ['SQL-база', false]
+            ]),
+                $this->makeQuestion('science_tech_dom', 'Что такое DOM?', 'Объектная модель документа HTML.', [
+                ['Объектная модель документа', true],
+                ['База данных', false],
+                ['Набор стилей', false],
+                ['Драйвер видеокарты', false]
+            ]),
+                $this->makeQuestion('science_tech_react_jsx', 'Что такое JSX?', 'Расширение синтаксиса JS для разметки React.', [
+                ['JS разметка для React', true],
+                ['Шаблон PHP', false],
+                ['SQL диалект', false],
+                ['Бинарный формат', false]
+            ]),
+                $this->makeQuestion('science_tech_state_management', 'Зачем нужен стейт-менеджер во фронтенде?', 'Хранить и синхронизировать состояние между компонентами.', [
+                ['Хранение/синхронизация состояния', true],
+                ['Отрисовка 3D', false],
+                ['Хранение логов', false],
+                ['Сжатие фото', false]
+            ]),
+                $this->makeQuestion('science_tech_ci_cache', 'Зачем кеш в CI?', 'Ускоряет сборки, сохраняя зависимости.', [
+                ['Ускорение сборок', true],
+                ['Шифрование логов', false],
+                ['Удаление тестов', false],
+                ['Мониторинг', false]
+            ]),
+                $this->makeQuestion('science_tech_unit_tests', 'Для чего нужны юнит-тесты?', 'Проверяют корректность отдельных функций/модулей.', [
+                ['Проверка модулей', true],
+                ['Сборка релиза', false],
+                ['Дизайн UI', false],
+                ['Хранение конфигов', false]
+            ]),
+                $this->makeQuestion('science_tech_integration_tests', 'Что проверяют интеграционные тесты?', 'Взаимодействие компонентов системы.', [
+                ['Интеграцию компонентов', true],
+                ['Орфографию', false],
+                ['Цвета UI', false],
+                ['Частоту CPU', false]
+            ]),
+                $this->makeQuestion('science_tech_e2e_tests', 'Что проверяют e2e-тесты?', 'Полный пользовательский сценарий.', [
+                ['Пользовательские сценарии', true],
+                ['Только API', false],
+                ['Только БД', false],
+                ['Только конфиги', false]
+            ]),
+                $this->makeQuestion('science_tech_sql_normalization', 'Зачем нормализация БД?', 'Уменьшает дублирование и аномалии обновления.', [
+                ['Уменьшение дублирования', true],
+                ['Ускорение сети', false],
+                ['Шифрование', false],
+                ['Резервное копирование', false]
+            ]),
+                $this->makeQuestion('science_tech_primary_key', 'Что такое первичный ключ?', 'Уникальный идентификатор строки.', [
+                ['Уникальный идентификатор', true],
+                ['Индекс полнотекста', false],
+                ['Пароль пользователя', false],
+                ['Тип шифрования', false]
+            ]),
+                $this->makeQuestion('science_tech_foreign_key', 'Что такое внешний ключ?', 'Ссылка на первичный ключ другой таблицы.', [
+                ['Ссылка на PK другой таблицы', true],
+                ['Уникальный индекс', false],
+                ['Шифрованное поле', false],
+                ['Тип данных', false]
+            ]),
+                $this->makeQuestion('science_tech_json_schema', 'Для чего JSON Schema?', 'Валидация структуры JSON.', [
+                ['Валидация JSON', true],
+                ['Сжатие JSON', false],
+                ['Шифрование', false],
+                ['Рендеринг', false]
+            ]),
+                $this->makeQuestion('science_tech_regex', 'Что такое регулярное выражение?', 'Шаблон для поиска/замены в строках.', [
+                ['Шаблон поиска', true],
+                ['База данных', false],
+                ['Тип шифра', false],
+                ['Графический формат', false]
+            ]),
+                $this->makeQuestion('science_tech_oop_encapsulation', 'Что такое инкапсуляция?', 'Сокрытие внутренней реализации.', [
+                ['Сокрытие реализации', true],
+                ['Наследование', false],
+                ['Полиморфизм', false],
+                ['Композиция', false]
+            ]),
+                $this->makeQuestion('science_tech_oop_polymorphism', 'Что такое полиморфизм?', 'Одинаковый интерфейс — разные реализации.', [
+                ['Один интерфейс — разные реализации', true],
+                ['Сокрытие данных', false],
+                ['Повторное использование кода', false],
+                ['Шифрование', false]
+            ]),
+                $this->makeQuestion('science_tech_oop_inheritance', 'Что такое наследование?', 'Наследование свойств/методов от базового класса.', [
+                ['Передача свойств базового класса', true],
+                ['Шифрование', false],
+                ['Сжатие', false],
+                ['Параллелизм', false]
+            ]),
+                $this->makeQuestion('science_tech_git_branch_feature', 'Для чего feature-ветки?', 'Изолировать работу над задачей.', [
+                ['Изоляция задач', true],
+                ['Хранить секреты', false],
+                ['Слежение за логами', false],
+                ['Сжатие артефактов', false]
+            ]),
+                $this->makeQuestion('science_tech_git_tag', 'Что такое git tag?', 'Метка на конкретный коммит (обычно релиз).', [
+                ['Метка коммита', true],
+                ['Отдельная ветка', false],
+                ['Удалённый сервер', false],
+                ['Файл настроек', false]
+            ]),
+                $this->makeQuestion('science_tech_semver', 'Что такое semver?', 'Семантическое версионирование MAJOR.MINOR.PATCH.', [
+                ['MAJOR.MINOR.PATCH', true],
+                ['YY.MM.DD', false],
+                ['BUILD.REV', false],
+                ['HASH', false]
+            ]),
+
+                $this->makeQuestion('science_tech_rest_crud', 'Какие операции соответствуют CRUD для REST?', 'Create/Read/Update/Delete ~ POST/GET/PUT/DELETE.', [
+                ['POST/GET/PUT/DELETE', true],
+                ['GET/POST/HEAD/TRACE', false],
+                ['PUT/CONNECT/TRACE', false],
+                ['OPTIONS/CONNECT', false]
+            ]),
+                $this->makeQuestion('science_tech_http_status_500', 'Что означает HTTP 500?', 'Внутренняя ошибка сервера.', [
+                ['Внутренняя ошибка сервера', true],
+                ['Не найдено', false],
+                ['Успех', false],
+                ['Редирект', false]
+            ]),
+                $this->makeQuestion('science_tech_http_status_302', 'Что означает HTTP 302?', 'Временный редирект.', [
+                ['Временный редирект', true],
+                ['Успех', false],
+                ['Не авторизован', false],
+                ['Файл не найден', false]
+            ]),
+                $this->makeQuestion('science_tech_http_status_401', 'Что означает HTTP 401?', 'Не авторизован (требуется авторизация).', [
+                ['Не авторизован', true],
+                ['Доступ запрещён', false],
+                ['Не найдено', false],
+                ['Сервер упал', false]
+            ]),
+                $this->makeQuestion('science_tech_http_status_403', 'Что означает HTTP 403?', 'Запрещено — недостаточно прав.', [
+                ['Запрещено', true],
+                ['Не авторизован', false],
+                ['Не найдено', false],
+                ['Редирект', false]
+            ]),
+                $this->makeQuestion('science_tech_http_status_201', 'Что означает HTTP 201?', 'Создан ресурс.', [
+                ['Создан', true],
+                ['Успех без тела', false],
+                ['Не найдено', false],
+                ['Ошибка сервера', false]
+            ]),
+                $this->makeQuestion('science_tech_http_status_204', 'Что означает HTTP 204?', 'Нет содержимого, но запрос успешен.', [
+                ['Успех без контента', true],
+                ['Создан ресурс', false],
+                ['Постоянный редирект', false],
+                ['Ошибка сервера', false]
+            ]),
+                $this->makeQuestion('science_tech_http_status_301', 'Что означает HTTP 301?', 'Постоянный редирект.', [
+                ['Постоянный редирект', true],
+                ['Временный редирект', false],
+                ['Успех', false],
+                ['Не найдено', false]
+            ]),
+                $this->makeQuestion('science_tech_http_status_429', 'Что означает HTTP 429?', 'Слишком много запросов (rate limit).', [
+                ['Превышен лимит запросов', true],
+                ['Не найдено', false],
+                ['Успех', false],
+                ['Ошибка сервера', false]
+            ]),
+                $this->makeQuestion('science_tech_hash_sha', 'Что делает SHA-256?', 'Вычисляет криптографический хэш 256 бит.', [
+                ['Криптографический хэш', true],
+                ['Шифрует симметрично', false],
+                ['Сжимает архив', false],
+                ['Рисует графику', false]
+            ]),
+                $this->makeQuestion('science_tech_cpu_register', 'Что такое регистр процессора?', 'Очень быстрая ячейка для данных/адресов.', [
+                ['Быстрая ячейка данных', true],
+                ['Сектор на диске', false],
+                ['Тип сети', false],
+                ['Модуль ОЗУ', false]
+            ]),
+                $this->makeQuestion('science_tech_cache_levels', 'Зачем многоуровневый кеш L1/L2/L3?', 'Снижать задержку доступа к данным.', [
+                ['Снижение задержек', true],
+                ['Увеличение задержек', false],
+                ['Хранение логов', false],
+                ['Шифрование диска', false]
+            ]),
+                $this->makeQuestion('science_tech_cloud_saas', 'Что такое SaaS?', 'Software as a Service — готовое приложение по подписке.', [
+                ['ПО как сервис', true],
+                ['Инфраструктура как сервис', false],
+                ['Платформа как сервис', false],
+                ['Устройства как сервис', false]
+            ]),
+                $this->makeQuestion('science_tech_cloud_paas', 'Что такое PaaS?', 'Платформа как сервис — рантайм/БД/CI.', [
+                ['Платформа как сервис', true],
+                ['ПО как сервис', false],
+                ['Инфраструктура как сервис', false],
+                ['Хостинг статики', false]
+            ]),
+                $this->makeQuestion('science_tech_cloud_iaas', 'Что такое IaaS?', 'Инфраструктура как сервис — ВМ/сети/диски.', [
+                ['Инфраструктура как сервис', true],
+                ['ПО как сервис', false],
+                ['Платформа как сервис', false],
+                ['UI как сервис', false]
+            ]),
+                $this->makeQuestion('science_tech_cpu_cores', 'Что даёт многоядерность CPU?', 'Параллельное выполнение потоков.', [
+                ['Параллельное выполнение', true],
+                ['Запрет многозадачности', false],
+                ['Увеличение задержек', false],
+                ['Отключение кеша', false]
+            ]),
+                $this->makeQuestion('science_tech_gpu_tensor_core', 'Для чего тензорные ядра?', 'Ускорение матричных операций и ML.', [
+                ['Матричные операции/ML', true],
+                ['Рендеринг аудио', false],
+                ['Хранение файлов', false],
+                ['DNS', false]
+            ]),
+                $this->makeQuestion('science_tech_dnssec', 'Что даёт DNSSEC?', 'Криптоподпись DNS-ответов для защиты от подмены.', [
+                ['Защита от подмены DNS', true],
+                ['Ускорение резолвинга', false],
+                ['Сжатие ответов', false],
+                ['Кеш очистку', false]
+            ]),
+                $this->makeQuestion('science_tech_cd_pipeline', 'Что обычно включает CD-пайплайн?', 'Сборка, тесты, деплой.', [
+                ['Сборка/тесты/деплой', true],
+                ['Только деплой', false],
+                ['Только тесты', false],
+                ['Только линт', false]
+            ]),
+                $this->makeQuestion('science_tech_dockerfile_from', 'Для чего директива FROM в Dockerfile?', 'Определяет базовый образ.', [
+                ['Базовый образ', true],
+                ['Копирует файлы', false],
+                ['Открывает порт', false],
+                ['Запускает команду', false]
+            ]),
+                $this->makeQuestion('science_tech_dockerfile_copy', 'Что делает COPY в Dockerfile?', 'Копирует файлы в образ.', [
+                ['Копирует файлы', true],
+                ['Удаляет файлы', false],
+                ['Создаёт сеть', false],
+                ['Открывает порт', false]
+            ]),
+                $this->makeQuestion('science_tech_dockerfile_cmd', 'Для чего CMD в Dockerfile?', 'Команда по умолчанию при запуске контейнера.', [
+                ['Команда по умолчанию', true],
+                ['Установка зависимостей', false],
+                ['Создание образа', false],
+                ['Миграция БД', false]
+            ]),
+                $this->makeQuestion('science_tech_k8s_pod', 'Что такое Pod в Kubernetes?', 'Минимальная единица — один или несколько контейнеров.', [
+                ['Группа контейнеров', true],
+                ['Кластер', false],
+                ['Ingress', false],
+                ['ConfigMap', false]
+            ]),
+                $this->makeQuestion('science_tech_k8s_configmap', 'Для чего ConfigMap?', 'Хранит неконфиденциальные конфиги.', [
+                ['Хранение конфигов', true],
+                ['Секреты', false],
+                ['Логи', false],
+                ['Код приложения', false]
+            ]),
+                $this->makeQuestion('science_tech_k8s_secret', 'Для чего Secret?', 'Хранение чувствительных данных (пароли, ключи).', [
+                ['Чувствительные данные', true],
+                ['Логи', false],
+                ['Образы', false],
+                ['Сетевые правила', false]
+            ]),
+                $this->makeQuestion('science_tech_k8s_service', 'Что делает Service?', 'Даёт стабильный адрес для Pod-ов.', [
+                ['Стабильный адрес/балансировка', true],
+                ['Хранит секреты', false],
+                ['Монтирует диски', false],
+                ['Собирает метрики', false]
+            ]),
+                $this->makeQuestion('science_tech_k8s_ingress', 'Для чего Ingress?', 'Маршрутизация HTTP(S) к сервисам.', [
+                ['HTTP(S) маршрутизация', true],
+                ['Хранение образов', false],
+                ['Мониторинг', false],
+                ['Очередь задач', false]
+            ]),
+                $this->makeQuestion('science_tech_k8s_statefulset', 'Для чего StatefulSet?', 'Деплой с сохранением идентичности Pod-ов (БД и др.).', [
+                ['Сохранение идентичности Pod-ов', true],
+                ['Cron задачи', false],
+                ['Сетевые политики', false],
+                ['Ingress', false]
+            ]),
+
+                $this->makeQuestion('science_tech_https_port', 'Какой порт по умолчанию у HTTPS?', 'Стандартный порт HTTPS — 443.', [
+                ['443', true],
+                ['80', false],
+                ['21', false],
+                ['22', false]
+            ]),
+                $this->makeQuestion('science_tech_http_methods', 'Какие методы HTTP считаются идемпотентными?', 'GET, PUT, DELETE, HEAD, OPTIONS — идемпотентны.', [
+                ['GET/PUT/DELETE/HEAD/OPTIONS', true],
+                ['POST/CONNECT', false],
+                ['PATCH/POST', false],
+                ['TRACE/POST', false]
+            ]),
+                $this->makeQuestion('science_tech_dns_purpose', 'Для чего нужен DNS?', 'Преобразует имена хостов в IP-адреса.', [
+                ['Преобразование имён в IP', true],
+                ['Шифрование трафика', false],
+                ['Мониторинг логов', false],
+                ['Сжатие файлов', false]
+            ]),
+                $this->makeQuestion('science_tech_ram', 'Что такое оперативная память?', 'Быстрая память для временных данных и инструкций.', [
+                ['Быстрая временная память', true],
+                ['Постоянная память на диске', false],
+                ['Только кэш процессора', false],
+                ['Только видеопамять', false]
+            ]),
+                $this->makeQuestion('science_tech_gpu', 'Для чего изначально предназначен GPU?', 'Параллельная обработка графики/видео.', [
+                ['Параллельная обработка графики', true],
+                ['Хранение данных', false],
+                ['Управление сетью', false],
+                ['Работа с дисками', false]
+            ]),
+                $this->makeQuestion('science_tech_ssl', 'Что обеспечивает SSL/TLS?', 'Шифрование и аутентификацию соединения.', [
+                ['Шифрование и аутентификация', true],
+                ['Сжатие файлов', false],
+                ['Резервное копирование', false],
+                ['Рендеринг 3D', false]
+            ]),
+                $this->makeQuestion('science_tech_ipv4_octets', 'Сколько октетов в IPv4-адресе?', 'Четыре октета по 8 бит.', [
+                ['4', true],
+                ['6', false],
+                ['2', false],
+                ['8', false]
+            ]),
+                $this->makeQuestion('science_tech_ipv6_segments', 'Сколько групп в записи IPv6-адреса?', 'Восемь групп по 16 бит.', [
+                ['8', true],
+                ['6', false],
+                ['4', false],
+                ['10', false]
+            ]),
+                $this->makeQuestion('science_tech_sql_select', 'Что делает оператор SELECT в SQL?', 'Выбирает данные из таблиц.', [
+                ['Выбор данных', true],
+                ['Создание таблицы', false],
+                ['Удаление таблицы', false],
+                ['Изменение схемы', false]
+            ]),
+                $this->makeQuestion('science_tech_sql_where', 'Для чего в SQL используется WHERE?', 'Фильтрует строки по условию.', [
+                ['Фильтрация строк', true],
+                ['Сортировка', false],
+                ['Группировка', false],
+                ['Создание индекса', false]
+            ]),
+                $this->makeQuestion('science_tech_json', 'Что такое JSON?', 'Текстовый формат обмена данными ключ-значение.', [
+                ['Текстовый формат данных', true],
+                ['Бинарный архив', false],
+                ['Графический формат', false],
+                ['Язык программирования', false]
+            ]),
+                $this->makeQuestion('science_tech_html_css', 'За что отвечает CSS?', 'Каскадные таблицы стилей задают внешний вид HTML.', [
+                ['Оформление стилей', true],
+                ['Хранение данных', false],
+                ['Серверные запросы', false],
+                ['Сборку пакетов', false]
+            ]),
+                $this->makeQuestion('science_tech_git_merge', 'Что делает git merge?', 'Объединяет изменения другой ветки в текущую.', [
+                ['Объединяет ветки', true],
+                ['Удаляет репозиторий', false],
+                ['Создаёт ветку', false],
+                ['Загружает пакеты', false]
+            ]),
+                $this->makeQuestion('science_tech_git_rebase', 'Что делает git rebase?', 'Переписывает историю, применяя коммиты поверх базы.', [
+                ['Переносит коммиты на новую базу', true],
+                ['Скачивает зависимости', false],
+                ['Удаляет ветку', false],
+                ['Публикует релиз', false]
+            ]),
+                $this->makeQuestion('science_tech_ci_cd', 'Что означают CI/CD?', 'Continuous Integration и Continuous Delivery/Deployment.', [
+                ['Непрерывная интеграция/доставка', true],
+                ['Контроль изображений', false],
+                ['Холодный запуск', false],
+                ['Компактный индекс', false]
+            ]),
+                $this->makeQuestion('science_tech_container', 'Что такое контейнер в ИТ?', 'Изолированная среда с приложением и зависимостями.', [
+                ['Изолированная среда', true],
+                ['Физический сервер', false],
+                ['BI-отчёт', false],
+                ['SQL-запрос', false]
+            ]),
+                $this->makeQuestion('science_tech_virtual_machine', 'Чем VM отличается от контейнера?', 'VM содержит собственную ОС, контейнер делит ядро.', [
+                ['VM со своей ОС, контейнер делит ядро', true],
+                ['Они идентичны', false],
+                ['Контейнер тяжелее VM', false],
+                ['VM не использует гипервизор', false]
+            ]),
+                $this->makeQuestion('science_tech_dns_types', 'Что задаёт CNAME-запись?', 'Псевдоним домена на другой домен.', [
+                ['Псевдоним домена', true],
+                ['IP-адрес IPv4', false],
+                ['Почтовый сервер', false],
+                ['Текстовая пометка', false]
+            ]),
+                $this->makeQuestion('science_tech_ssl_hsts', 'Для чего заголовок HSTS?', 'Принудительно переводит сайт на HTTPS.', [
+                ['Принудительный HTTPS', true],
+                ['Кеширование CSS', false],
+                ['Сжатие изображений', false],
+                ['Редирект на WWW', false]
+            ]),
+                $this->makeQuestion('science_tech_mfa', 'Что такое MFA?', 'Многофакторная аутентификация — несколько факторов входа.', [
+                ['Многофакторная аутентификация', true],
+                ['Отключение паролей', false],
+                ['Хранилище данных', false],
+                ['Фреймворк фронтенда', false]
+            ]),
+                $this->makeQuestion('science_tech_phishing', 'Что такое фишинг?', 'Социальная инженерия для кражи данных через поддельные сообщения.', [
+                ['Социнжиниринг для кражи данных', true],
+                ['Шифрование файлов', false],
+                ['Резервное копирование', false],
+                ['Оптимизация сети', false]
+            ]),
+                $this->makeQuestion('science_tech_hashing', 'Для чего используют хэш-функции?', 'Проверка целостности и хранение отпечатков.', [
+                ['Проверка целостности', true],
+                ['Шифрование трафика', false],
+                ['Сжатие видео', false],
+                ['Рендеринг', false]
+            ]),
+                $this->makeQuestion('science_tech_salt', 'Зачем добавляют соль при хешировании паролей?', 'Чтобы усложнить радужные таблицы и подбор.', [
+                ['Против радужных таблиц', true],
+                ['Для ускорения', false],
+                ['Для сжатия', false],
+                ['Для шифрования канала', false]
+            ]),
+                $this->makeQuestion('science_tech_firewall', 'Что делает сетевой файрвол?', 'Фильтрует трафик по правилам.', [
+                ['Фильтрация трафика', true],
+                ['Рендеринг CSS', false],
+                ['Обучение модели', false],
+                ['Сжатие БД', false]
+            ]),
+                $this->makeQuestion('science_tech_sql_injection', 'Что такое SQL-инъекция?', 'Внедрение произвольных SQL через ввод пользователя.', [
+                ['Внедрение SQL через ввод', true],
+                ['Резервное копирование SQL', false],
+                ['Сжатие базы', false],
+                ['Дефрагментация', false]
+            ]),
+                $this->makeQuestion('science_tech_xss', 'Что такое XSS?', 'Межсайтовый скриптинг — внедрение JS в страницу.', [
+                ['Внедрение скриптов в страницу', true],
+                ['Атака на DNS', false],
+                ['Шифрование трафика', false],
+                ['Обход CDN', false]
+            ]),
+                $this->makeQuestion('science_tech_csrf', 'Что такое CSRF?', 'Подделка межсайтовых запросов от имени пользователя.', [
+                ['Подделка запросов', true],
+                ['Шифрование формы', false],
+                ['SQL-оптимизация', false],
+                ['Кеширование', false]
+            ]),
+
                 [
                     'code' => 'science_sublimation',
                     'question' => 'Как называется процесс, при котором твёрдое вещество превращается в газ, минуя жидкое состояние?',
@@ -1618,6 +2276,626 @@ class SampleDataSeeder
                 ['Тур, Париж-Рубе, Вуэльта', false],
                 ['Джиро, Классика, Тур', false],
                 ['Вуэльта, Омлоп, Тур', false]
+            ]),
+
+
+                $this->makeQuestion('sport_var_offside', 'Для чего судья обращается к VAR при офсайде?', 'VAR помогает уточнить факты офсайда по видео.', [
+                ['Проверить офсайд по видео', true],
+                ['Назначить красную карточку', false],
+                ['Определить владение мячом', false],
+                ['Подсчитать угловые', false]
+            ]),
+                $this->makeQuestion('sport_olympic_flag_rings', 'Что символизируют пять колец на олимпийском флаге?', 'Пять обитаемых частей света и единство спортсменов.', [
+                ['Пять частей света и единство', true],
+                ['Пять видов спорта', false],
+                ['Пять рекордов', false],
+                ['Пять языков', false]
+            ]),
+                $this->makeQuestion('sport_football_extra_time', 'Сколько длится овертайм в футболе (два тайма)?', 'Два тайма по 15 минут — всего 30 минут.', [
+                ['30 минут (2×15)', true],
+                ['20 минут (2×10)', false],
+                ['40 минут (2×20)', false],
+                ['15 минут (1×15)', false]
+            ]),
+                $this->makeQuestion('sport_penalty_shootout', 'Сколько стартовых ударов в серии пенальти до внезапной смерти?', 'Пять на команду — потом sudden death.', [
+                ['5', true],
+                ['3', false],
+                ['7', false],
+                ['10', false]
+            ]),
+                $this->makeQuestion('sport_nfl_touchdown_points', 'Сколько очков даёт тачдаун в американском футболе NFL?', 'Тачдаун — 6 очков.', [
+                ['6', true],
+                ['7', false],
+                ['3', false],
+                ['2', false]
+            ]),
+                $this->makeQuestion('sport_nfl_field_goal', 'Сколько очков за филд-гол в NFL?', 'Филд-гол оценивается в 3 очка.', [
+                ['3', true],
+                ['1', false],
+                ['2', false],
+                ['6', false]
+            ]),
+                $this->makeQuestion('sport_basket_shotclock_fiba', 'Сколько секунд на атаку в баскетболе ФИБА?', 'В ФИБА 24 секунды.', [
+                ['24', true],
+                ['30', false],
+                ['35', false],
+                ['14', false]
+            ]),
+                $this->makeQuestion('sport_basket_fouls_fiba', 'Сколько персональных фолов до удаления в баскетболе ФИБА?', 'Пять фолов — на шестом удаление.', [
+                ['5', true],
+                ['6', false],
+                ['4', false],
+                ['7', false]
+            ]),
+                $this->makeQuestion('sport_tennis_sets_grand_slam_men', 'Сколько сетов играют мужчины на турнирах Большого шлема?', 'До трёх побед — формат best of 5.', [
+                ['До 3 побед (best of 5)', true],
+                ['До 2 побед', false],
+                ['До 4 побед', false],
+                ['Один сет', false]
+            ]),
+                $this->makeQuestion('sport_tennis_tie_break_points', 'До скольки очков идёт тай-брейк (классика)?', 'До 7 с разницей минимум в 2.', [
+                ['До 7, разница 2', true],
+                ['До 5, разница 1', false],
+                ['До 10, разница 3', false],
+                ['До 15, разница 2', false]
+            ]),
+                $this->makeQuestion('sport_volleyball_sets', 'Сколько сетов нужно выиграть в волейболе до 25 очков?', 'Матч до трёх выигранных сетов (из 5).', [
+                ['3 из 5', true],
+                ['2 из 3', false],
+                ['4 из 7', false],
+                ['1 из 1', false]
+            ]),
+                $this->makeQuestion('sport_volleyball_tiebreak_points', 'До скольки очков играют тай-брейк в волейболе?', 'Решающий сет до 15, разница 2.', [
+                ['15, разница 2', true],
+                ['25, разница 2', false],
+                ['21, разница 1', false],
+                ['11, разница 2', false]
+            ]),
+                $this->makeQuestion('sport_handball_goal_size_exact', 'Какой размер ворот в гандболе в метрах?', '3 метра ширина и 2 метра высота.', [
+                ['3×2', true],
+                ['2×2', false],
+                ['4×2', false],
+                ['3×1,5', false]
+            ]),
+                $this->makeQuestion('sport_icehockey_team', 'Сколько игроков одной команды на льду в хоккее (без удалений)?', 'Пять полевых и вратарь — всего шесть.', [
+                ['6', true],
+                ['5', false],
+                ['7', false],
+                ['8', false]
+            ]),
+                $this->makeQuestion('sport_hockey_penalty_small', 'Сколько минут длится малый штраф в хоккее?', 'Малый штраф — 2 минуты.', [
+                ['2', true],
+                ['5', false],
+                ['10', false],
+                ['4', false]
+            ]),
+                $this->makeQuestion('sport_hockey_penalty_major', 'Сколько минут длится большой штраф в хоккее?', 'Большой штраф — 5 минут.', [
+                ['5', true],
+                ['2', false],
+                ['10', false],
+                ['15', false]
+            ]),
+                $this->makeQuestion('sport_f1_points_win', 'Сколько очков за победу в Формуле-1 (стандартная система)?', '25 очков за первое место.', [
+                ['25', true],
+                ['20', false],
+                ['18', false],
+                ['10', false]
+            ]),
+                $this->makeQuestion('sport_f1_fastest_lap', 'Сколько очков даёт самый быстрый круг в Формуле-1 (при попадании в топ-10)?', '1 очко за быстрый круг, если в топ-10.', [
+                ['1', true],
+                ['2', false],
+                ['3', false],
+                ['0', false]
+            ]),
+                $this->makeQuestion('sport_boxing_weight_middle', 'Какая масса до (примерно) относится к среднему весу в боксе?', 'В среднем весе до 72,6 кг (160 фунтов).', [
+                ['~72,6 кг', true],
+                ['~63,5 кг', false],
+                ['~79,4 кг', false],
+                ['~90,7 кг', false]
+            ]),
+                $this->makeQuestion('sport_boxing_weight_welter', 'Какой предел у полусреднего веса в боксе?', 'Около 66,7 кг (147 фунтов).', [
+                ['~66,7 кг', true],
+                ['~60,0 кг', false],
+                ['~72,5 кг', false],
+                ['~75,0 кг', false]
+            ]),
+                $this->makeQuestion('sport_running_marathon', 'Какова официальная дистанция марафона?', '42 км 195 м.', [
+                ['42,195 км', true],
+                ['21,1 км', false],
+                ['10 км', false],
+                ['50 км', false]
+            ]),
+                $this->makeQuestion('sport_running_halfmarathon', 'Сколько километров в полумарафоне?', '21,0975 км — половина марафона.', [
+                ['21,0975 км', true],
+                ['10 км', false],
+                ['30 км', false],
+                ['15 км', false]
+            ]),
+                $this->makeQuestion('sport_swim_olympic_pool', 'Какова длина олимпийского бассейна?', '50 метров.', [
+                ['50 м', true],
+                ['25 м', false],
+                ['33 м', false],
+                ['100 м', false]
+            ]),
+                $this->makeQuestion('sport_swim_medley_order', 'В каком порядке стили в комплексном плавании (ИМ)?', 'Баттерфляй, на спине, брасс, кроль.', [
+                ['Баттерфляй-спина-брасс-кроль', true],
+                ['Спина-брасс-баттерфляй-кроль', false],
+                ['Кроль-баттерфляй-брасс-спина', false],
+                ['Брасс-спина-кроль-баттерфляй', false]
+            ]),
+                $this->makeQuestion('sport_cycling_grandtour_days', 'Сколько примерно дней длится Гранд-тур по велоспорту?', 'Около 21 гоночного дня с отдыхами.', [
+                ['~21 день', true],
+                ['7 дней', false],
+                ['30 дней', false],
+                ['14 дней', false]
+            ]),
+
+
+                $this->makeQuestion('sport_mlb_innings', 'Сколько стандартных иннингов в бейсболе MLB?', 'Девять иннингов в основной игре.', [
+                ['9', true],
+                ['7', false],
+                ['5', false],
+                ['11', false]
+            ]),
+                $this->makeQuestion('sport_mlb_pitcher_mound', 'На каком расстоянии подающая плита от домашней базы в MLB?', '60 футов 6 дюймов (~18,44 м).', [
+                ['60 футов 6 дюймов', true],
+                ['50 футов', false],
+                ['66 футов', false],
+                ['70 футов', false]
+            ]),
+                $this->makeQuestion('sport_cricket_overs_t20', 'Сколько оверов у команды в матче T20 по крикету?', '20 оверов по 6 подач.', [
+                ['20', true],
+                ['10', false],
+                ['50', false],
+                ['40', false]
+            ]),
+                $this->makeQuestion('sport_cricket_test_days', 'Сколько дней длится тест-матч в крикете?', 'До пяти дней.', [
+                ['5', true],
+                ['3', false],
+                ['1', false],
+                ['7', false]
+            ]),
+                $this->makeQuestion('sport_rugby_union_players', 'Сколько игроков в классическом регби-15?', '15 на поле у каждой команды.', [
+                ['15', true],
+                ['13', false],
+                ['11', false],
+                ['7', false]
+            ]),
+                $this->makeQuestion('sport_rugby_sevens', 'Сколько игроков в регби-7?', '7 человек на поле.', [
+                ['7', true],
+                ['15', false],
+                ['11', false],
+                ['9', false]
+            ]),
+                $this->makeQuestion('sport_nba_quarters_count', 'Сколько четвертей в баскетбольном матче НБА?', 'Четыре четверти.', [
+                ['4', true],
+                ['2', false],
+                ['3', false],
+                ['5', false]
+            ]),
+                $this->makeQuestion('sport_handball_time', 'Сколько длится тайм в гандболе у взрослых?', '2×30 минут.', [
+                ['30 минут', true],
+                ['20 минут', false],
+                ['25 минут', false],
+                ['35 минут', false]
+            ]),
+                $this->makeQuestion('sport_waterpolo_players', 'Сколько игроков у команды в водном поло в воде?', '6 полевых + вратарь — всего 7.', [
+                ['7', true],
+                ['6', false],
+                ['8', false],
+                ['9', false]
+            ]),
+                $this->makeQuestion('sport_badminton_rally_point', 'До скольки очков играют партии в бадминтоне (rally point)?', 'До 21, разница минимум 2.', [
+                ['21', true],
+                ['15', false],
+                ['11', false],
+                ['25', false]
+            ]),
+                $this->makeQuestion('sport_table_tennis_serve', 'Через сколько очков меняется подача в настольном теннисе?', 'Каждые 2 очка, при 10:10 — по подаче.', [
+                ['Каждые 2', true],
+                ['Каждые 5', false],
+                ['Каждое очко', false],
+                ['Каждые 3', false]
+            ]),
+                $this->makeQuestion('sport_golf_par', 'Что означает PAR в гольфе?', 'Норма ударов для лунки.', [
+                ['Норма ударов', true],
+                ['Название клюшки', false],
+                ['Тип покрытия', false],
+                ['Тип мяча', false]
+            ]),
+                $this->makeQuestion('sport_chess_elo', 'Что измеряет рейтинг Эло в шахматах?', 'Силу игры игрока относительно других.', [
+                ['Силу игры', true],
+                ['Количество партий', false],
+                ['Возраст', false],
+                ['Контроль времени', false]
+            ]),
+                $this->makeQuestion('sport_chess_rapid_time', 'Каков типичный контроль для рапида в шахматах?', '10–25 минут на партию.', [
+                ['10–25 минут', true],
+                ['3 минуты', false],
+                ['60 минут', false],
+                ['90 минут', false]
+            ]),
+                $this->makeQuestion('sport_biathlon_men_pursuit', 'Дистанция мужской гонки преследования в биатлоне?', '12,5 км.', [
+                ['12,5 км', true],
+                ['10 км', false],
+                ['15 км', false],
+                ['20 км', false]
+            ]),
+                $this->makeQuestion('sport_biathlon_women_pursuit', 'Дистанция женской гонки преследования в биатлоне?', '10 км.', [
+                ['10 км', true],
+                ['7,5 км', false],
+                ['12,5 км', false],
+                ['15 км', false]
+            ]),
+                $this->makeQuestion('sport_weightlifting_snatch', 'Сколько попыток на упражнение в тяжёлой атлетике?', 'Три попытки на рывок и три на толчок.', [
+                ['3 попытки', true],
+                ['2 попытки', false],
+                ['4 попытки', false],
+                ['1 попытка', false]
+            ]),
+                $this->makeQuestion('sport_ufc_rounds_champ', 'Сколько раундов в чемпионском бою UFC?', 'Пять раундов по 5 минут.', [
+                ['5×5 минут', true],
+                ['3×3 минуты', false],
+                ['12×3 минуты', false],
+                ['2×5 минут', false]
+            ]),
+                $this->makeQuestion('sport_ufc_rounds_regular', 'Сколько раундов в обычном бою UFC?', 'Три раунда по 5 минут.', [
+                ['3×5 минут', true],
+                ['5×5 минут', false],
+                ['3×3 минуты', false],
+                ['2×5 минут', false]
+            ]),
+                $this->makeQuestion('sport_nhl_regular_season_games', 'Сколько матчей проводит команда НХЛ в регулярке?', '82 матча.', [
+                ['82', true],
+                ['72', false],
+                ['62', false],
+                ['90', false]
+            ]),
+                $this->makeQuestion('sport_nba_regular_season_games', 'Сколько матчей у команды в регулярке НБА?', '82 игры.', [
+                ['82', true],
+                ['70', false],
+                ['60', false],
+                ['90', false]
+            ]),
+                $this->makeQuestion('sport_olympics_frequency', 'Как часто проходят летние Олимпийские игры?', 'Раз в четыре года.', [
+                ['Раз в 4 года', true],
+                ['Раз в 2 года', false],
+                ['Каждый год', false],
+                ['Раз в 6 лет', false]
+            ]),
+                $this->makeQuestion('sport_worldcup_frequency', 'Как часто проходит ЧМ по футболу?', 'Каждые 4 года.', [
+                ['Раз в 4 года', true],
+                ['Раз в 2 года', false],
+                ['Каждый год', false],
+                ['Раз в 6 лет', false]
+            ]),
+                $this->makeQuestion('sport_nhl_stanley_playoff_format', 'До скольки побед серии плей-офф НХЛ?', 'До 4 побед (best of 7).', [
+                ['До 4 побед', true],
+                ['До 3 побед', false],
+                ['До 5 побед', false],
+                ['До 2 побед', false]
+            ]),
+                $this->makeQuestion('sport_nba_playoff_format', 'До скольки побед серии плей-офф НБА?', 'До 4 побед (best of 7).', [
+                ['До 4 побед', true],
+                ['До 3 побед', false],
+                ['До 5 побед', false],
+                ['До 2 побед', false]
+            ]),
+                $this->makeQuestion('sport_formula_electric', 'Как называется главная серия электроболидов FIA?', 'Формула E — электрическая серия.', [
+                ['Формула E', true],
+                ['Формула 2', false],
+                ['Формула 3', false],
+                ['Формула 4', false]
+            ]),
+
+
+                $this->makeQuestion('sport_fifa_worldcup_teams', 'Сколько сборных участвует в финальной части ЧМ-2022 по футболу?', '32 команды (до расширения до 48 с 2026).', [
+                ['32', true],
+                ['24', false],
+                ['48', false],
+                ['16', false]
+            ]),
+                $this->makeQuestion('sport_uefa_euro_frequency', 'Как часто проходит чемпионат Европы по футболу?', 'Раз в 4 года.', [
+                ['Раз в 4 года', true],
+                ['Раз в 2 года', false],
+                ['Каждый год', false],
+                ['Раз в 6 лет', false]
+            ]),
+                $this->makeQuestion('sport_nfl_regular_length', 'Сколько недель длится регулярный сезон NFL (после расширения)?', '18 недель, 17 матчей для команды.', [
+                ['18 недель', true],
+                ['16 недель', false],
+                ['20 недель', false],
+                ['14 недель', false]
+            ]),
+                $this->makeQuestion('sport_nba_three_point_distance', 'Какое расстояние трёхочковой дуги в НБА по центру?', 'Около 7,24 м (23 ft 9 in).', [
+                ['~7,24 м', true],
+                ['~6,25 м', false],
+                ['~8,00 м', false],
+                ['~5,80 м', false]
+            ]),
+                $this->makeQuestion('sport_nba_corner_three', 'Какое расстояние углового трехочкового броска в НБА?', 'Около 6,7 м (22 ft).', [
+                ['~6,7 м', true],
+                ['~7,24 м', false],
+                ['~5,5 м', false],
+                ['~8,0 м', false]
+            ]),
+                $this->makeQuestion('sport_fiba_three_point', 'Какое расстояние трехочковой дуги в ФИБА?', '6,75 м.', [
+                ['6,75 м', true],
+                ['7,24 м', false],
+                ['6,25 м', false],
+                ['6,50 м', false]
+            ]),
+                $this->makeQuestion('sport_tennis_wimbledon_surface', 'На каком покрытии проводится Уимблдон?', 'Трава.', [
+                ['Трава', true],
+                ['Хард', false],
+                ['Грунт', false],
+                ['Паркет', false]
+            ]),
+                $this->makeQuestion('sport_tennis_rg_surface', 'На каком покрытии проходит Roland Garros?', 'Грунт (красный корт).', [
+                ['Грунт', true],
+                ['Хард', false],
+                ['Трава', false],
+                ['Искусственный газон', false]
+            ]),
+                $this->makeQuestion('sport_tennis_usopen_surface', 'На каком покрытии проходит US Open?', 'Хард.', [
+                ['Хард', true],
+                ['Грунт', false],
+                ['Трава', false],
+                ['Паркет', false]
+            ]),
+                $this->makeQuestion('sport_chess_classic_control', 'Каков типичный контроль в классических шахматах FIDE?', '90+30/40 ходов, затем 30+30 — около 2 часов.', [
+                ['Около 90+30 на 40 ходов', true],
+                ['3+2', false],
+                ['15+10', false],
+                ['5 минут без добавки', false]
+            ]),
+                $this->makeQuestion('sport_f1_max_points_weekend', 'Сколько максимум очков можно набрать за уикенд Ф1 со спринтом (2023)?', '32: победа (25) + БК (1) + победа в спринте (8).', [
+                ['32', true],
+                ['26', false],
+                ['34', false],
+                ['30', false]
+            ]),
+                $this->makeQuestion('sport_moto_gp_laps', 'Сколько примерно кругов в гонке MotoGP?', 'Около 20–30 кругов в зависимости от трассы.', [
+                ['20–30 кругов', true],
+                ['5–10 кругов', false],
+                ['40–50 кругов', false],
+                ['60–70 кругов', false]
+            ]),
+                $this->makeQuestion('sport_handball_penalty', 'С какой отметки бросают 7-метровый в гандболе?', 'С линии 7 метров.', [
+                ['7 м', true],
+                ['9 м', false],
+                ['11 м', false],
+                ['5 м', false]
+            ]),
+                $this->makeQuestion('sport_basket_free_throw_distance', 'С какого расстояния выполняется штрафной в баскетболе?', 'Около 4,6 м (15 ft).', [
+                ['~4,6 м', true],
+                ['3,0 м', false],
+                ['5,8 м', false],
+                ['6,75 м', false]
+            ]),
+                $this->makeQuestion('sport_curling_stones', 'Сколько камней у каждой команды в энде в керлинге?', 'По 8 камней на энд.', [
+                ['8', true],
+                ['6', false],
+                ['10', false],
+                ['12', false]
+            ]),
+                $this->makeQuestion('sport_curling_house', 'Как называется цель из колец в керлинге?', 'Дом — зона из колец.', [
+                ['Дом', true],
+                ['Кольцо', false],
+                ['Поле', false],
+                ['Круг', false]
+            ]),
+                $this->makeQuestion('sport_speedskating_olympic', 'Какова длина олимпийского овала для конькобежного спорта?', '400 метров.', [
+                ['400 м', true],
+                ['200 м', false],
+                ['333 м', false],
+                ['500 м', false]
+            ]),
+                $this->makeQuestion('sport_shorttrack_track', 'Какова длина дорожки в шорт-треке?', '111,12 м.', [
+                ['111,12 м', true],
+                ['200 м', false],
+                ['400 м', false],
+                ['333 м', false]
+            ]),
+                $this->makeQuestion('sport_triathlon_olympic', 'Какие дистанции в олимпийском триатлоне?', '1,5 км плавание, 40 км велосипед, 10 км бег.', [
+                ['1,5/40/10', true],
+                ['1,9/90/21', false],
+                ['3,8/180/42', false],
+                ['0,75/20/5', false]
+            ]),
+                $this->makeQuestion('sport_triathlon_ironman', 'Какие дистанции в Ironman?', '3,8 км плавание, 180 км велосипед, 42,2 км бег.', [
+                ['3,8/180/42,2', true],
+                ['1,5/40/10', false],
+                ['1,9/90/21', false],
+                ['0,75/20/5', false]
+            ]),
+                $this->makeQuestion('sport_marathon_worldrecord', 'Марафонский WR у мужчин (около 2:01:09 Берлин-2022) относится к...', 'К дисциплине лёгкой атлетики — марафон.', [
+                ['Лёгкая атлетика, марафон', true],
+                ['Шоссейный велоспорт', false],
+                ['Плавание', false],
+                ['Биатлон', false]
+            ]),
+                $this->makeQuestion('sport_nhl_ice_size', 'Какой размер площадки НХЛ?', '200×85 футов (~60,96×25,9 м).', [
+                ['200×85 футов', true],
+                ['200×100 футов', false],
+                ['180×90 футов', false],
+                ['60×30 м', false]
+            ]),
+                $this->makeQuestion('sport_iiihf_rink', 'Какой размер площадки IIHF (евро)?', '60×30 м стандарт.', [
+                ['60×30 м', true],
+                ['60×26 м', false],
+                ['56×26 м', false],
+                ['61×30 м', false]
+            ]),
+                $this->makeQuestion('sport_mma_weight_feather', 'Какой лимит у полулёгкого веса UFC?', '145 фунтов (~65,8 кг).', [
+                ['145 фунтов', true],
+                ['135 фунтов', false],
+                ['155 фунтов', false],
+                ['170 фунтов', false]
+            ]),
+                $this->makeQuestion('sport_mma_weight_lightheavy', 'Какой лимит у полутяжёлого веса UFC?', '205 фунтов (~93 кг).', [
+                ['205 фунтов', true],
+                ['185 фунтов', false],
+                ['170 фунтов', false],
+                ['265 фунтов', false]
+            ]),
+                $this->makeQuestion('sport_mma_weight_middle', 'Какой лимит у среднего веса UFC?', '185 фунтов (~83,9 кг).', [
+                ['185 фунтов', true],
+                ['170 фунтов', false],
+                ['205 фунтов', false],
+                ['145 фунтов', false]
+            ]),
+
+
+                $this->makeQuestion('sport_uefa_champions_final_format', 'Сколько матчей в финале ЛЧ?', 'Один матч на нейтральном стадионе.', [
+                ['Один матч', true],
+                ['Два матча', false],
+                ['Три матча', false],
+                ['Серия до 3 побед', false]
+            ]),
+                $this->makeQuestion('sport_uefa_group_points', 'Сколько очков даёт победа в группе ЛЧ?', '3 за победу, 1 за ничью.', [
+                ['3 за победу, 1 за ничью', true],
+                ['2 за победу', false],
+                ['4 за победу', false],
+                ['5 за победу', false]
+            ]),
+                $this->makeQuestion('sport_fairplay_yellow', 'Сколько жёлтых карточек до удаления (двухжёлтой)?', 'Две жёлтых = красная.', [
+                ['2 жёлтых', true],
+                ['3 жёлтых', false],
+                ['4 жёлтых', false],
+                ['5 жёлтых', false]
+            ]),
+                $this->makeQuestion('sport_offside_condition', 'Что фиксирует офсайд в футболе?', 'Нападающий ближе к воротам, чем мяч и предпоследний защитник.', [
+                ['Ближе ворот, чем мяч и предпоследний защитник', true],
+                ['Любое касание рукой', false],
+                ['Нарушение вратарем', false],
+                ['Выход мяча за линию', false]
+            ]),
+                $this->makeQuestion('sport_var_red_card', 'VAR может вмешаться при...', 'Красной карточке, голе, пенальти, идентификации игрока.', [
+                ['Гол/пенальти/красная/идентификация', true],
+                ['Угловых', false],
+                ['Аутов', false],
+                ['Броске спорного', false]
+            ]),
+                $this->makeQuestion('sport_nhl_overtime_regular', 'Сколько длится овертайм в регулярке НХЛ?', '5 минут 3-на-3.', [
+                ['5 минут 3-на-3', true],
+                ['10 минут 5-на-5', false],
+                ['20 минут 5-на-5', false],
+                ['5 минут 5-на-5', false]
+            ]),
+                $this->makeQuestion('sport_nhl_overtime_playoff', 'Как проходит овертайм в плей-офф НХЛ?', 'Полные 20 минут 5-на-5 до гола (sudden death).', [
+                ['20 минут 5-на-5 до гола', true],
+                ['5 минут буллиты', false],
+                ['10 минут 3-на-3', false],
+                ['Серия буллитов сразу', false]
+            ]),
+                $this->makeQuestion('sport_soccer_subs_limit', 'Сколько замен разрешено в футболе (обычно)?', '5 замен в три окна (без перерыва), плюс перерыв.', [
+                ['5 замен', true],
+                ['3 замены', false],
+                ['7 замен', false],
+                ['Неограниченно', false]
+            ]),
+                $this->makeQuestion('sport_futsal_players', 'Сколько игроков на паркете в футзале?', '4 полевых + вратарь — всего 5.', [
+                ['5', true],
+                ['6', false],
+                ['7', false],
+                ['8', false]
+            ]),
+                $this->makeQuestion('sport_futsal_match_time', 'Сколько длится матч футзала?', '2×20 минут чистого времени.', [
+                ['2×20', true],
+                ['2×25', false],
+                ['2×30', false],
+                ['2×15', false]
+            ]),
+                $this->makeQuestion('sport_rugby_drop_goal', 'Сколько очков даёт дроп-гол в регби-15?', '3 очка.', [
+                ['3', true],
+                ['2', false],
+                ['5', false],
+                ['7', false]
+            ]),
+                $this->makeQuestion('sport_rugby_conversion', 'Сколько очков за реализацию после попытки?', '2 очка.', [
+                ['2', true],
+                ['3', false],
+                ['1', false],
+                ['5', false]
+            ]),
+                $this->makeQuestion('sport_basket_bonus', 'Когда команда уходит на штрафные за фолы (НБА)?', 'После 5 командных фолов в четверти.', [
+                ['После 5 фолов', true],
+                ['После 3 фолов', false],
+                ['После 7 фолов', false],
+                ['После 10 фолов', false]
+            ]),
+                $this->makeQuestion('sport_chess_armageddon', 'Что такое армагеддон в шахматах?', 'Партия с неравным временем и обязаловкой ничьи за чёрных.', [
+                ['Неравное время, ничья в пользу чёрных', true],
+                ['Партия до мата', false],
+                ['Партия без ферзей', false],
+                ['Партия вслепую', false]
+            ]),
+                $this->makeQuestion('sport_snooker_frames', 'До скольки фреймов играют финалы ЧМ по снукеру?', 'До 18 побед (best of 35).', [
+                ['До 18', true],
+                ['До 10', false],
+                ['До 21', false],
+                ['До 25', false]
+            ]),
+                $this->makeQuestion('sport_darts_finish', 'Сколько очков нужно набрать, чтобы закончить лег в дартсе (классика)?', 'С 501 очка добраться до 0, закрыв удвоением.', [
+                ['С 501 до 0 с удвоением', true],
+                ['С 301 до 0 без удвоения', false],
+                ['До 1000', false],
+                ['До 100', false]
+            ]),
+                $this->makeQuestion('sport_table_tennis_let', 'Что такое «лет» при подаче в настольном теннисе?', 'Мяч коснулся сетки при подаче и подача переигрывается.', [
+                ['Подача переигрывается', true],
+                ['Очко защитывается подающему', false],
+                ['Очко защитывается принимающему', false],
+                ['Повтор всей партии', false]
+            ]),
+                $this->makeQuestion('sport_volleyball_rotation', 'Что значит ротация в волейболе?', 'Переход игроков по часовой стрелке после выигрыша подачи.', [
+                ['Переход по часовой стрелке', true],
+                ['Замена связующего', false],
+                ['Изменение формы', false],
+                ['Подача снизу', false]
+            ]),
+                $this->makeQuestion('sport_track_olympic', 'Какова длина стандартного круга на стадионе?', '400 м.', [
+                ['400 м', true],
+                ['200 м', false],
+                ['800 м', false],
+                ['1600 м', false]
+            ]),
+                $this->makeQuestion('sport_basket_three_seconds_def', 'Правило 3 секунд в защите НБА касается...', 'Нельзя стоять в краске без активных действий противника.', [
+                ['Нельзя стоять в краске без действий', true],
+                ['Нельзя фолить', false],
+                ['Нельзя бросать трёхочковые', false],
+                ['Нельзя брать подбор', false]
+            ]),
+                $this->makeQuestion('sport_formula1_safetycar', 'Что происходит при выезде сейфти-кара?', 'Темп замедляется, обгон запрещён до зелёного.', [
+                ['Обгон запрещён, темп низкий', true],
+                ['Разрешены пит-стопы запрещены', false],
+                ['Очки удваиваются', false],
+                ['Гонка прекращается', false]
+            ]),
+                $this->makeQuestion('sport_biathlon_penalty_loop', 'Длина штрафного круга в биатлоне?', '150 метров.', [
+                ['150 м', true],
+                ['100 м', false],
+                ['200 м', false],
+                ['250 м', false]
+            ]),
+                $this->makeQuestion('sport_speedskating_mass', 'Что такое масс-старт в конькобежном спорте?', 'Гонка с общим стартом и спринтами.', [
+                ['Общий старт, промежуточные спринты', true],
+                ['Раздельный старт', false],
+                ['Только командная гонка', false],
+                ['Спринт 500 м', false]
+            ]),
+                $this->makeQuestion('sport_olympic_mascot', 'Кто обычно является талисманом Олимпиады?', 'Выбранный организаторами персонаж/животное.', [
+                ['Спецперсонаж/животное', true],
+                ['Только флаг страны', false],
+                ['Всегда леопард', false],
+                ['Всегда медведь', false]
+            ]),
+                $this->makeQuestion('sport_athletics_heptathlon', 'Сколько дисциплин в женском семиборье?', '7 дисциплин.', [
+                ['7', true],
+                ['5', false],
+                ['10', false],
+                ['8', false]
             ]),
 
             ],
@@ -4663,6 +5941,602 @@ class SampleDataSeeder
                 ['Мамору Хосода', false]
             ]),
 
+
+                $this->makeQuestion('culture_movie_inception', 'Кто поставил фильм «Начало»?', 'Режиссёр — Кристофер Нолан.', [
+                ['Кристофер Нолан', true],
+                ['Джеймс Кэмерон', false],
+                ['Стивен Спилберг', false],
+                ['Ридли Скотт', false]
+            ]),
+                $this->makeQuestion('culture_movie_interstellar', 'Кто поставил фильм «Интерстеллар»?', 'Режиссёр — Кристофер Нолан.', [
+                ['Кристофер Нолан', true],
+                ['Дени Вильнёв', false],
+                ['Джосс Уидон', false],
+                ['Дж. Дж. Абрамс', false]
+            ]),
+                $this->makeQuestion('culture_movie_matrix', 'Кто снял «Матрицу»?', 'Лана и Лилли Вачовски.', [
+                ['Вачовски', true],
+                ['Лукас', false],
+                ['Спилберг', false],
+                ['Кэмерон', false]
+            ]),
+                $this->makeQuestion('culture_movie_blade_runner', 'Кто снял фильм «Бегущий по лезвию» (1982)?', 'Режиссёр — Ридли Скотт.', [
+                ['Ридли Скотт', true],
+                ['Дэвид Финчер', false],
+                ['Кристофер Нолан', false],
+                ['Люк Бессон', false]
+            ]),
+                $this->makeQuestion('culture_movie_avatar', 'Кто снял «Аватар»?', 'Режиссёр — Джеймс Кэмерон.', [
+                ['Джеймс Кэмерон', true],
+                ['Питер Джексон', false],
+                ['Спилберг', false],
+                ['Кэмерон Кроу', false]
+            ]),
+                $this->makeQuestion('culture_book_1984', 'Кто написал роман «1984»?', 'Автор — Джордж Оруэлл.', [
+                ['Джордж Оруэлл', true],
+                ['Олдос Хаксли', false],
+                ['Рэй Брэдбери', false],
+                ['Айзек Азимов', false]
+            ]),
+                $this->makeQuestion('culture_book_brave_new_world', 'Кто написал «О дивный новый мир»?', 'Автор — Олдос Хаксли.', [
+                ['Олдос Хаксли', true],
+                ['Джордж Оруэлл', false],
+                ['Филип К. Дик', false],
+                ['Уильям Голдинг', false]
+            ]),
+                $this->makeQuestion('culture_book_fahrenheit', 'Кто написал «451 градус по Фаренгейту»?', 'Автор — Рэй Брэдбери.', [
+                ['Рэй Брэдбери', true],
+                ['Айзек Азимов', false],
+                ['Филип К. Дик', false],
+                ['Станислав Лем', false]
+            ]),
+                $this->makeQuestion('culture_music_mj_thriller', 'Кто исполняет альбом «Thriller»?', 'Майкл Джексон выпустил «Thriller».', [
+                ['Майкл Джексон', true],
+                ['Принс', false],
+                ['Дэвид Боуи', false],
+                ['Стинг', false]
+            ]),
+                $this->makeQuestion('culture_music_beatles', 'В каком городе сформировались The Beatles?', 'Группа родом из Ливерпуля.', [
+                ['Ливерпуль', true],
+                ['Лондон', false],
+                ['Манчестер', false],
+                ['Бирмингем', false]
+            ]),
+                $this->makeQuestion('culture_music_queen', 'Кто был вокалистом группы Queen?', 'Фредди Меркьюри — фронтмен Queen.', [
+                ['Фредди Меркьюри', true],
+                ['Брайан Мэй', false],
+                ['Роджер Тейлор', false],
+                ['Джон Дикон', false]
+            ]),
+                $this->makeQuestion('culture_music_u2', 'Как зовут вокалиста U2?', 'Вокалист — Боно (Пол Хьюсон).', [
+                ['Боно', true],
+                ['Стинг', false],
+                ['Брюс Спрингстин', false],
+                ['Крис Мартин', false]
+            ]),
+                $this->makeQuestion('culture_series_breaking_bad', 'В каком городе проходит «Во все тяжкие»?', 'Действие — Альбукерке.', [
+                ['Альбукерке', true],
+                ['Лос-Анджелес', false],
+                ['Нью-Йорк', false],
+                ['Майами', false]
+            ]),
+                $this->makeQuestion('culture_series_game_of_thrones_author', 'Кто написал цикл, по которому снята «Игра престолов»?', 'Автор — Джордж Р. Р. Мартин.', [
+                ['Джордж Р. Р. Мартин', true],
+                ['Джон Р. Р. Толкин', false],
+                ['Робин Хобб', false],
+                ['Нил Гейман', false]
+            ]),
+                $this->makeQuestion('culture_series_friends_city', 'В каком городе происходит действие сериала «Друзья»?', 'События — Нью-Йорк.', [
+                ['Нью-Йорк', true],
+                ['Лос-Анджелес', false],
+                ['Чикаго', false],
+                ['Бостон', false]
+            ]),
+                $this->makeQuestion('culture_game_witcher_studio', 'Какая студия создала игру The Witcher 3?', 'CD Projekt RED разработала игру.', [
+                ['CD Projekt RED', true],
+                ['Ubisoft', false],
+                ['EA', false],
+                ['Bethesda', false]
+            ]),
+                $this->makeQuestion('culture_game_cyberpunk', 'Кто разработал Cyberpunk 2077?', 'CD Projekt RED.', [
+                ['CD Projekt RED', true],
+                ['Rockstar', false],
+                ['Valve', false],
+                ['Square Enix', false]
+            ]),
+                $this->makeQuestion('culture_game_overwatch', 'Какая компания создала Overwatch?', 'Overwatch разработана Blizzard.', [
+                ['Blizzard', true],
+                ['Riot Games', false],
+                ['Valve', false],
+                ['Epic Games', false]
+            ]),
+                $this->makeQuestion('culture_comics_dc', 'Кто из героев принадлежит DC?', 'Бэтмен — герой DC.', [
+                ['Бэтмен', true],
+                ['Человек-паук', false],
+                ['Дэдпул', false],
+                ['Железный человек', false]
+            ]),
+                $this->makeQuestion('culture_comics_marvel', 'Кто из героев принадлежит Marvel?', 'Человек-паук — герой Marvel.', [
+                ['Человек-паук', true],
+                ['Бэтмен', false],
+                ['Супермен', false],
+                ['Флэш', false]
+            ]),
+                $this->makeQuestion('culture_anime_studio_ghibli', 'Как называется японская студия, создавшая «Унесённые призраками»?', 'Студия Ghibli.', [
+                ['Studio Ghibli', true],
+                ['Bones', false],
+                ['MAPPA', false],
+                ['Toei', false]
+            ]),
+                $this->makeQuestion('culture_anime_one_piece', 'Кто автор манги «One Piece»?', 'Эйитиро Ода.', [
+                ['Эйитиро Ода', true],
+                ['Масаси Кисимото', false],
+                ['Акира Торияма', false],
+                ['Йошихиро Тогаси', false]
+            ]),
+                $this->makeQuestion('culture_anime_naruto', 'Кто автор манги «Наруто»?', 'Масаси Кисимото.', [
+                ['Масаси Кисимото', true],
+                ['Эйитиро Ода', false],
+                ['Хадзиме Исаяма', false],
+                ['Тит Кубо', false]
+            ]),
+                $this->makeQuestion('culture_kpop_bts', 'Из какой страны группа BTS?', 'Южная Корея.', [
+                ['Южная Корея', true],
+                ['Япония', false],
+                ['Китай', false],
+                ['США', false]
+            ]),
+                $this->makeQuestion('culture_stream_netflix', 'Какой сервис первым сделал стриминг основой бизнеса?', 'Netflix перешёл от DVD к стримингу.', [
+                ['Netflix', true],
+                ['Hulu', false],
+                ['HBO Max', false],
+                ['Peacock', false]
+            ]),
+
+
+                $this->makeQuestion('culture_movie_titanic', 'Кто снял фильм «Титаник»?', 'Режиссёр — Джеймс Кэмерон.', [
+                ['Джеймс Кэмерон', true],
+                ['Ридли Скотт', false],
+                ['Кристофер Нолан', false],
+                ['Дэвид Финчер', false]
+            ]),
+                $this->makeQuestion('culture_movie_alien', 'Кто снял фильм «Чужой» (1979)?', 'Режиссёр — Ридли Скотт.', [
+                ['Ридли Скотт', true],
+                ['Джеймс Кэмерон', false],
+                ['Питер Джексон', false],
+                ['Джон Карпентер', false]
+            ]),
+                $this->makeQuestion('culture_movie_blade_runner2049', 'Кто снял «Бегущий по лезвию 2049»?', 'Режиссёр — Дени Вильнёв.', [
+                ['Дени Вильнёв', true],
+                ['Ридли Скотт', false],
+                ['Джеймс Кэмерон', false],
+                ['Кристофер Нолан', false]
+            ]),
+                $this->makeQuestion('culture_movie_dune', 'Кто снял «Дюну» (2021)?', 'Дени Вильнёв поставил фильм.', [
+                ['Дени Вильнёв', true],
+                ['Кристофер Нолан', false],
+                ['Ридли Скотт', false],
+                ['Стивен Спилберг', false]
+            ]),
+                $this->makeQuestion('culture_movie_shawshank', 'Кто снял «Побег из Шоушенка»?', 'Режиссёр — Фрэнк Дарабонт.', [
+                ['Фрэнк Дарабонт', true],
+                ['Дэвид Финчер', false],
+                ['Клинт Иствуд', false],
+                ['Кэмерон', false]
+            ]),
+                $this->makeQuestion('culture_movie_fight_club', 'Кто снял «Бойцовский клуб»?', 'Дэвид Финчер — режиссёр.', [
+                ['Дэвид Финчер', true],
+                ['Гай Ричи', false],
+                ['Кристофер Нолан', false],
+                ['Квентин Тарантино', false]
+            ]),
+                $this->makeQuestion('culture_movie_pulp_fiction', 'Кто снял «Криминальное чтиво»?', 'Режиссёр — Квентин Тарантино.', [
+                ['Квентин Тарантино', true],
+                ['Оливер Стоун', false],
+                ['Спилберг', false],
+                ['Ричи', false]
+            ]),
+                $this->makeQuestion('culture_movie_reservoir_dogs', 'Какой фильм стал дебютом Тарантино?', '«Бешеные псы» — дебют Тарантино.', [
+                ['Бешеные псы', true],
+                ['Джеки Браун', false],
+                ['Килл Билл', false],
+                ['Омерзительная восьмёрка', false]
+            ]),
+                $this->makeQuestion('culture_book_hobbit', 'Кто написал «Хоббита»?', 'Дж. Р. Р. Толкин.', [
+                ['Толкин', true],
+                ['Льюис', false],
+                ['Роулинг', false],
+                ['Лем', false]
+            ]),
+                $this->makeQuestion('culture_book_lotr', 'Кто написал «Властелина колец»?', 'Толкин.', [
+                ['Толкин', true],
+                ['Роулинг', false],
+                ['Мартин', false],
+                ['Хобб', false]
+            ]),
+                $this->makeQuestion('culture_book_silmarillion', 'Как называется книга-мифология Толкина?', '«Сильмариллион».', [
+                ['Сильмариллион', true],
+                ['Неоконченные сказания', false],
+                ['Хоббит', false],
+                ['Дети Хурина', false]
+            ]),
+                $this->makeQuestion('culture_book_harry_potter', 'Кто автор серии о Гарри Поттере?', 'Дж. К. Роулинг.', [
+                ['Дж. К. Роулинг', true],
+                ['Толкин', false],
+                ['Льюис', false],
+                ['Риордан', false]
+            ]),
+                $this->makeQuestion('culture_book_narnia', 'Кто написал «Хроники Нарнии»?', 'Клайв Стейплз Льюис.', [
+                ['К. С. Льюис', true],
+                ['Толкин', false],
+                ['Роулинг', false],
+                ['Брэдбери', false]
+            ]),
+                $this->makeQuestion('culture_music_abba', 'Из какой страны группа ABBA?', 'ABBA родом из Швеции.', [
+                ['Швеция', true],
+                ['Норвегия', false],
+                ['Дания', false],
+                ['Финляндия', false]
+            ]),
+                $this->makeQuestion('culture_music_adele', 'Из какой страны певица Адель?', 'Адель — британская певица.', [
+                ['Великобритания', true],
+                ['США', false],
+                ['Канада', false],
+                ['Австралия', false]
+            ]),
+                $this->makeQuestion('culture_music_bts_members', 'Сколько участников в группе BTS?', 'Семь участников.', [
+                ['7', true],
+                ['5', false],
+                ['9', false],
+                ['6', false]
+            ]),
+                $this->makeQuestion('culture_music_beatles_members', 'Сколько участников в The Beatles?', 'Четыре участника.', [
+                ['4', true],
+                ['5', false],
+                ['3', false],
+                ['6', false]
+            ]),
+                $this->makeQuestion('culture_series_stranger_things', 'На каком стриминге вышел «Очень странные дела»?', 'Сериал вышел на Netflix.', [
+                ['Netflix', true],
+                ['HBO', false],
+                ['Amazon Prime', false],
+                ['Disney+', false]
+            ]),
+                $this->makeQuestion('culture_series_crown', 'Про кого рассказывает сериал «Корона»?', 'Про британскую королевскую семью и Елизавету II.', [
+                ['Британская корона', true],
+                ['Французский двор', false],
+                ['Испанская монархия', false],
+                ['Российская империя', false]
+            ]),
+                $this->makeQuestion('culture_game_godofwar', 'Кто главный герой серии God of War?', 'Кратос — спартанский воин.', [
+                ['Кратос', true],
+                ['Линк', false],
+                ['Снейк', false],
+                ['Натан Дрейк', false]
+            ]),
+                $this->makeQuestion('culture_game_lastofus', 'Как зовут героев The Last of Us?', 'Джоэл и Элли — главные герои.', [
+                ['Джоэл и Элли', true],
+                ['Геральт и Цири', false],
+                ['Клауд и Тифа', false],
+                ['Артур и Джон', false]
+            ]),
+                $this->makeQuestion('culture_game_zelda', 'Как зовут главного героя серии The Legend of Zelda?', 'Линк — герой серии.', [
+                ['Линк', true],
+                ['Зельда', false],
+                ['Гэннон', false],
+                ['Шейк', false]
+            ]),
+
+
+                $this->makeQuestion('culture_music_coldplay', 'Из какой страны группа Coldplay?', 'Coldplay — британская группа.', [
+                ['Великобритания', true],
+                ['США', false],
+                ['Канада', false],
+                ['Австралия', false]
+            ]),
+                $this->makeQuestion('culture_music_metallica', 'Из какой страны Metallica?', 'Metallica — американская группа.', [
+                ['США', true],
+                ['Великобритания', false],
+                ['Канада', false],
+                ['Швеция', false]
+            ]),
+                $this->makeQuestion('culture_music_rihanna', 'Откуда родом Рианна?', 'Рианна — с Барбадоса.', [
+                ['Барбадос', true],
+                ['США', false],
+                ['Ямайка', false],
+                ['Гаити', false]
+            ]),
+                $this->makeQuestion('culture_music_taylor_swift', 'Из какой страны Тейлор Свифт?', 'Тейлор Свифт — американская певица.', [
+                ['США', true],
+                ['Канада', false],
+                ['Великобритания', false],
+                ['Австралия', false]
+            ]),
+                $this->makeQuestion('culture_movie_marvel_studio', 'Какая студия производит MCU?', 'Marvel Studios отвечает за MCU.', [
+                ['Marvel Studios', true],
+                ['Warner Bros', false],
+                ['Paramount', false],
+                ['Universal', false]
+            ]),
+                $this->makeQuestion('culture_movie_dc_studio', 'Какая студия отвечает за DCEU?', 'Warner Bros / DC Films.', [
+                ['Warner/DC', true],
+                ['Marvel', false],
+                ['Sony', false],
+                ['Paramount', false]
+            ]),
+                $this->makeQuestion('culture_series_witcher', 'Какой стриминг выпустил сериал «Ведьмак»?', 'Netflix.', [
+                ['Netflix', true],
+                ['HBO', false],
+                ['Amazon', false],
+                ['Disney+', false]
+            ]),
+                $this->makeQuestion('culture_series_mandalorian', 'Какой сервис выпустил «Мандалорца»?', 'Disney+.', [
+                ['Disney+', true],
+                ['Netflix', false],
+                ['HBO', false],
+                ['Hulu', false]
+            ]),
+                $this->makeQuestion('culture_series_house_of_dragon', 'На каком сервисе идёт «Дом дракона»?', 'HBO/Max.', [
+                ['HBO/Max', true],
+                ['Netflix', false],
+                ['Amazon', false],
+                ['Apple TV+', false]
+            ]),
+                $this->makeQuestion('culture_series_lotr', 'Где вышел сериал «Кольца власти»?', 'Amazon Prime Video.', [
+                ['Amazon Prime', true],
+                ['Netflix', false],
+                ['HBO', false],
+                ['Disney+', false]
+            ]),
+                $this->makeQuestion('culture_game_fortnite', 'Кто разработал Fortnite?', 'Epic Games.', [
+                ['Epic Games', true],
+                ['EA', false],
+                ['Ubisoft', false],
+                ['Activision', false]
+            ]),
+                $this->makeQuestion('culture_game_apex', 'Кто разработал Apex Legends?', 'Respawn / EA.', [
+                ['Respawn/EA', true],
+                ['Epic', false],
+                ['Valve', false],
+                ['Ubisoft', false]
+            ]),
+                $this->makeQuestion('culture_game_pubg', 'Кто разработал PUBG?', 'PUBG Corp (KRAFTON).', [
+                ['KRAFTON/PUBG Corp', true],
+                ['EA', false],
+                ['Activision', false],
+                ['Valve', false]
+            ]),
+                $this->makeQuestion('culture_game_valorant', 'Кто разработал Valorant?', 'Riot Games.', [
+                ['Riot Games', true],
+                ['Blizzard', false],
+                ['Valve', false],
+                ['Ubisoft', false]
+            ]),
+                $this->makeQuestion('culture_game_csgo', 'Кто разработал CS:GO?', 'Valve.', [
+                ['Valve', true],
+                ['Riot', false],
+                ['EA', false],
+                ['Ubisoft', false]
+            ]),
+                $this->makeQuestion('culture_comics_marvel_stan', 'Кто из создателей Marvel известен камео?', 'Стэн Ли — легендарные камео.', [
+                ['Стэн Ли', true],
+                ['Джек Кирби', false],
+                ['Фрэнк Миллер', false],
+                ['Тодд Макфарлейн', false]
+            ]),
+                $this->makeQuestion('culture_comics_dc_creator', 'Кто создал Бэтмена?', 'Боб Кейн и Билл Фингер.', [
+                ['Кейн и Фингер', true],
+                ['Стэн Ли', false],
+                ['Кирби', false],
+                ['Дитко', false]
+            ]),
+                $this->makeQuestion('culture_book_foundation', 'Кто написал «Основание»?', 'Айзек Азимов.', [
+                ['Айзек Азимов', true],
+                ['Артур Кларк', false],
+                ['Роберт Хайнлайн', false],
+                ['Фрэнк Герберт', false]
+            ]),
+                $this->makeQuestion('culture_book_dandelion', 'Кто написал «Вино из одуванчиков»?', 'Рэй Брэдбери.', [
+                ['Рэй Брэдбери', true],
+                ['Джером Сэлинджер', false],
+                ['Джек Лондон', false],
+                ['Курт Воннегут', false]
+            ]),
+                $this->makeQuestion('culture_book_martian', 'Кто написал роман «Марсианин»?', 'Энди Вейер.', [
+                ['Энди Вейер', true],
+                ['Энди Уорхол', false],
+                ['Орсон Скотт Кард', false],
+                ['Фрэнк Герберт', false]
+            ]),
+                $this->makeQuestion('culture_music_daftpunk', 'Из какой страны дуэт Daft Punk?', 'Франция.', [
+                ['Франция', true],
+                ['США', false],
+                ['Великобритания', false],
+                ['Германия', false]
+            ]),
+                $this->makeQuestion('culture_music_depeche', 'Из какой страны Depeche Mode?', 'Великобритания.', [
+                ['Великобритания', true],
+                ['США', false],
+                ['Германия', false],
+                ['Швеция', false]
+            ]),
+                $this->makeQuestion('culture_music_beatles_year', 'В каком году вышел альбом «Sgt. Pepper’s Lonely Hearts Club Band»?', '1967 год.', [
+                ['1967', true],
+                ['1965', false],
+                ['1970', false],
+                ['1963', false]
+            ]),
+                $this->makeQuestion('culture_movie_lotr_trilogy', 'Кто поставил кинотрилогию «Властелин колец»?', 'Питер Джексон.', [
+                ['Питер Джексон', true],
+                ['Ридли Скотт', false],
+                ['Джеймс Кэмерон', false],
+                ['Джосс Уидон', false]
+            ]),
+                $this->makeQuestion('culture_movie_hobbit_trilogy', 'Кто поставил кинотрилогию «Хоббит»?', 'Питер Джексон.', [
+                ['Питер Джексон', true],
+                ['Гильермо дель Торо', false],
+                ['Ридли Скотт', false],
+                ['Кристофер Нолан', false]
+            ]),
+                $this->makeQuestion('culture_series_black_mirror', 'На каком сервисе вышла «Чёрное зеркало» позже сезоны?', 'Netflix.', [
+                ['Netflix', true],
+                ['BBC iPlayer', false],
+                ['HBO', false],
+                ['Disney+', false]
+            ]),
+                $this->makeQuestion('culture_series_chernobyl', 'Кто произвёл сериал «Чернобыль»?', 'HBO.', [
+                ['HBO', true],
+                ['Netflix', false],
+                ['Amazon', false],
+                ['Apple TV+', false]
+            ]),
+                $this->makeQuestion('culture_series_ted_lasso', 'На каком сервисе вышел «Тед Лассо»?', 'Apple TV+.', [
+                ['Apple TV+', true],
+                ['Netflix', false],
+                ['HBO', false],
+                ['Amazon', false]
+            ]),
+
+
+                $this->makeQuestion('culture_game_minecraft', 'В каком году вышла первая публичная версия Minecraft?', '2010 год — публичная альфа.', [
+                ['2010', true],
+                ['2012', false],
+                ['2008', false],
+                ['2014', false]
+            ]),
+                $this->makeQuestion('culture_game_gta5', 'В каком году вышла GTA V?', '2013 год.', [
+                ['2013', true],
+                ['2011', false],
+                ['2015', false],
+                ['2010', false]
+            ]),
+                $this->makeQuestion('culture_game_wow_release', 'В каком году вышел World of Warcraft?', '2004 год.', [
+                ['2004', true],
+                ['2001', false],
+                ['2008', false],
+                ['2010', false]
+            ]),
+                $this->makeQuestion('culture_game_starcraft', 'Как называется стратегия Blizzard про зергов и протоссов?', 'StarCraft.', [
+                ['StarCraft', true],
+                ['Warcraft', false],
+                ['Diablo', false],
+                ['Overwatch', false]
+            ]),
+                $this->makeQuestion('culture_game_lol', 'Что расшифровывает LoL в гейминге?', 'League of Legends.', [
+                ['League of Legends', true],
+                ['Lots of Love', false],
+                ['Loss of Link', false],
+                ['Legion of Light', false]
+            ]),
+                $this->makeQuestion('culture_music_kpop_twice', 'Из какой страны группа TWICE?', 'TWICE — южнокорейская группа.', [
+                ['Южная Корея', true],
+                ['Япония', false],
+                ['Китай', false],
+                ['США', false]
+            ]),
+                $this->makeQuestion('culture_music_blackpink', 'Из какой страны BLACKPINK?', 'Южная Корея.', [
+                ['Южная Корея', true],
+                ['Япония', false],
+                ['Канада', false],
+                ['США', false]
+            ]),
+                $this->makeQuestion('culture_music_weeknd', 'Из какой страны The Weeknd?', 'Канада.', [
+                ['Канада', true],
+                ['США', false],
+                ['Великобритания', false],
+                ['Австралия', false]
+            ]),
+                $this->makeQuestion('culture_music_billie', 'Из какой страны Билли Айлиш?', 'США.', [
+                ['США', true],
+                ['Канада', false],
+                ['Ирландия', false],
+                ['Испания', false]
+            ]),
+                $this->makeQuestion('culture_movie_joker', 'Кто сыграл Джокера в фильме 2019 года «Джокер»?', 'Хоакин Феникс.', [
+                ['Хоакин Феникс', true],
+                ['Хит Леджер', false],
+                ['Джаред Лето', false],
+                ['Джек Николсон', false]
+            ]),
+                $this->makeQuestion('culture_movie_dark_knight', 'Кто сыграл Джокера в «Тёмном рыцаре»?', 'Хит Леджер.', [
+                ['Хит Леджер', true],
+                ['Джаред Лето', false],
+                ['Хоакин Феникс', false],
+                ['Марлон Брандо', false]
+            ]),
+                $this->makeQuestion('culture_series_sherlock', 'Кто сыграл Шерлока в сериале BBC «Шерлок»?', 'Бенедикт Камбербэтч.', [
+                ['Бенедикт Камбербэтч', true],
+                ['Мартин Фриман', false],
+                ['Генри Кавилл', false],
+                ['Кристиан Бейл', false]
+            ]),
+                $this->makeQuestion('culture_series_drhouse', 'Кто сыграл доктора Хауса?', 'Хью Лори.', [
+                ['Хью Лори', true],
+                ['Бенедикт Камбербэтч', false],
+                ['Брайан Крэнстон', false],
+                ['Джордж Клуни', false]
+            ]),
+                $this->makeQuestion('culture_series_breaking_bad_actor', 'Кто сыграл Уолтера Уайта?', 'Брайан Крэнстон.', [
+                ['Брайан Крэнстон', true],
+                ['Аарон Пол', false],
+                ['Хью Лори', false],
+                ['Кевин Спейси', false]
+            ]),
+                $this->makeQuestion('culture_series_better_call_saul', 'Кто сыграл Сола Гудмана?', 'Боб Оденкёрк.', [
+                ['Боб Оденкёрк', true],
+                ['Брайан Крэнстон', false],
+                ['Аарон Пол', false],
+                ['Дин Норрис', false]
+            ]),
+                $this->makeQuestion('culture_movie_spiderman_toby', 'Кто играл Человека-паука в трилогии Сэма Рэйми?', 'Тоби Магуайр.', [
+                ['Тоби Магуайр', true],
+                ['Эндрю Гарфилд', false],
+                ['Том Холланд', false],
+                ['Крис Пайн', false]
+            ]),
+                $this->makeQuestion('culture_movie_spiderman_andrew', 'Кто играл Человека-паука в дилогии Марка Уэбба?', 'Эндрю Гарфилд.', [
+                ['Эндрю Гарфилд', true],
+                ['Тоби Магуайр', false],
+                ['Том Холланд', false],
+                ['Джейк Джилленхол', false]
+            ]),
+                $this->makeQuestion('culture_movie_spiderman_tom', 'Кто играет Паука в MCU?', 'Том Холланд.', [
+                ['Том Холланд', true],
+                ['Тоби Магуайр', false],
+                ['Эндрю Гарфилд', false],
+                ['Пол Радд', false]
+            ]),
+                $this->makeQuestion('culture_music_bieber', 'Из какой страны Джастин Бибер?', 'Канада.', [
+                ['Канада', true],
+                ['США', false],
+                ['Великобритания', false],
+                ['Австралия', false]
+            ]),
+                $this->makeQuestion('culture_music_shakira', 'Из какой страны Шакира?', 'Колумбия.', [
+                ['Колумбия', true],
+                ['Бразилия', false],
+                ['Испания', false],
+                ['Мексика', false]
+            ]),
+                $this->makeQuestion('culture_music_dualipa', 'Из какой страны Дуа Липа?', 'Великобритания (косовские корни).', [
+                ['Великобритания', true],
+                ['США', false],
+                ['Испания', false],
+                ['Франция', false]
+            ]),
+                $this->makeQuestion('culture_music_bts_debut', 'В каком году дебютировали BTS?', '2013 год.', [
+                ['2013', true],
+                ['2010', false],
+                ['2015', false],
+                ['2018', false]
+            ]),
+                $this->makeQuestion('culture_music_blackpink_debut', 'В каком году дебютировали BLACKPINK?', '2016 год.', [
+                ['2016', true],
+                ['2014', false],
+                ['2018', false],
+                ['2020', false]
+            ]),
+
             ],
             'geo' => [
                 $this->makeQuestion('geo_capital_canada', "Какова столица Канады?", "Столицей Канады является город Оттава.", [
@@ -5775,6 +7649,662 @@ class SampleDataSeeder
                 ['Окленд', false],
                 ['Крайстчерч', false],
                 ['Данидин', false]
+            ]),
+
+
+                $this->makeQuestion('geo_capital_canada', 'Какова столица Канады?', 'Столица Канады — Оттава.', [
+                ['Оттава', true],
+                ['Торонто', false],
+                ['Монреаль', false],
+                ['Ванкувер', false]
+            ]),
+                $this->makeQuestion('geo_capital_brazil', 'Какова столица Бразилии?', 'Столица — Бразилиа.', [
+                ['Бразилиа', true],
+                ['Рио-де-Жанейро', false],
+                ['Сан-Паулу', false],
+                ['Салвадор', false]
+            ]),
+                $this->makeQuestion('geo_capital_argentina', 'Какова столица Аргентины?', 'Столица Аргентины — Буэнос-Айрес.', [
+                ['Буэнос-Айрес', true],
+                ['Кордова', false],
+                ['Мендоса', false],
+                ['Росарио', false]
+            ]),
+                $this->makeQuestion('geo_capital_chile', 'Какова столица Чили?', 'Столица Чили — Сантьяго.', [
+                ['Сантьяго', true],
+                ['Вальпараисо', false],
+                ['Лима', false],
+                ['Кито', false]
+            ]),
+                $this->makeQuestion('geo_capital_usa', 'Какова столица США?', 'Столица США — Вашингтон.', [
+                ['Вашингтон', true],
+                ['Нью-Йорк', false],
+                ['Лос-Анджелес', false],
+                ['Чикаго', false]
+            ]),
+                $this->makeQuestion('geo_capital_mexico', 'Какова столица Мексики?', 'Столица — Мехико.', [
+                ['Мехико', true],
+                ['Гвадалахара', false],
+                ['Монтеррей', false],
+                ['Пуэбла', false]
+            ]),
+                $this->makeQuestion('geo_capital_colombia', 'Какова столица Колумбии?', 'Столица Колумбии — Богота.', [
+                ['Богота', true],
+                ['Медельин', false],
+                ['Кали', false],
+                ['Баранкилья', false]
+            ]),
+                $this->makeQuestion('geo_capital_uk', 'Какова столица Великобритании?', 'Столица — Лондон.', [
+                ['Лондон', true],
+                ['Манчестер', false],
+                ['Ливерпуль', false],
+                ['Бирмингем', false]
+            ]),
+                $this->makeQuestion('geo_capital_france', 'Какова столица Франции?', 'Столица Франции — Париж.', [
+                ['Париж', true],
+                ['Лион', false],
+                ['Марсель', false],
+                ['Лилль', false]
+            ]),
+                $this->makeQuestion('geo_capital_germany', 'Какова столица Германии?', 'Столица Германии — Берлин.', [
+                ['Берлин', true],
+                ['Мюнхен', false],
+                ['Гамбург', false],
+                ['Кёльн', false]
+            ]),
+                $this->makeQuestion('geo_capital_italy', 'Какова столица Италии?', 'Столица Италии — Рим.', [
+                ['Рим', true],
+                ['Милан', false],
+                ['Неаполь', false],
+                ['Турин', false]
+            ]),
+                $this->makeQuestion('geo_capital_spain', 'Какова столица Испании?', 'Столица Испании — Мадрид.', [
+                ['Мадрид', true],
+                ['Барселона', false],
+                ['Валенсия', false],
+                ['Севилья', false]
+            ]),
+                $this->makeQuestion('geo_capital_portugal', 'Какова столица Португалии?', 'Столица — Лиссабон.', [
+                ['Лиссабон', true],
+                ['Порту', false],
+                ['Брага', false],
+                ['Коимбра', false]
+            ]),
+                $this->makeQuestion('geo_capital_netherlands', 'Какова столица Нидерландов?', 'Столица — Амстердам.', [
+                ['Амстердам', true],
+                ['Гаага', false],
+                ['Роттердам', false],
+                ['Утрехт', false]
+            ]),
+                $this->makeQuestion('geo_capital_belgium', 'Какова столица Бельгии?', 'Столица — Брюссель.', [
+                ['Брюссель', true],
+                ['Антверпен', false],
+                ['Гент', false],
+                ['Льеж', false]
+            ]),
+                $this->makeQuestion('geo_capital_sweden', 'Какова столица Швеции?', 'Столица — Стокгольм.', [
+                ['Стокгольм', true],
+                ['Осло', false],
+                ['Копенгаген', false],
+                ['Хельсинки', false]
+            ]),
+                $this->makeQuestion('geo_capital_norway', 'Какова столица Норвегии?', 'Столица — Осло.', [
+                ['Осло', true],
+                ['Берген', false],
+                ['Тронхейм', false],
+                ['Ставангер', false]
+            ]),
+                $this->makeQuestion('geo_capital_finland', 'Какова столица Финляндии?', 'Столица — Хельсинки.', [
+                ['Хельсинки', true],
+                ['Турку', false],
+                ['Тампере', false],
+                ['Эспоо', false]
+            ]),
+                $this->makeQuestion('geo_capital_iceland', 'Какова столица Исландии?', 'Столица — Рейкьявик.', [
+                ['Рейкьявик', true],
+                ['Акюрейри', false],
+                ['Сельфосс', false],
+                ['Коупавогюр', false]
+            ]),
+                $this->makeQuestion('geo_capital_japan', 'Какова столица Японии?', 'Столица Японии — Токио.', [
+                ['Токио', true],
+                ['Осака', false],
+                ['Киото', false],
+                ['Нагоя', false]
+            ]),
+                $this->makeQuestion('geo_capital_china', 'Какова столица Китая?', 'Столица Китая — Пекин.', [
+                ['Пекин', true],
+                ['Шанхай', false],
+                ['Гуанчжоу', false],
+                ['Шэньчжэнь', false]
+            ]),
+                $this->makeQuestion('geo_capital_south_korea', 'Какова столица Республики Корея?', 'Столица — Сеул.', [
+                ['Сеул', true],
+                ['Пусан', false],
+                ['Тэгу', false],
+                ['Инчхон', false]
+            ]),
+                $this->makeQuestion('geo_capital_india', 'Какова столица Индии?', 'Столица Индии — Нью-Дели.', [
+                ['Нью-Дели', true],
+                ['Мумбаи', false],
+                ['Бангалор', false],
+                ['Ченнаи', false]
+            ]),
+                $this->makeQuestion('geo_capital_pakistan', 'Какова столица Пакистана?', 'Столица — Исламабад.', [
+                ['Исламабад', true],
+                ['Карачи', false],
+                ['Лахор', false],
+                ['Пешавар', false]
+            ]),
+                $this->makeQuestion('geo_capital_thailand', 'Какова столица Таиланда?', 'Столица — Бангкок.', [
+                ['Бангкок', true],
+                ['Пхукет', false],
+                ['Чиангмай', false],
+                ['Паттайя', false]
+            ]),
+                $this->makeQuestion('geo_capital_vietnam', 'Какова столица Вьетнама?', 'Столица — Ханой.', [
+                ['Ханой', true],
+                ['Хошимин', false],
+                ['Дананг', false],
+                ['Нячанг', false]
+            ]),
+                $this->makeQuestion('geo_capital_australia', 'Какова столица Австралии?', 'Столица — Канберра.', [
+                ['Канберра', true],
+                ['Сидней', false],
+                ['Мельбурн', false],
+                ['Брисбен', false]
+            ]),
+                $this->makeQuestion('geo_capital_new_zealand', 'Какова столица Новой Зеландии?', 'Столица — Веллингтон.', [
+                ['Веллингтон', true],
+                ['Окленд', false],
+                ['Крайстчерч', false],
+                ['Данидин', false]
+            ]),
+                $this->makeQuestion('geo_capital_egypt', 'Какова столица Египта?', 'Столица Египта — Каир.', [
+                ['Каир', true],
+                ['Александрия', false],
+                ['Луксор', false],
+                ['Гиза', false]
+            ]),
+                $this->makeQuestion('geo_capital_morocco', 'Какова столица Марокко?', 'Столица — Рабат.', [
+                ['Рабат', true],
+                ['Касабланка', false],
+                ['Марракеш', false],
+                ['Фес', false]
+            ]),
+                $this->makeQuestion('geo_capital_kenya', 'Какова столица Кении?', 'Столица — Найроби.', [
+                ['Найроби', true],
+                ['Момбаса', false],
+                ['Кисуму', false],
+                ['Элдорет', false]
+            ]),
+                $this->makeQuestion('geo_capital_nigeria', 'Какова столица Нигерии?', 'Столица — Абуджа.', [
+                ['Абуджа', true],
+                ['Лагос', false],
+                ['Кано', false],
+                ['Ибадан', false]
+            ]),
+
+
+                $this->makeQuestion('geo_capital_uae', 'Какова столица ОАЭ?', 'Столица — Абу-Даби.', [
+                ['Абу-Даби', true],
+                ['Дубай', false],
+                ['Шарджа', false],
+                ['Рас-эль-Хайма', false]
+            ]),
+                $this->makeQuestion('geo_capital_qatar', 'Какова столица Катара?', 'Столица — Доха.', [
+                ['Доха', true],
+                ['Манама', false],
+                ['Кувейт', false],
+                ['Эр-Рияд', false]
+            ]),
+                $this->makeQuestion('geo_capital_saudi', 'Какова столица Саудовской Аравии?', 'Столица — Эр-Рияд.', [
+                ['Эр-Рияд', true],
+                ['Джидда', false],
+                ['Дахран', false],
+                ['Мекка', false]
+            ]),
+                $this->makeQuestion('geo_capital_israel', 'Какова столица Израиля (официально)?', 'Официальная столица — Иерусалим.', [
+                ['Иерусалим', true],
+                ['Тель-Авив', false],
+                ['Хайфа', false],
+                ['Эйлат', false]
+            ]),
+                $this->makeQuestion('geo_capital_turkey', 'Какова столица Турции?', 'Столица — Анкара.', [
+                ['Анкара', true],
+                ['Стамбул', false],
+                ['Измир', false],
+                ['Анталья', false]
+            ]),
+                $this->makeQuestion('geo_capital_greece', 'Какова столица Греции?', 'Столица — Афины.', [
+                ['Афины', true],
+                ['Салоники', false],
+                ['Патры', false],
+                ['Ираклион', false]
+            ]),
+                $this->makeQuestion('geo_capital_cyprus', 'Какова столица Кипра?', 'Столица — Никосия.', [
+                ['Никосия', true],
+                ['Ларнака', false],
+                ['Лимасол', false],
+                ['Пафос', false]
+            ]),
+                $this->makeQuestion('geo_capital_ukraine', 'Какова столица Украины?', 'Столица — Киев.', [
+                ['Киев', true],
+                ['Харьков', false],
+                ['Львов', false],
+                ['Одесса', false]
+            ]),
+                $this->makeQuestion('geo_capital_belarus', 'Какова столица Беларуси?', 'Столица — Минск.', [
+                ['Минск', true],
+                ['Гродно', false],
+                ['Брест', false],
+                ['Витебск', false]
+            ]),
+                $this->makeQuestion('geo_capital_poland', 'Какова столица Польши?', 'Столица — Варшава.', [
+                ['Варшава', true],
+                ['Краков', false],
+                ['Гданьск', false],
+                ['Вроцлав', false]
+            ]),
+                $this->makeQuestion('geo_capital_czech', 'Какова столица Чехии?', 'Столица — Прага.', [
+                ['Прага', true],
+                ['Брно', false],
+                ['Острава', false],
+                ['Пльзень', false]
+            ]),
+                $this->makeQuestion('geo_capital_slovakia', 'Какова столица Словакии?', 'Столица — Братислава.', [
+                ['Братислава', true],
+                ['Кошице', false],
+                ['Попрад', false],
+                ['Жилина', false]
+            ]),
+                $this->makeQuestion('geo_capital_hungary', 'Какова столица Венгрии?', 'Столица — Будапешт.', [
+                ['Будапешт', true],
+                ['Дебрецен', false],
+                ['Сегед', false],
+                ['Мишкольц', false]
+            ]),
+                $this->makeQuestion('geo_capital_romania', 'Какова столица Румынии?', 'Столица — Бухарест.', [
+                ['Бухарест', true],
+                ['Клуж-Напока', false],
+                ['Яссы', false],
+                ['Тимишоара', false]
+            ]),
+                $this->makeQuestion('geo_capital_bulgaria', 'Какова столица Болгарии?', 'Столица — София.', [
+                ['София', true],
+                ['Пловдив', false],
+                ['Варна', false],
+                ['Бургас', false]
+            ]),
+                $this->makeQuestion('geo_capital_serbia', 'Какова столица Сербии?', 'Столица — Белград.', [
+                ['Белград', true],
+                ['Нови-Сад', false],
+                ['Ниш', false],
+                ['Крагуевац', false]
+            ]),
+                $this->makeQuestion('geo_capital_croatia', 'Какова столица Хорватии?', 'Столица — Загреб.', [
+                ['Загреб', true],
+                ['Сплит', false],
+                ['Дубровник', false],
+                ['Риека', false]
+            ]),
+                $this->makeQuestion('geo_capital_slovenia', 'Какова столица Словении?', 'Столица — Любляна.', [
+                ['Любляна', true],
+                ['Марибор', false],
+                ['Копер', false],
+                ['Целе', false]
+            ]),
+                $this->makeQuestion('geo_capital_austria', 'Какова столица Австрии?', 'Столица — Вена.', [
+                ['Вена', true],
+                ['Грац', false],
+                ['Линц', false],
+                ['Зальцбург', false]
+            ]),
+                $this->makeQuestion('geo_capital_switzerland', 'Какова столица Швейцарии?', 'Фактическая столица — Берн.', [
+                ['Берн', true],
+                ['Цюрих', false],
+                ['Женева', false],
+                ['Лозанна', false]
+            ]),
+                $this->makeQuestion('geo_capital_denmark', 'Какова столица Дании?', 'Столица — Копенгаген.', [
+                ['Копенгаген', true],
+                ['Орхус', false],
+                ['Оденсе', false],
+                ['Ольборг', false]
+            ]),
+                $this->makeQuestion('geo_capital_estonia', 'Какова столица Эстонии?', 'Столица — Таллин.', [
+                ['Таллин', true],
+                ['Тарту', false],
+                ['Нарва', false],
+                ['Пярну', false]
+            ]),
+                $this->makeQuestion('geo_capital_latvia', 'Какова столица Латвии?', 'Столица — Рига.', [
+                ['Рига', true],
+                ['Даугавпилс', false],
+                ['Лиепая', false],
+                ['Юрмала', false]
+            ]),
+                $this->makeQuestion('geo_capital_lithuania', 'Какова столица Литвы?', 'Столица — Вильнюс.', [
+                ['Вильнюс', true],
+                ['Каунас', false],
+                ['Клайпеда', false],
+                ['Шяуляй', false]
+            ]),
+                $this->makeQuestion('geo_capital_switzerland_wrong', 'Какой город не является столицей?', 'Цюрих — не столица Швейцарии.', [
+                ['Цюрих — не столица', true],
+                ['Берн — не столица', false],
+                ['Амстердам — не столица', false],
+                ['Прага — не столица', false]
+            ]),
+
+
+                $this->makeQuestion('geo_capital_botswana', 'Какова столица Ботсваны?', 'Столица — Габороне.', [
+                ['Габороне', true],
+                ['Лусака', false],
+                ['Хараре', false],
+                ['Виндхук', false]
+            ]),
+                $this->makeQuestion('geo_capital_namibia', 'Какова столица Намибии?', 'Столица — Виндхук.', [
+                ['Виндхук', true],
+                ['Габороне', false],
+                ['Хараре', false],
+                ['Мапуту', false]
+            ]),
+                $this->makeQuestion('geo_capital_zimbabwe', 'Какова столица Зимбабве?', 'Столица — Хараре.', [
+                ['Хараре', true],
+                ['Лусака', false],
+                ['Виндхук', false],
+                ['Киншаса', false]
+            ]),
+                $this->makeQuestion('geo_capital_zambia', 'Какова столица Замбии?', 'Столица — Лусака.', [
+                ['Лусака', true],
+                ['Хараре', false],
+                ['Габороне', false],
+                ['Киншаса', false]
+            ]),
+                $this->makeQuestion('geo_capital_angola', 'Какова столица Анголы?', 'Столица — Луанда.', [
+                ['Луанда', true],
+                ['Лусака', false],
+                ['Киншаса', false],
+                ['Мапуту', false]
+            ]),
+                $this->makeQuestion('geo_capital_mozambique', 'Какова столица Мозамбика?', 'Столица — Мапуту.', [
+                ['Мапуту', true],
+                ['Лилонгве', false],
+                ['Хараре', false],
+                ['Нджамена', false]
+            ]),
+                $this->makeQuestion('geo_capital_malawi', 'Какова столица Малави?', 'Столица — Лилонгве.', [
+                ['Лилонгве', true],
+                ['Лусака', false],
+                ['Мапуту', false],
+                ['Додома', false]
+            ]),
+                $this->makeQuestion('geo_capital_tanzania', 'Какова столица Танзании?', 'Столица — Додома.', [
+                ['Додома', true],
+                ['Дар-эс-Салам', false],
+                ['Найроби', false],
+                ['Кампала', false]
+            ]),
+                $this->makeQuestion('geo_capital_ethiopia', 'Какова столица Эфиопии?', 'Столица — Аддис-Абеба.', [
+                ['Аддис-Абеба', true],
+                ['Абуджа', false],
+                ['Асмэра', false],
+                ['Джибути', false]
+            ]),
+                $this->makeQuestion('geo_capital_kenya', 'Какова столица Кении?', 'Столица — Найроби.', [
+                ['Найроби', true],
+                ['Момбаса', false],
+                ['Кампала', false],
+                ['Додома', false]
+            ]),
+                $this->makeQuestion('geo_capital_uganda', 'Какова столица Уганды?', 'Столица — Кампала.', [
+                ['Кампала', true],
+                ['Найроби', false],
+                ['Кигали', false],
+                ['Дар-эс-Салам', false]
+            ]),
+                $this->makeQuestion('geo_capital_rwanda', 'Какова столица Руанды?', 'Столица — Кигали.', [
+                ['Кигали', true],
+                ['Кампала', false],
+                ['Найроби', false],
+                ['Бужумбура', false]
+            ]),
+                $this->makeQuestion('geo_capital_burundi', 'Какова столица Бурунди?', 'Столица — Гитега (ранее Бужумбура де-факто).', [
+                ['Гитега', true],
+                ['Бужумбура', false],
+                ['Кампала', false],
+                ['Кигали', false]
+            ]),
+                $this->makeQuestion('geo_capital_drcongo', 'Какова столица ДР Конго?', 'Столица — Киншаса.', [
+                ['Киншаса', true],
+                ['Браззавиль', false],
+                ['Кампала', false],
+                ['Абиджан', false]
+            ]),
+                $this->makeQuestion('geo_capital_congo', 'Какова столица Республики Конго?', 'Столица — Браззавиль.', [
+                ['Браззавиль', true],
+                ['Киншаса', false],
+                ['Либревиль', false],
+                ['Луанда', false]
+            ]),
+                $this->makeQuestion('geo_capital_gabon', 'Какова столица Габона?', 'Столица — Либревиль.', [
+                ['Либревиль', true],
+                ['Луанда', false],
+                ['Киншаса', false],
+                ['Абиджан', false]
+            ]),
+                $this->makeQuestion('geo_capital_cameroon', 'Какова столица Камеруна?', 'Столица — Яунде.', [
+                ['Яунде', true],
+                ['Дуала', false],
+                ['Ломе', false],
+                ['Кумаси', false]
+            ]),
+                $this->makeQuestion('geo_capital_ghana', 'Какова столица Ганы?', 'Столица — Аккра.', [
+                ['Аккра', true],
+                ['Кумаси', false],
+                ['Ломе', false],
+                ['Абиджан', false]
+            ]),
+                $this->makeQuestion('geo_capital_ivory_coast', 'Какова столица Кот-д’Ивуара?', 'Столица — Ямусукро (де-факто Абиджан).', [
+                ['Ямусукро', true],
+                ['Абиджан', false],
+                ['Ломе', false],
+                ['Аккра', false]
+            ]),
+                $this->makeQuestion('geo_capital_togo', 'Какова столица Того?', 'Столица — Ломе.', [
+                ['Ломе', true],
+                ['Аккра', false],
+                ['Кумаси', false],
+                ['Бамако', false]
+            ]),
+                $this->makeQuestion('geo_capital_benin', 'Какова столица Бенина?', 'Столица — Порто-Ново (де-факто Котону).', [
+                ['Порто-Ново', true],
+                ['Котону', false],
+                ['Лагос', false],
+                ['Ниамей', false]
+            ]),
+                $this->makeQuestion('geo_capital_niger', 'Какова столица Нигера?', 'Столица — Ниамей.', [
+                ['Ниамей', true],
+                ['Нджамена', false],
+                ['Бамако', false],
+                ['Лагос', false]
+            ]),
+                $this->makeQuestion('geo_capital_mali', 'Какова столица Мали?', 'Столица — Бамако.', [
+                ['Бамако', true],
+                ['Ломе', false],
+                ['Ниамей', false],
+                ['Дакар', false]
+            ]),
+                $this->makeQuestion('geo_capital_senegal', 'Какова столица Сенегала?', 'Столица — Дакар.', [
+                ['Дакар', true],
+                ['Бамако', false],
+                ['Ломе', false],
+                ['Монровия', false]
+            ]),
+
+
+                $this->makeQuestion('geo_capital_mauritania', 'Какова столица Мавритании?', 'Столица — Нуакшот.', [
+                ['Нуакшот', true],
+                ['Нджамена', false],
+                ['Бамако', false],
+                ['Дакар', false]
+            ]),
+                $this->makeQuestion('geo_capital_chad', 'Какова столица Чада?', 'Столица — Нджамена.', [
+                ['Нджамена', true],
+                ['Бамако', false],
+                ['Ломе', false],
+                ['Нуакшот', false]
+            ]),
+                $this->makeQuestion('geo_capital_central_africa', 'Какова столица ЦАР?', 'Столица — Банги.', [
+                ['Банги', true],
+                ['Нджамена', false],
+                ['Кампала', false],
+                ['Кигали', false]
+            ]),
+                $this->makeQuestion('geo_capital_sudan', 'Какова столица Судана?', 'Столица — Хартум.', [
+                ['Хартум', true],
+                ['Джуба', false],
+                ['Аддис-Абеба', false],
+                ['Кампала', false]
+            ]),
+                $this->makeQuestion('geo_capital_south_sudan', 'Какова столица Южного Судана?', 'Столица — Джуба.', [
+                ['Джуба', true],
+                ['Хартум', false],
+                ['Кампала', false],
+                ['Кигали', false]
+            ]),
+                $this->makeQuestion('geo_capital_eritrea', 'Какова столица Эритреи?', 'Столица — Асмэра.', [
+                ['Асмэра', true],
+                ['Аддис-Абеба', false],
+                ['Хартум', false],
+                ['Кампала', false]
+            ]),
+                $this->makeQuestion('geo_capital_djibouti', 'Какова столица Джибути?', 'Город Джибути.', [
+                ['Джибути', true],
+                ['Могадишо', false],
+                ['Асмэра', false],
+                ['Аддис-Абеба', false]
+            ]),
+                $this->makeQuestion('geo_capital_somalia', 'Какова столица Сомали?', 'Столица — Могадишо.', [
+                ['Могадишо', true],
+                ['Харгейса', false],
+                ['Асмэра', false],
+                ['Джибути', false]
+            ]),
+                $this->makeQuestion('geo_capital_ethiopia_dup', 'Какова столица Эфиопии?', 'Аддис-Абеба.', [
+                ['Аддис-Абеба', true],
+                ['Асмэра', false],
+                ['Хартум', false],
+                ['Джуба', false]
+            ]),
+                $this->makeQuestion('geo_capital_madagascar', 'Какова столица Мадагаскара?', 'Столица — Антананариву.', [
+                ['Антананариву', true],
+                ['Порт-Луи', false],
+                ['Мапуту', false],
+                ['Морони', false]
+            ]),
+                $this->makeQuestion('geo_capital_mauritius', 'Какова столица Маврикия?', 'Столица — Порт-Луи.', [
+                ['Порт-Луи', true],
+                ['Антананариву', false],
+                ['Морони', false],
+                ['Мапуту', false]
+            ]),
+                $this->makeQuestion('geo_capital_comoros', 'Какова столица Комор?', 'Столица — Морони.', [
+                ['Морони', true],
+                ['Порт-Луи', false],
+                ['Антананариву', false],
+                ['Виктория', false]
+            ]),
+                $this->makeQuestion('geo_capital_seychelles', 'Какова столица Сейшел?', 'Столица — Виктория.', [
+                ['Виктория', true],
+                ['Морони', false],
+                ['Порт-Луи', false],
+                ['Антананариву', false]
+            ]),
+                $this->makeQuestion('geo_capital_bahrain', 'Какова столица Бахрейна?', 'Столица — Манама.', [
+                ['Манама', true],
+                ['Доха', false],
+                ['Кувейт', false],
+                ['Маскат', false]
+            ]),
+                $this->makeQuestion('geo_capital_kuwait', 'Какова столица Кувейта?', 'Столица — Кувейт.', [
+                ['Кувейт', true],
+                ['Манама', false],
+                ['Доха', false],
+                ['Эр-Рияд', false]
+            ]),
+                $this->makeQuestion('geo_capital_oman', 'Какова столица Омана?', 'Столица — Маскат.', [
+                ['Маскат', true],
+                ['Эр-Рияд', false],
+                ['Сана', false],
+                ['Манама', false]
+            ]),
+                $this->makeQuestion('geo_capital_yemen', 'Какова столица Йемена (международно признанная)?', 'Столица — Сана.', [
+                ['Сана', true],
+                ['Аден', false],
+                ['Маскат', false],
+                ['Доха', false]
+            ]),
+                $this->makeQuestion('geo_capital_jordan', 'Какова столица Иордании?', 'Столица — Амман.', [
+                ['Амман', true],
+                ['Дамаск', false],
+                ['Бейрут', false],
+                ['Каир', false]
+            ]),
+                $this->makeQuestion('geo_capital_lebanon', 'Какова столица Ливана?', 'Столица — Бейрут.', [
+                ['Бейрут', true],
+                ['Дамаск', false],
+                ['Амман', false],
+                ['Доха', false]
+            ]),
+                $this->makeQuestion('geo_capital_syria', 'Какова столица Сирии?', 'Столица — Дамаск.', [
+                ['Дамаск', true],
+                ['Алеппо', false],
+                ['Амман', false],
+                ['Бейрут', false]
+            ]),
+                $this->makeQuestion('geo_capital_afghanistan', 'Какова столица Афганистана?', 'Столица — Кабул.', [
+                ['Кабул', true],
+                ['Карачи', false],
+                ['Тегеран', false],
+                ['Исламабад', false]
+            ]),
+                $this->makeQuestion('geo_capital_kazakhstan', 'Какова столица Казахстана?', 'Столица — Астана.', [
+                ['Астана', true],
+                ['Алматы', false],
+                ['Шымкент', false],
+                ['Караганда', false]
+            ]),
+                $this->makeQuestion('geo_capital_uzbekistan', 'Какова столица Узбекистана?', 'Столица — Ташкент.', [
+                ['Ташкент', true],
+                ['Самарканд', false],
+                ['Бухара', false],
+                ['Нукус', false]
+            ]),
+                $this->makeQuestion('geo_capital_turkmenistan', 'Какова столица Туркменистана?', 'Столица — Ашхабад.', [
+                ['Ашхабад', true],
+                ['Ташкент', false],
+                ['Бишкек', false],
+                ['Душанбе', false]
+            ]),
+                $this->makeQuestion('geo_capital_kyrgyzstan', 'Какова столица Кыргызстана?', 'Столица — Бишкек.', [
+                ['Бишкек', true],
+                ['ОШ', false],
+                ['Ташкент', false],
+                ['Алматы', false]
+            ]),
+                $this->makeQuestion('geo_capital_tajikistan', 'Какова столица Таджикистана?', 'Столица — Душанбе.', [
+                ['Душанбе', true],
+                ['Бишкек', false],
+                ['Ташкент', false],
+                ['Ашхабад', false]
+            ]),
+                $this->makeQuestion('geo_capital_mongolia', 'Какова столица Монголии?', 'Столица — Улан-Батор.', [
+                ['Улан-Батор', true],
+                ['Алматы', false],
+                ['Пекин', false],
+                ['Ханой', false]
             ]),
 
             ],
