@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTelegram, showBackButton, hapticFeedback } from '../hooks/useTelegram'
 import api from '../api/client'
-import AvatarWithFrame from '../components/AvatarWithFrame'
 
 // Telegram ID администраторов
 const ADMIN_IDS = [1763619724]
@@ -180,20 +179,23 @@ function LeaderboardPage() {
                     {medal || position}
                   </div>
 
-                  {/* Avatar with Frame */}
-                  <AvatarWithFrame
-                    photoUrl={player.photo_url}
-                    name={player.name}
-                    frameKey={
-                      position === 1 ? 'royal' :
-                      position === 2 ? 'diamond' :
-                      position === 3 ? 'winner' :
-                      'default'
-                    }
-                    size={48}
-                    animated={position === 1}
-                    showGlow={isTop3}
-                  />
+                  {/* Avatar */}
+                  <div className={`relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold text-white bg-gradient-to-br ${getAvatarGradient(position)} ${
+                    position === 2 ? 'text-gray-700' : ''
+                  } overflow-hidden`}>
+                    {isTop3 && (
+                      <div className={`absolute -inset-1 rounded-full bg-gradient-to-br ${getAvatarGradient(position)} opacity-30 blur-md`} />
+                    )}
+                    {player.photo_url ? (
+                      <img 
+                        src={player.photo_url} 
+                        alt={player.name}
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="relative">{player.name?.[0]?.toUpperCase() || '?'}</span>
+                    )}
+                  </div>
 
                   {/* Info */}
                   <div className="relative flex-1 min-w-0">

@@ -474,16 +474,6 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
     }
 
     $duel->loadMissing('rounds.question.answers', 'rounds.question.category', 'initiator.profile', 'opponent.profile');
-    
-    // Загружаем фото для участников если их нет
-    if ($duel->initiator && empty($duel->initiator->photo_url)) {
-        $photoService->updateUserPhoto($duel->initiator);
-        $duel->initiator->refresh();
-    }
-    if ($duel->opponent && empty($duel->opponent->photo_url)) {
-        $photoService->updateUserPhoto($duel->opponent);
-        $duel->opponent->refresh();
-    }
 
     // Определяем роль текущего пользователя
     $isInitiator = $user && $duel->initiator_user_id === $user->getKey();
@@ -800,14 +790,6 @@ function handleJoinDuel($container, ?array $telegramUser, array $body): void
 
     // Присоединяемся к дуэли
     $duel = $duelService->joinDuel($duel, $user);
-    
-    // Загружаем фото initiator если его нет
-    if ($duel->initiator && empty($duel->initiator->photo_url)) {
-        /** @var TelegramPhotoService $photoService */
-        $photoService = $container->get(TelegramPhotoService::class);
-        $photoService->updateUserPhoto($duel->initiator);
-        $duel->initiator->refresh();
-    }
 
     jsonResponse([
         'duel_id' => $duel->getKey(),
@@ -1040,9 +1022,6 @@ function handleGetLeaderboard($container, string $type): void
     
     /** @var ProfileFormatter $profileFormatter */
     $profileFormatter = $container->get(ProfileFormatter::class);
-    
-    /** @var TelegramPhotoService $photoService */
-    $photoService = $container->get(TelegramPhotoService::class);
 
     $players = [];
     
@@ -1052,17 +1031,11 @@ function handleGetLeaderboard($container, string $type): void
         foreach ($topPlayers as $playerData) {
             $user = $playerData['user'];
             
-            // Загружаем фото если его нет
-            if (empty($user->photo_url)) {
-                $photoService->updateUserPhoto($user);
-                $user->refresh();
-            }
-            
             $players[] = [
                 'position' => $playerData['position'],
                 'name' => $user->first_name ?? 'Игрок',
                 'username' => $user->username ?? '',
-                'photo_url' => $user->photo_url,
+                'photo_url' => $user->photo_url, // Используем то что есть, не загружаем
                 'rating' => $playerData['rating'],
                 'rank' => $profileFormatter->getRankByRating($playerData['rating']),
             ];
@@ -1073,17 +1046,11 @@ function handleGetLeaderboard($container, string $type): void
         foreach ($topPlayers as $playerData) {
             $user = $playerData['user'];
             
-            // Загружаем фото если его нет
-            if (empty($user->photo_url)) {
-                $photoService->updateUserPhoto($user);
-                $user->refresh();
-            }
-            
             $players[] = [
                 'position' => $playerData['position'],
                 'name' => $user->first_name ?? 'Игрок',
                 'username' => $user->username ?? '',
-                'photo_url' => $user->photo_url,
+                'photo_url' => $user->photo_url, // Используем то что есть, не загружаем
                 'record' => $playerData['record'],
             ];
         }
