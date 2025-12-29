@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { api } from '../api/client'
 import { useTelegram } from '../hooks/useTelegram'
+import CoinIcon from '../components/CoinIcon'
 
 const FortuneWheelPage = () => {
   const { webApp } = useTelegram()
@@ -360,8 +361,12 @@ const FortuneWheelPage = () => {
                 className="bg-white/5 rounded-xl p-3 border border-white/10 flex items-center justify-between"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">
-                    {config.find(s => s.type === spin.reward_type)?.icon || '🎁'}
+                  <span className="text-2xl flex items-center justify-center w-8 h-8">
+                    {spin.reward_type === 'coins' ? (
+                      <CoinIcon size={28} />
+                    ) : (
+                      config.find(s => s.type === spin.reward_type)?.icon || '🎁'
+                    )}
                   </span>
                   <span className="text-white text-sm">
                     {getRewardText(spin.reward_type, spin.reward_amount)}
@@ -395,12 +400,17 @@ const FortuneWheelPage = () => {
             >
               <div className="text-center">
                 <motion.div
-                  className="text-8xl mb-4"
+                  className="mb-4 flex justify-center"
+                  style={{ fontSize: '8rem', lineHeight: 1 }}
                   initial={{ scale: 0 }}
                   animate={{ scale: [0, 1.2, 1] }}
                   transition={{ duration: 0.5, times: [0, 0.6, 1] }}
                 >
-                  {config.find(s => s.type === reward.type)?.icon || '🎁'}
+                  {reward.type === 'coins' ? (
+                    <CoinIcon size={128} />
+                  ) : (
+                    config.find(s => s.type === reward.type)?.icon || '🎁'
+                  )}
                 </motion.div>
                 
                 <h2 className="text-3xl font-bold text-white mb-2">

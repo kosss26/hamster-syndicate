@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { api } from '../api/client'
 import { useTelegram } from '../hooks/useTelegram'
+import CoinIcon from '../components/CoinIcon'
 
 const ShopPage = () => {
   const { webApp } = useTelegram()
@@ -111,7 +112,7 @@ const ShopPage = () => {
         {profile && (
           <div className="flex gap-3 mb-4">
             <div className="flex items-center gap-2 px-4 py-2 bg-game-warning/20 rounded-xl border border-game-warning/30">
-              <span className="text-2xl">🪙</span>
+              <CoinIcon size={24} />
               <span className="font-bold text-white">{profile.coins}</span>
             </div>
             <div className="flex items-center gap-2 px-4 py-2 bg-blue-500/20 rounded-xl border border-blue-500/30">
@@ -183,8 +184,8 @@ const ShopPage = () => {
                   {/* Price */}
                   <div className="flex items-center gap-2 bg-black/30 rounded-lg px-2 py-1">
                     {item.price_coins > 0 && (
-                      <span className="text-white font-bold text-sm">
-                        🪙 {item.price_coins}
+                      <span className="flex items-center gap-1 text-white font-bold text-sm">
+                        <CoinIcon size={16} /> {item.price_coins}
                       </span>
                     )}
                     {item.price_gems > 0 && (
@@ -265,7 +266,9 @@ const ShopPage = () => {
                 <div className="text-white/70 text-sm mb-1">Итого:</div>
                 <div className="flex items-center gap-4 justify-center text-2xl font-bold text-white">
                   {selectedItem.price_coins > 0 && (
-                    <span>🪙 {selectedItem.price_coins * quantity}</span>
+                    <span className="flex items-center gap-2">
+                      <CoinIcon size={28} /> {selectedItem.price_coins * quantity}
+                    </span>
                   )}
                   {selectedItem.price_gems > 0 && (
                     <span>💎 {selectedItem.price_gems * quantity}</span>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { api } from '../api/client'
 import { useTelegram } from '../hooks/useTelegram'
+import CoinIcon from '../components/CoinIcon'
 
 const LootboxPage = () => {
   const { webApp } = useTelegram()
@@ -323,7 +324,9 @@ const LootboxPage = () => {
                         border-2 border-white/50
                       `}
                     >
-                      <div className="text-4xl">{getRewardIcon(reward.type)}</div>
+                      <div className="text-4xl">
+                        {reward.type === 'coins' ? <CoinIcon size={40} /> : getRewardIcon(reward.type)}
+                      </div>
                       <div className="flex-1">
                         <div className="font-bold text-white">
                           {getRewardName(reward.type, reward.amount)}

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useTelegram, showBackButton, hapticFeedback } from '../hooks/useTelegram'
 import api from '../api/client'
+import CoinIcon from '../components/CoinIcon'
 
 // Telegram ID администраторов
 const ADMIN_IDS = [1763619724]
@@ -226,7 +227,7 @@ function HomePage() {
 
                 {/* Coins preview */}
                 <div className="relative flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-full">
-                  <span className="text-xl">💰</span>
+                  <CoinIcon size={24} />
                   <span className="text-white/80 text-sm font-medium">+100</span>
                 </div>
               </div>
