@@ -127,11 +127,11 @@ function HomePage() {
               onClick={handleMenuClick}
               className="block h-full"
             >
-              <div className="bento-card card-shine h-full p-5 flex flex-col justify-between group cursor-pointer">
+              <div className="bento-card card-shine h-full p-5 flex flex-col justify-between items-center text-center group cursor-pointer">
                 {/* Glow effect */}
                 <div className="bento-glow bg-gradient-to-br from-red-500/20 via-orange-500/10 to-transparent blur-2xl" />
                 
-                <div className="relative">
+                <div className="relative flex-1 flex flex-col items-center justify-center">
                   <motion.div 
                     className="text-4xl mb-2"
                     whileHover={{ scale: 1.2, rotate: 15 }}
