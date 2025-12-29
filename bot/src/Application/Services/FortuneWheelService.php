@@ -17,9 +17,9 @@ class FortuneWheelService
 
     // Конфигурация секторов колеса (вероятности в процентах)
     private const WHEEL_SECTORS = [
-        ['type' => 'coins', 'amount' => 50, 'weight' => 30, 'icon' => '🪙'],
-        ['type' => 'coins', 'amount' => 100, 'weight' => 20, 'icon' => '🪙'],
-        ['type' => 'coins', 'amount' => 200, 'weight' => 10, 'icon' => '🪙'],
+        ['type' => 'coins', 'amount' => 50, 'weight' => 30, 'icon' => '🪙', 'custom_icon_url' => '/api/images/shop/coins.png'],
+        ['type' => 'coins', 'amount' => 100, 'weight' => 20, 'icon' => '🪙', 'custom_icon_url' => '/api/images/shop/coins.png'],
+        ['type' => 'coins', 'amount' => 200, 'weight' => 10, 'icon' => '🪙', 'custom_icon_url' => '/api/images/shop/coins.png'],
         ['type' => 'exp', 'amount' => 25, 'weight' => 15, 'icon' => '⭐'],
         ['type' => 'life', 'amount' => 1, 'weight' => 10, 'icon' => '❤️'],
         ['type' => 'hint', 'amount' => 1, 'weight' => 10, 'icon' => '💡'],

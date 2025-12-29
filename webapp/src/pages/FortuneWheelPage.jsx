@@ -214,19 +214,32 @@ const FortuneWheelPage = () => {
                       strokeWidth="2"
                     />
                     
-                    {/* Icon/Amount text */}
-                    <text
-                      x={textX}
-                      y={textY}
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                      fontSize="14"
-                      fontWeight="bold"
-                      fill="#ffffff"
-                      style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}
-                    >
-                      {sector.icon}
-                    </text>
+                    {/* Icon - Custom image or emoji */}
+                    {sector.custom_icon_url ? (
+                      <image
+                        href={sector.custom_icon_url}
+                        x={textX - 10}
+                        y={textY - 10}
+                        width="20"
+                        height="20"
+                        style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }}
+                      />
+                    ) : (
+                      <text
+                        x={textX}
+                        y={textY}
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        fontSize="14"
+                        fontWeight="bold"
+                        fill="#ffffff"
+                        style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}
+                      >
+                        {sector.icon}
+                      </text>
+                    )}
+                    
+                    {/* Amount text */}
                     <text
                       x={textX}
                       y={textY + 12}
