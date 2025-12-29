@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useTelegram, showBackButton } from '../hooks/useTelegram'
 import api from '../api/client'
@@ -11,10 +12,15 @@ function ProfilePage() {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [showcasedAchievements, setShowcasedAchievements] = useState([])
+  const [achievementStats, setAchievementStats] = useState(null)
+  const [collections, setCollections] = useState([])
 
   useEffect(() => {
     showBackButton(true)
     loadProfile()
+    loadAchievements()
+    loadCollections()
   }, [])
 
   const loadProfile = async () => {
@@ -31,6 +37,34 @@ function ProfilePage() {
       setError(err.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadAchievements = async () => {
+    try {
+      const [showcasedRes, statsRes] = await Promise.all([
+        api.getShowcasedAchievements(),
+        api.getAchievementStats()
+      ])
+      if (showcasedRes.success) {
+        setShowcasedAchievements(showcasedRes.data.showcased || [])
+      }
+      if (statsRes.success) {
+        setAchievementStats(statsRes.data)
+      }
+    } catch (err) {
+      console.error('Failed to load achievements:', err)
+    }
+  }
+
+  const loadCollections = async () => {
+    try {
+      const response = await api.getCollections()
+      if (response.success) {
+        setCollections(response.data.collections || [])
+      }
+    } catch (err) {
+      console.error('Failed to load collections:', err)
     }
   }
 
@@ -261,6 +295,120 @@ function ProfilePage() {
             >
               🏅
             </motion.div>
+          </div>
+        </motion.div>
+
+        {/* Achievements Section */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+          className="glass rounded-3xl p-5 mb-4"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🏆</span>
+              <h3 className="text-white/60 text-sm font-medium">Достижения</h3>
+            </div>
+            <Link to="/achievements" className="text-xs text-game-primary hover:text-game-primary/80">
+              Все →
+            </Link>
+          </div>
+
+          {/* Stats Grid */}
+          {achievementStats && (
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-white">{achievementStats.completed}</p>
+                <p className="text-2xs text-white/30 uppercase tracking-wider">Получено</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-game-primary">{achievementStats.completion_percent}%</p>
+                <p className="text-2xs text-white/30 uppercase tracking-wider">Прогресс</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-white">{achievementStats.total}</p>
+                <p className="text-2xs text-white/30 uppercase tracking-wider">Всего</p>
+              </div>
+            </div>
+          )}
+
+          {/* Showcased Achievements */}
+          {showcasedAchievements.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-xs text-white/40 mb-2">Витрина:</p>
+              {showcasedAchievements.slice(0, 3).map((achievement) => (
+                <div 
+                  key={achievement.id}
+                  className="bg-white/5 rounded-xl p-3 flex items-center gap-3"
+                >
+                  <div className="text-2xl">{achievement.icon}</div>
+                  <div className="flex-1">
+                    <h4 className="text-sm font-semibold text-white">{achievement.title}</h4>
+                    <p className="text-xs text-white/40">{achievement.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-4 text-white/30 text-sm">
+              Получите достижения, чтобы показать их здесь
+            </div>
+          )}
+        </motion.div>
+
+        {/* Collections Section */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7 }}
+          className="bento-card p-5 mb-4"
+        >
+          <div className="bento-glow bg-gradient-to-br from-pink-500/20 via-purple-500/10 to-transparent blur-2xl" />
+          
+          <div className="relative">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">📚</span>
+                <h3 className="text-white/60 text-sm font-medium">Коллекции</h3>
+              </div>
+              <Link to="/collections" className="text-xs text-game-primary hover:text-game-primary/80">
+                Все →
+              </Link>
+            </div>
+
+            {collections.length > 0 ? (
+              <div className="grid grid-cols-2 gap-3">
+                {collections.slice(0, 2).map((collection) => {
+                  const progress = collection.progress_percent || 0
+                  return (
+                    <Link 
+                      key={collection.id}
+                      to={`/collections/${collection.id}`}
+                      className="bg-white/5 rounded-xl p-3 hover:bg-white/10 transition-colors"
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-2xl">{collection.icon}</span>
+                        <div className="flex-1">
+                          <h4 className="text-xs font-semibold text-white line-clamp-1">{collection.title}</h4>
+                          <p className="text-2xs text-white/40">{collection.owned_items}/{collection.total_items}</p>
+                        </div>
+                      </div>
+                      <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-purple-500 to-pink-500"
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-4 text-white/30 text-sm">
+                Коллекции скоро появятся
+              </div>
+            )}
           </div>
         </motion.div>
 
