@@ -253,11 +253,18 @@ class ShopItemsSeeder
         ];
 
         foreach ($items as $itemData) {
-            ShopItem::firstOrCreate(
+            // Добавляем is_active если не указано
+            if (!isset($itemData['is_active'])) {
+                $itemData['is_active'] = true;
+            }
+            
+            ShopItem::updateOrCreate(
                 ['name' => $itemData['name']],
                 $itemData
             );
         }
+        
+        echo "✅ Shop items seeded!\n";
     }
 }
 

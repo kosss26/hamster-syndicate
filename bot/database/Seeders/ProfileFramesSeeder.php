@@ -27,7 +27,7 @@ class ProfileFramesSeeder
                     'gradient' => ['from' => '#6B7280', 'to' => '#4B5563'],
                     'animated' => false,
                 ]),
-                'is_available' => true,
+                'is_active' => true,
             ],
             
             // За достижения (будут разблокироваться автоматически)
@@ -47,7 +47,7 @@ class ProfileFramesSeeder
                     'animated' => false,
                     'unlock_requirement' => 'duel_wins_10',
                 ]),
-                'is_available' => true,
+                'is_active' => true,
             ],
             [
                 'name' => 'Серийный игрок',
@@ -65,7 +65,7 @@ class ProfileFramesSeeder
                     'animated' => false,
                     'unlock_requirement' => 'streak_7',
                 ]),
-                'is_available' => true,
+                'is_active' => true,
             ],
             [
                 'name' => 'Легенда',
@@ -83,7 +83,7 @@ class ProfileFramesSeeder
                     'animated' => false,
                     'unlock_requirement' => 'rating_1000',
                 ]),
-                'is_available' => true,
+                'is_active' => true,
             ],
             
             // За монеты
@@ -102,7 +102,7 @@ class ProfileFramesSeeder
                     'gradient' => ['from' => '#EC4899', 'via' => '#8B5CF6', 'to' => '#3B82F6'],
                     'animated' => false,
                 ]),
-                'is_available' => true,
+                'is_active' => true,
             ],
             
             // За кристаллы
@@ -121,7 +121,7 @@ class ProfileFramesSeeder
                     'gradient' => ['from' => '#06B6D4', 'via' => '#3B82F6', 'to' => '#8B5CF6'],
                     'animated' => false,
                 ]),
-                'is_available' => true,
+                'is_active' => true,
             ],
             [
                 'name' => 'Королевская',
@@ -138,7 +138,7 @@ class ProfileFramesSeeder
                     'gradient' => ['from' => '#FDE047', 'via' => '#FACC15', 'to' => '#EAB308'],
                     'animated' => false,
                 ]),
-                'is_available' => true,
+                'is_active' => true,
             ],
             [
                 'name' => 'Молния',
@@ -155,17 +155,13 @@ class ProfileFramesSeeder
                     'gradient' => ['from' => '#FDE047', 'via' => '#A855F7', 'to' => '#3B82F6'],
                     'animated' => true,
                 ]),
-                'is_available' => true,
+                'is_active' => true,
             ],
         ];
 
         foreach ($frames as $frameData) {
-            ShopItem::query()->firstOrCreate(
-                [
-                    'type' => $frameData['type'],
-                    'category' => $frameData['category'],
-                    'metadata' => $frameData['metadata'],
-                ],
+            ShopItem::query()->updateOrCreate(
+                ['name' => $frameData['name']],
                 $frameData
             );
         }
