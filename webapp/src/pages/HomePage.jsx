@@ -162,11 +162,15 @@ function HomePage() {
                 <div className="bento-glow bg-gradient-to-br from-purple-500/20 via-pink-500/10 to-transparent blur-2xl" />
                 
                 <motion.div 
-                  className="text-3xl"
+                  className="w-12 h-12 flex items-center justify-center"
                   whileHover={{ scale: 1.2 }}
                   transition={{ type: "spring", stiffness: 400 }}
                 >
-                  🧠
+                  <img 
+                    src="/api/images/ui/truefalse.png" 
+                    alt="true/false"
+                    className="w-10 h-10"
+                  />
                 </motion.div>
                 <div className="relative">
                   <h3 className="font-semibold text-white text-sm">Правда или ложь</h3>
