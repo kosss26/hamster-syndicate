@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { api } from '../api/client'
 import { useTelegram } from '../hooks/useTelegram'
 import CoinIcon from '../components/CoinIcon'
+import AvatarWithFrame from '../components/AvatarWithFrame'
 
 const ShopPage = () => {
   const { webApp } = useTelegram()
@@ -63,8 +64,10 @@ const ShopPage = () => {
   const handlePurchase = async () => {
     if (!selectedItem || purchasing) return
 
-    const totalCoins = selectedItem.price_coins * quantity
-    const totalGems = selectedItem.price_gems * quantity
+    // Для косметики всегда quantity = 1
+    const actualQuantity = selectedItem.type === 'cosmetic' ? 1 : quantity
+    const totalCoins = selectedItem.price_coins * actualQuantity
+    const totalGems = selectedItem.price_gems * actualQuantity
 
     if (totalCoins > profile.coins || totalGems > profile.gems) {
       webApp?.showAlert?.('Недостаточно средств!')
@@ -73,10 +76,12 @@ const ShopPage = () => {
 
     setPurchasing(true)
     try {
-      await api.purchaseItem(selectedItem.id, quantity)
+      await api.purchaseItem(selectedItem.id, actualQuantity)
       webApp?.showPopup?.({
         title: '✅ Успешно!',
-        message: `Куплено: ${selectedItem.name} x${quantity}`,
+        message: selectedItem.type === 'cosmetic' 
+          ? `Куплено: ${selectedItem.name}` 
+          : `Куплено: ${selectedItem.name} x${actualQuantity}`,
         buttons: [{ type: 'close' }]
       })
       setSelectedItem(null)
@@ -168,8 +173,21 @@ const ShopPage = () => {
                   bg-gradient-to-br ${rarityColors[item.rarity] || rarityColors.common}
                   border border-white/20
                 `}>
-                  {/* Icon */}
-                  <div className="text-5xl mb-2">{item.icon}</div>
+                  {/* Icon or Frame Preview */}
+                  {item.metadata?.cosmetic_type === 'frame' ? (
+                    <div className="flex justify-center mb-2">
+                      <AvatarWithFrame
+                        photoUrl={null}
+                        name="?"
+                        frameKey={item.metadata?.frame_key || 'default'}
+                        size={64}
+                        animated={item.metadata?.animated || false}
+                        showGlow={false}
+                      />
+                    </div>
+                  ) : (
+                    <div className="text-5xl mb-2">{item.icon}</div>
+                  )}
                   
                   {/* Name */}
                   <h3 className="text-white font-bold text-sm mb-1 line-clamp-2">
@@ -230,7 +248,20 @@ const ShopPage = () => {
               </button>
 
               <div className="text-center mb-6">
-                <div className="text-7xl mb-4">{selectedItem.icon}</div>
+                {selectedItem.metadata?.cosmetic_type === 'frame' ? (
+                  <div className="flex justify-center mb-4">
+                    <AvatarWithFrame
+                      photoUrl={null}
+                      name="?"
+                      frameKey={selectedItem.metadata?.frame_key || 'default'}
+                      size={128}
+                      animated={selectedItem.metadata?.animated || false}
+                      showGlow={true}
+                    />
+                  </div>
+                ) : (
+                  <div className="text-7xl mb-4">{selectedItem.icon}</div>
+                )}
                 <h2 className="text-2xl font-bold text-white mb-2">
                   {selectedItem.name}
                 </h2>
@@ -239,39 +270,46 @@ const ShopPage = () => {
                 </p>
               </div>
 
-              {/* Quantity Selector */}
-              <div className="mb-6">
-                <label className="block text-white/80 mb-2 text-sm">Количество:</label>
-                <div className="flex items-center gap-4 justify-center">
-                  <button
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="w-10 h-10 rounded-full bg-black/30 text-white font-bold text-xl"
-                  >
-                    −
-                  </button>
-                  <span className="text-3xl font-bold text-white w-12 text-center">
-                    {quantity}
-                  </span>
-                  <button
-                    onClick={() => setQuantity(Math.min(99, quantity + 1))}
-                    className="w-10 h-10 rounded-full bg-black/30 text-white font-bold text-xl"
-                  >
-                    +
-                  </button>
+              {/* Quantity Selector (only for non-cosmetics) */}
+              {selectedItem.type !== 'cosmetic' && (
+                <div className="mb-6">
+                  <label className="block text-white/80 mb-2 text-sm">Количество:</label>
+                  <div className="flex items-center gap-4 justify-center">
+                    <button
+                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      className="w-10 h-10 rounded-full bg-black/30 text-white font-bold text-xl"
+                    >
+                      −
+                    </button>
+                    <span className="text-3xl font-bold text-white w-12 text-center">
+                      {quantity}
+                    </span>
+                    <button
+                      onClick={() => setQuantity(Math.min(99, quantity + 1))}
+                      className="w-10 h-10 rounded-full bg-black/30 text-white font-bold text-xl"
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Total Price */}
               <div className="mb-6 p-4 bg-black/30 rounded-xl">
-                <div className="text-white/70 text-sm mb-1">Итого:</div>
+                <div className="text-white/70 text-sm mb-1">
+                  {selectedItem.type === 'cosmetic' ? 'Цена:' : 'Итого:'}
+                </div>
                 <div className="flex items-center gap-4 justify-center text-2xl font-bold text-white">
                   {selectedItem.price_coins > 0 && (
                     <span className="flex items-center gap-2">
-                      <CoinIcon size={28} /> {selectedItem.price_coins * quantity}
+                      <CoinIcon size={28} /> 
+                      {selectedItem.price_coins * (selectedItem.type === 'cosmetic' ? 1 : quantity)}
                     </span>
                   )}
                   {selectedItem.price_gems > 0 && (
-                    <span>💎 {selectedItem.price_gems * quantity}</span>
+                    <span>
+                      💎 {selectedItem.price_gems * (selectedItem.type === 'cosmetic' ? 1 : quantity)}
+                    </span>
                   )}
                 </div>
               </div>
