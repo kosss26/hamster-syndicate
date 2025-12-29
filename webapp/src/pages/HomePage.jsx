@@ -235,56 +235,52 @@ function HomePage() {
           </motion.div>
 
           {/* Магазин */}
-          <motion.div variants={itemVariants} className="col-span-2">
+          <motion.div variants={itemVariants}>
             <Link to="/shop" onClick={handleMenuClick} className="block h-full">
-              <div className="bento-card card-shine h-full p-4 flex flex-col justify-between group cursor-pointer">
+              <div className="bento-card card-shine h-full p-3 flex flex-col items-center justify-center text-center group cursor-pointer aspect-square">
                 <div className="bento-glow bg-gradient-to-br from-blue-500/20 via-cyan-500/10 to-transparent blur-2xl" />
                 <div className="relative">
-                  <motion.div className="text-4xl mb-2" whileHover={{ scale: 1.2 }}>🏪</motion.div>
-                  <h3 className="font-semibold text-white">Магазин</h3>
-                  <p className="text-white/40 text-xs">Бусты и предметы</p>
+                  <motion.div className="text-3xl mb-1" whileHover={{ scale: 1.2 }}>🏪</motion.div>
+                  <h3 className="font-semibold text-white text-xs">Магазин</h3>
                 </div>
               </div>
             </Link>
           </motion.div>
 
           {/* Колесо фортуны */}
-          <motion.div variants={itemVariants} className="col-span-2">
+          <motion.div variants={itemVariants}>
             <Link to="/wheel" onClick={handleMenuClick} className="block h-full">
-              <div className="bento-card card-shine h-full p-4 flex flex-col justify-between group cursor-pointer">
+              <div className="bento-card card-shine h-full p-3 flex flex-col items-center justify-center text-center group cursor-pointer aspect-square">
                 <div className="bento-glow bg-gradient-to-br from-purple-500/20 via-pink-500/10 to-transparent blur-2xl" />
                 <div className="relative">
-                  <motion.div className="text-4xl mb-2" whileHover={{ rotate: 180 }} transition={{ duration: 0.5 }}>🎰</motion.div>
-                  <h3 className="font-semibold text-white">Колесо</h3>
-                  <p className="text-white/40 text-xs">Ежедневная награда</p>
+                  <motion.div className="text-3xl mb-1" whileHover={{ rotate: 180 }} transition={{ duration: 0.5 }}>🎰</motion.div>
+                  <h3 className="font-semibold text-white text-xs">Колесо</h3>
                 </div>
               </div>
             </Link>
           </motion.div>
 
           {/* Инвентарь */}
-          <motion.div variants={itemVariants} className="col-span-2">
+          <motion.div variants={itemVariants}>
             <Link to="/inventory" onClick={handleMenuClick} className="block h-full">
-              <div className="bento-card card-shine h-full p-4 flex flex-col justify-between group cursor-pointer">
+              <div className="bento-card card-shine h-full p-3 flex flex-col items-center justify-center text-center group cursor-pointer aspect-square">
                 <div className="bento-glow bg-gradient-to-br from-green-500/20 via-emerald-500/10 to-transparent blur-2xl" />
                 <div className="relative">
-                  <motion.div className="text-4xl mb-2" whileHover={{ scale: 1.2 }}>🎒</motion.div>
-                  <h3 className="font-semibold text-white">Инвентарь</h3>
-                  <p className="text-white/40 text-xs">Предметы и косметика</p>
+                  <motion.div className="text-3xl mb-1" whileHover={{ scale: 1.2 }}>🎒</motion.div>
+                  <h3 className="font-semibold text-white text-xs">Инвентарь</h3>
                 </div>
               </div>
             </Link>
           </motion.div>
 
           {/* Лутбоксы */}
-          <motion.div variants={itemVariants} className="col-span-2">
+          <motion.div variants={itemVariants}>
             <Link to="/lootbox" onClick={handleMenuClick} className="block h-full">
-              <div className="bento-card card-shine h-full p-4 flex flex-col justify-between group cursor-pointer">
+              <div className="bento-card card-shine h-full p-3 flex flex-col items-center justify-center text-center group cursor-pointer aspect-square">
                 <div className="bento-glow bg-gradient-to-br from-orange-500/20 via-yellow-500/10 to-transparent blur-2xl" />
                 <div className="relative">
-                  <motion.div className="text-4xl mb-2" whileHover={{ scale: 1.2, rotate: 15 }}>🎁</motion.div>
-                  <h3 className="font-semibold text-white">Лутбоксы</h3>
-                  <p className="text-white/40 text-xs">Открой и получи награды</p>
+                  <motion.div className="text-3xl mb-1" whileHover={{ scale: 1.2, rotate: 15 }}>🎁</motion.div>
+                  <h3 className="font-semibold text-white text-xs">Лутбоксы</h3>
                 </div>
               </div>
             </Link>
