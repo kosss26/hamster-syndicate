@@ -50,16 +50,24 @@ function ReferralPage() {
     try {
       await navigator.clipboard.writeText(stats.referral_link)
       setCopied(true)
-      webApp.showPopup({
-        title: '✅ Скопировано!',
-        message: 'Ссылка скопирована в буфер обмена',
-        buttons: [{ type: 'close' }]
-      })
+      
+      // Безопасно показываем уведомление
+      if (webApp?.showPopup) {
+        webApp.showPopup({
+          title: '✅ Скопировано!',
+          message: 'Ссылка скопирована в буфер обмена',
+          buttons: [{ type: 'close' }]
+        })
+      } else if (webApp?.showAlert) {
+        webApp.showAlert('✅ Ссылка скопирована!')
+      }
       
       setTimeout(() => setCopied(false), 2000)
     } catch (err) {
       console.error('Ошибка копирования:', err)
-      webApp.showAlert('Не удалось скопировать ссылку')
+      if (webApp?.showAlert) {
+        webApp.showAlert('Не удалось скопировать ссылку')
+      }
     }
   }
 
@@ -69,13 +77,22 @@ function ReferralPage() {
 
     try {
       await navigator.clipboard.writeText(stats.referral_code)
-      webApp.showPopup({
-        title: '✅ Скопировано!',
-        message: `Код ${stats.referral_code} скопирован`,
-        buttons: [{ type: 'close' }]
-      })
+      
+      // Безопасно показываем уведомление
+      if (webApp?.showPopup) {
+        webApp.showPopup({
+          title: '✅ Скопировано!',
+          message: `Код ${stats.referral_code} скопирован`,
+          buttons: [{ type: 'close' }]
+        })
+      } else if (webApp?.showAlert) {
+        webApp.showAlert(`✅ Код ${stats.referral_code} скопирован!`)
+      }
     } catch (err) {
       console.error('Ошибка копирования:', err)
+      if (webApp?.showAlert) {
+        webApp.showAlert('Не удалось скопировать код')
+      }
     }
   }
 
