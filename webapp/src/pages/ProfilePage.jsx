@@ -187,36 +187,6 @@ function ProfilePage() {
           </div>
         </motion.div>
 
-        {/* Stats Grid */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="grid grid-cols-3 gap-3 mb-4"
-        >
-          <StatBox 
-            icon="🏆" 
-            value={profile.stats?.duel_wins || 0} 
-            label="Победы" 
-            gradient="from-game-success/20 to-emerald-500/10"
-            glowColor="shadow-glow-success"
-          />
-          <StatBox 
-            icon="📊" 
-            value={profile.rating} 
-            label="Рейтинг" 
-            gradient="from-game-primary/20 to-purple-500/10"
-            glowColor="shadow-glow"
-          />
-          <StatBox 
-            icon="🔥" 
-            value={profile.win_streak} 
-            label="Серия" 
-            gradient="from-game-warning/20 to-orange-500/10"
-            glowColor="shadow-glow-warning"
-          />
-        </motion.div>
-
         {/* Duel Statistics */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
