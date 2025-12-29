@@ -9,6 +9,15 @@ const InventoryPage = () => {
   const [activeTab, setActiveTab] = useState('items')
   const [loading, setLoading] = useState(true)
 
+  // Показываем кнопку Назад
+  useEffect(() => {
+    if (webApp?.BackButton) {
+      webApp.BackButton.show()
+      webApp.BackButton.onClick(() => window.history.back())
+      return () => webApp.BackButton.hide()
+    }
+  }, [webApp])
+
   const rarityColors = {
     common: 'border-gray-500/50 bg-gray-600/10',
     uncommon: 'border-green-500/50 bg-green-600/10',

@@ -13,6 +13,15 @@ const ShopPage = () => {
   const [loading, setLoading] = useState(true)
   const [purchasing, setPurchasing] = useState(false)
 
+  // Показываем кнопку Назад
+  useEffect(() => {
+    if (webApp?.BackButton) {
+      webApp.BackButton.show()
+      webApp.BackButton.onClick(() => window.history.back())
+      return () => webApp.BackButton.hide()
+    }
+  }, [webApp])
+
   const categories = [
     { id: 'all', name: 'Всё', icon: '🏪' },
     { id: 'hint', name: 'Подсказки', icon: '💡' },

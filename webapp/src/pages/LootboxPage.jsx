@@ -11,6 +11,15 @@ const LootboxPage = () => {
   const [rewards, setRewards] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  // Показываем кнопку Назад
+  useEffect(() => {
+    if (webApp?.BackButton) {
+      webApp.BackButton.show()
+      webApp.BackButton.onClick(() => window.history.back())
+      return () => webApp.BackButton.hide()
+    }
+  }, [webApp])
+
   const lootboxTypes = {
     bronze: {
       name: 'Бронзовый лутбокс',

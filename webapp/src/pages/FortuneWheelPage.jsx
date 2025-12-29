@@ -13,6 +13,15 @@ const FortuneWheelPage = () => {
   const [loading, setLoading] = useState(true)
   const wheelRef = useRef(null)
 
+  // Показываем кнопку Назад
+  useEffect(() => {
+    if (webApp?.BackButton) {
+      webApp.BackButton.show()
+      webApp.BackButton.onClick(() => window.history.back())
+      return () => webApp.BackButton.hide()
+    }
+  }, [webApp])
+
   useEffect(() => {
     loadData()
   }, [])
@@ -96,6 +105,18 @@ const FortuneWheelPage = () => {
     return texts[type] || 'Награда'
   }
 
+  // Цвета для секторов
+  const sectorColors = [
+    '#ff6b6b', // красный
+    '#4ecdc4', // бирюзовый
+    '#45b7d1', // голубой
+    '#f7dc6f', // желтый
+    '#bb8fce', // фиолетовый
+    '#52be80', // зеленый
+    '#eb984e', // оранжевый
+    '#f1948a', // розовый
+  ]
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-dark-950 to-dark-900 flex items-center justify-center">
@@ -119,51 +140,119 @@ const FortuneWheelPage = () => {
       {/* Wheel Container */}
       <div className="relative py-8">
         {/* Arrow Pointer */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 z-10">
-          <div className="text-5xl drop-shadow-lg">👇</div>
+        <div className="absolute top-8 left-1/2 -translate-x-1/2 z-10">
+          <div className="w-0 h-0 border-l-[20px] border-r-[20px] border-t-[30px] border-l-transparent border-r-transparent border-t-red-500 drop-shadow-2xl" />
         </div>
 
         {/* Wheel */}
-        <div className="flex justify-center items-center px-4">
+        <div className="flex justify-center items-center px-4 mt-8">
           <div className="relative w-full max-w-sm aspect-square">
-            <motion.div
+            <motion.svg
               ref={wheelRef}
-              className="absolute inset-0 rounded-full overflow-hidden border-8 border-game-primary shadow-2xl"
-              style={{
-                background: 'conic-gradient(from 0deg, #ff6b6b 0deg, #4ecdc4 45deg, #45b7d1 90deg, #f7dc6f 135deg, #bb8fce 180deg, #52be80 225deg, #eb984e 270deg, #f1948a 315deg)',
-              }}
+              viewBox="0 0 200 200"
+              className="w-full h-full drop-shadow-2xl"
               animate={{ rotate: rotation }}
               transition={{
                 duration: 4,
                 ease: [0.25, 0.1, 0.25, 1],
               }}
             >
-              {/* Sectors */}
+              {/* Draw sectors with clear borders */}
               {config.map((sector, index) => {
-                const angle = (360 / config.length) * index
+                const angle = 360 / config.length
+                const startAngle = (index * angle - 90) * (Math.PI / 180)
+                const endAngle = ((index + 1) * angle - 90) * (Math.PI / 180)
+                
+                const x1 = 100 + 90 * Math.cos(startAngle)
+                const y1 = 100 + 90 * Math.sin(startAngle)
+                const x2 = 100 + 90 * Math.cos(endAngle)
+                const y2 = 100 + 90 * Math.sin(endAngle)
+                
+                const largeArc = angle > 180 ? 1 : 0
+                
+                const pathData = [
+                  `M 100 100`,
+                  `L ${x1} ${y1}`,
+                  `A 90 90 0 ${largeArc} 1 ${x2} ${y2}`,
+                  `Z`
+                ].join(' ')
+
+                // Text position
+                const textAngle = (index * angle + angle / 2 - 90) * (Math.PI / 180)
+                const textX = 100 + 60 * Math.cos(textAngle)
+                const textY = 100 + 60 * Math.sin(textAngle)
+                
                 return (
-                  <div
-                    key={index}
-                    className="absolute top-1/2 left-1/2 origin-left"
-                    style={{
-                      transform: `rotate(${angle}deg)`,
-                      width: '50%',
-                    }}
-                  >
-                    <div className="absolute left-1/4 top-1/2 -translate-y-1/2 text-2xl">
+                  <g key={index}>
+                    {/* Sector */}
+                    <path
+                      d={pathData}
+                      fill={sectorColors[index % sectorColors.length]}
+                      stroke="#ffffff"
+                      strokeWidth="2"
+                    />
+                    
+                    {/* Icon/Amount text */}
+                    <text
+                      x={textX}
+                      y={textY}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      fontSize="14"
+                      fontWeight="bold"
+                      fill="#ffffff"
+                      style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}
+                    >
                       {sector.icon}
-                    </div>
-                  </div>
+                    </text>
+                    <text
+                      x={textX}
+                      y={textY + 12}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      fontSize="10"
+                      fontWeight="bold"
+                      fill="#ffffff"
+                      style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}
+                    >
+                      {sector.amount}
+                    </text>
+                  </g>
                 )
               })}
+              
+              {/* Center circle */}
+              <circle
+                cx="100"
+                cy="100"
+                r="25"
+                fill="url(#centerGradient)"
+                stroke="#ffffff"
+                strokeWidth="3"
+              />
+              
+              {/* Center text */}
+              <text
+                x="100"
+                y="105"
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fontSize="24"
+              >
+                🎰
+              </text>
+              
+              {/* Gradient definition */}
+              <defs>
+                <linearGradient id="centerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#8b5cf6" />
+                  <stop offset="100%" stopColor="#ec4899" />
+                </linearGradient>
+              </defs>
+            </motion.svg>
 
-              {/* Center Circle */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-game-primary to-purple-600 border-4 border-white shadow-lg flex items-center justify-center">
-                  <span className="text-4xl font-bold text-white">🎰</span>
-                </div>
-              </div>
-            </motion.div>
+            {/* Outer ring for 3D effect */}
+            <div className="absolute inset-0 rounded-full border-8 border-white/20 pointer-events-none" />
           </div>
         </div>
       </div>
@@ -325,4 +414,3 @@ const FortuneWheelPage = () => {
 }
 
 export default FortuneWheelPage
-
