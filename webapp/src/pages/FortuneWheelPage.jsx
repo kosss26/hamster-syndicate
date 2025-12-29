@@ -129,9 +129,18 @@ const FortuneWheelPage = () => {
     <div className="min-h-screen bg-gradient-to-b from-dark-950 to-dark-900 pb-24">
       {/* Header */}
       <div className="glass-effect border-b border-white/10 p-4">
-        <h1 className="text-2xl font-bold text-white text-center mb-2">
-          🎰 Колесо фортуны
-        </h1>
+        <div className="flex items-center justify-between mb-2">
+          <button
+            onClick={() => window.history.back()}
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+          >
+            <span className="text-xl">←</span>
+          </button>
+          <h1 className="text-2xl font-bold text-white">
+            🎰 Колесо фортуны
+          </h1>
+          <div className="w-10" />
+        </div>
         <p className="text-white/60 text-center text-sm">
           Крути колесо и выигрывай призы!
         </p>

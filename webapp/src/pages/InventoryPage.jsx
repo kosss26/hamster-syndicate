@@ -107,7 +107,15 @@ const InventoryPage = () => {
     <div className="min-h-screen bg-gradient-to-b from-dark-950 to-dark-900 pb-24">
       {/* Header */}
       <div className="sticky top-0 z-10 glass-effect border-b border-white/10 p-4">
-        <h1 className="text-2xl font-bold text-white mb-4">🎒 Инвентарь</h1>
+        <div className="flex items-center gap-3 mb-4">
+          <button
+            onClick={() => window.history.back()}
+            className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+          >
+            <span className="text-xl">←</span>
+          </button>
+          <h1 className="text-2xl font-bold text-white">🎒 Инвентарь</h1>
+        </div>
         
         {/* Resources Display */}
         {inventory?.resources && (
