@@ -36,20 +36,16 @@ function ReferralPage() {
   const inviteFriend = () => {
     if (!stats?.referral_link) return
     
-    const text = `🎮 Присоединяйся к Битве знаний! Получи 50 монет в подарок!\n${stats.referral_link}`
+    const text = '🎮 Присоединяйся к Битве знаний! Получи 50 монет в подарок!'
+    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(stats.referral_link)}&text=${encodeURIComponent(text)}`
     
-    // Используем правильный метод для открытия окна выбора контактов
-    // tg://msg_url открывает окно выбора чата
-    const shareUrl = `tg://msg_url?url=${encodeURIComponent(stats.referral_link)}&text=${encodeURIComponent('🎮 Присоединяйся к Битве знаний! Получи 50 монет в подарок!')}`
-    
-    // Безопасно открываем окно шаринга
-    if (webApp?.openTelegramLink) {
-      webApp.openTelegramLink(shareUrl)
-    } else if (webApp?.openLink) {
+    // Используем openLink для открытия в браузере/Telegram
+    // Это откроет встроенный браузер с окном выбора контактов
+    if (webApp?.openLink) {
       webApp.openLink(shareUrl)
     } else {
-      // Fallback для браузера
-      window.location.href = shareUrl
+      // Fallback: открываем в новом окне
+      window.open(shareUrl, '_blank')
     }
   }
 
