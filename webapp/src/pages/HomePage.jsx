@@ -290,32 +290,6 @@ function HomePage() {
             </Link>
           </motion.div>
 
-          {/* Достижения */}
-          <motion.div variants={itemVariants}>
-            <Link to="/achievements" onClick={handleMenuClick} className="block h-full">
-              <div className="bento-card card-shine h-full p-3 flex flex-col items-center justify-center text-center group cursor-pointer aspect-square">
-                <div className="bento-glow bg-gradient-to-br from-yellow-500/20 via-orange-500/10 to-transparent blur-2xl" />
-                <div className="relative">
-                  <motion.div className="text-3xl mb-1" whileHover={{ scale: 1.2, rotate: -15 }}>🏆</motion.div>
-                  <h3 className="font-semibold text-white text-xs">Достижения</h3>
-                </div>
-              </div>
-            </Link>
-          </motion.div>
-
-          {/* Коллекции */}
-          <motion.div variants={itemVariants}>
-            <Link to="/collections" onClick={handleMenuClick} className="block h-full">
-              <div className="bento-card card-shine h-full p-3 flex flex-col items-center justify-center text-center group cursor-pointer aspect-square">
-                <div className="bento-glow bg-gradient-to-br from-pink-500/20 via-purple-500/10 to-transparent blur-2xl" />
-                <div className="relative">
-                  <motion.div className="text-3xl mb-1" whileHover={{ scale: 1.2 }}>📚</motion.div>
-                  <h3 className="font-semibold text-white text-xs">Коллекции</h3>
-                </div>
-              </div>
-            </Link>
-          </motion.div>
-
           {/* Рейтинг - широкая карточка */}
           <motion.div variants={itemVariants} className="col-span-4">
             <Link
