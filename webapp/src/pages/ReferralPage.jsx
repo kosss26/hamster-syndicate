@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useTelegram, showBackButton } from '../hooks/useTelegram'
 import api from '../api/client'
+import CoinIcon from '../components/CoinIcon'
 
 function ReferralPage() {
   const { user, webApp } = useTelegram()
@@ -241,7 +242,7 @@ function ReferralPage() {
             gradient="from-game-success/20 to-emerald-500/10"
           />
           <StatCard 
-            icon="💰" 
+            icon={<CoinIcon size={28} />}
             value={stats.total_coins_earned} 
             label="Заработано монет"
             gradient="from-game-warning/20 to-orange-500/10"
@@ -269,7 +270,7 @@ function ReferralPage() {
               <span>Что получишь</span>
             </h3>
             <div className="space-y-3">
-              <RewardItem emoji="💰" text="100 монет за каждого активного друга" />
+              <RewardItem emoji={<CoinIcon size={20} />} text="100 монет за каждого активного друга" />
               <RewardItem emoji="⭐" text="50 опыта за приглашение" />
               <RewardItem emoji="🎁" text="Бонусы за количество друзей" />
               <RewardItem emoji="⏱" text="Друг должен сыграть 3 игры" />
@@ -314,7 +315,7 @@ function ReferralPage() {
 
               <div className="flex gap-4 text-sm">
                 <div className="flex items-center gap-2">
-                  <span>💰</span>
+                  <CoinIcon size={16} />
                   <span className="text-white/80">{stats.next_milestone.reward_coins}</span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -373,7 +374,9 @@ function StatCard({ icon, value, label, gradient }) {
       <div className="absolute inset-0 glass" />
       
       <div className="relative">
-        <span className="text-3xl block mb-1">{icon}</span>
+        <div className="flex items-center justify-center mb-1" style={{ fontSize: '1.875rem' }}>
+          {typeof icon === 'string' ? <span>{icon}</span> : icon}
+        </div>
         <p className="text-2xl font-bold text-white mb-1">{value}</p>
         <p className="text-2xs text-white/40 uppercase tracking-wider leading-tight">{label}</p>
       </div>
@@ -384,7 +387,9 @@ function StatCard({ icon, value, label, gradient }) {
 function RewardItem({ emoji, text }) {
   return (
     <div className="flex items-start gap-3">
-      <span className="text-xl flex-shrink-0">{emoji}</span>
+      <div className="flex-shrink-0 flex items-center justify-center" style={{ fontSize: '1.25rem', width: '1.5rem', height: '1.5rem' }}>
+        {typeof emoji === 'string' ? <span>{emoji}</span> : emoji}
+      </div>
       <p className="text-white/70 text-sm leading-relaxed">{text}</p>
     </div>
   )
