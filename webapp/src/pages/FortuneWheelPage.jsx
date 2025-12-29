@@ -151,7 +151,7 @@ const FortuneWheelPage = () => {
         {/* Custom Pointer */}
         <div className="absolute top-8 left-1/2 -translate-x-1/2 z-10">
           <img 
-            src="/images/wheel/pointer.png" 
+            src="/api/images/wheel/pointer.png" 
             alt="pointer"
             className="w-16 h-16 drop-shadow-2xl animate-bounce"
             style={{ animationDuration: '2s', animationIterationCount: 'infinite' }}
