@@ -49,17 +49,32 @@ class FortuneWheelService
                 'can_spin' => true,
                 'next_spin_at' => null,
                 'hours_left' => 0,
+                'minutes_left' => 0,
             ];
         }
 
         $nextSpinAt = $profile->last_wheel_spin->copy()->addHours(self::COOLDOWN_HOURS);
         $canSpin = Carbon::now()->greaterThanOrEqualTo($nextSpinAt);
-        $hoursLeft = $canSpin ? 0 : (int) Carbon::now()->diffInHours($nextSpinAt, false);
+        
+        if ($canSpin) {
+            return [
+                'can_spin' => true,
+                'next_spin_at' => $nextSpinAt->toIso8601String(),
+                'hours_left' => 0,
+                'minutes_left' => 0,
+            ];
+        }
+        
+        $now = Carbon::now();
+        $totalMinutes = $now->diffInMinutes($nextSpinAt, false);
+        $hoursLeft = (int) floor(abs($totalMinutes) / 60);
+        $minutesLeft = (int) (abs($totalMinutes) % 60);
 
         return [
-            'can_spin' => $canSpin,
+            'can_spin' => false,
             'next_spin_at' => $nextSpinAt->toIso8601String(),
-            'hours_left' => abs($hoursLeft),
+            'hours_left' => $hoursLeft,
+            'minutes_left' => $minutesLeft,
         ];
     }
 
@@ -135,6 +150,8 @@ class FortuneWheelService
             'reward' => $reward,
             'streak' => $profile->wheel_streak,
             'next_spin_at' => $usePremium ? null : Carbon::now()->addHours(self::COOLDOWN_HOURS)->toIso8601String(),
+            'hours_left' => $usePremium ? 0 : self::COOLDOWN_HOURS,
+            'minutes_left' => 0,
         ];
     }
 
@@ -260,6 +277,7 @@ class FortuneWheelService
             'can_spin_free' => $canSpin['can_spin'],
             'next_spin_at' => $canSpin['next_spin_at'],
             'hours_left' => $canSpin['hours_left'],
+            'minutes_left' => $canSpin['minutes_left'],
             'wheel_streak' => $profile->wheel_streak,
             'total_spins' => $totalSpins,
             'free_spins' => $freeSpins,

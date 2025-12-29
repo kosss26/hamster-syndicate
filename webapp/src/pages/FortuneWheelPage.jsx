@@ -48,7 +48,7 @@ const FortuneWheelPage = () => {
     if (spinning) return
 
     if (!usePremium && !wheelData?.can_spin_free) {
-      webApp?.showAlert?.(`Следующее вращение через ${formatTime(wheelData?.hours_left || 0)}`)
+      webApp?.showAlert?.(`Следующее вращение через ${formatTime(wheelData?.hours_left || 0, wheelData?.minutes_left || 0)}`)
       return
     }
 
@@ -59,25 +59,38 @@ const FortuneWheelPage = () => {
       const response = await api.spinWheel(usePremium)
       const result = response.data
 
-      // Находим индекс сектора с наградой
-      const rewardIndex = config.findIndex(
-        s => s.type === result.reward.type && s.amount === result.reward.amount
-      )
+      // Находим индекс сектора с наградой (учитываем, что может быть несколько одинаковых)
+      const matchingSectors = config
+        .map((s, idx) => ({ sector: s, index: idx }))
+        .filter(item => item.sector.type === result.reward.type && item.sector.amount === result.reward.amount)
+      
+      // Выбираем случайный из подходящих (если их несколько с одинаковой наградой)
+      const rewardIndex = matchingSectors.length > 0 
+        ? matchingSectors[Math.floor(Math.random() * matchingSectors.length)].index
+        : 0
       
       // Вычисляем угол поворота
       const sectorAngle = 360 / config.length
-      const targetAngle = rewardIndex * sectorAngle
+      const targetAngle = rewardIndex * sectorAngle + (sectorAngle / 2) // центр сектора
       const spins = 5 // Количество полных оборотов
-      const finalRotation = rotation + (360 * spins) + (360 - targetAngle)
+      const randomOffset = (Math.random() - 0.5) * (sectorAngle * 0.3) // случайное смещение внутри сектора
+      const finalRotation = rotation + (360 * spins) + (360 - targetAngle) + randomOffset
 
       // Анимируем вращение
       setRotation(finalRotation)
 
-      // Показываем награду через 4 секунды
+      // Показываем награду через 4 секунды (БЕЗ перезагрузки данных)
       setTimeout(() => {
         setReward(result.reward)
         setSpinning(false)
-        loadData()
+        // Обновляем только wheelData без полной перезагрузки
+        setWheelData(prev => ({
+          ...prev,
+          can_spin_free: false,
+          hours_left: result.hours_left || 3,
+          minutes_left: 0,
+          total_spins: (prev?.total_spins || 0) + 1,
+        }))
       }, 4000)
 
     } catch (error) {
@@ -87,11 +100,26 @@ const FortuneWheelPage = () => {
     }
   }
 
-  const formatTime = (hours) => {
-    if (hours < 1) return 'Менее часа'
-    if (hours === 1) return '1 час'
-    if (hours >= 2 && hours <= 4) return `${hours} часа`
-    return `${hours} часов`
+  const formatTime = (hours, minutes = 0) => {
+    if (hours === 0 && minutes < 1) return 'Менее минуты'
+    if (hours === 0) {
+      if (minutes === 1) return '1 минуту'
+      if (minutes >= 2 && minutes <= 4) return `${minutes} минуты`
+      return `${minutes} минут`
+    }
+    
+    let result = ''
+    if (hours === 1) result = '1 час'
+    else if (hours >= 2 && hours <= 4) result = `${hours} часа`
+    else result = `${hours} часов`
+    
+    if (minutes > 0) {
+      if (minutes === 1) result += ' 1 минуту'
+      else if (minutes >= 2 && minutes <= 4) result += ` ${minutes} минуты`
+      else result += ` ${minutes} минут`
+    }
+    
+    return result
   }
 
   const getRewardText = (type, amount) => {
@@ -315,7 +343,7 @@ const FortuneWheelPage = () => {
             <div className="text-3xl mb-2">⏰</div>
             <div className="text-white/60">Следующее вращение через:</div>
             <div className="text-2xl font-bold text-white mt-1">
-              {formatTime(wheelData?.hours_left)}
+              {formatTime(wheelData?.hours_left, wheelData?.minutes_left)}
             </div>
           </div>
         )}
