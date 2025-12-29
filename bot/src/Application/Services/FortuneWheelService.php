@@ -27,7 +27,7 @@ class FortuneWheelService
         ['type' => 'gems', 'amount' => 10, 'weight' => 1, 'icon' => '💎'],
     ];
 
-    private const COOLDOWN_HOURS = 24;
+    private const COOLDOWN_HOURS = 3;
     private const PAID_SPIN_COST = 50; // кристаллов
 
     public function __construct(Logger $logger, UserService $userService)

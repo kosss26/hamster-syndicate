@@ -48,7 +48,7 @@ const FortuneWheelPage = () => {
     if (spinning) return
 
     if (!usePremium && !wheelData?.can_spin_free) {
-      webApp?.showAlert?.(`Следующее вращение через ${wheelData?.hours_left || 0} часов`)
+      webApp?.showAlert?.(`Следующее вращение через ${formatTime(wheelData?.hours_left || 0)}`)
       return
     }
 
@@ -90,7 +90,7 @@ const FortuneWheelPage = () => {
   const formatTime = (hours) => {
     if (hours < 1) return 'Менее часа'
     if (hours === 1) return '1 час'
-    if (hours < 5) return `${hours} часа`
+    if (hours >= 2 && hours <= 4) return `${hours} часа`
     return `${hours} часов`
   }
 
@@ -333,7 +333,7 @@ const FortuneWheelPage = () => {
           whileHover={!spinning ? { scale: 1.02 } : {}}
           whileTap={!spinning ? { scale: 0.98 } : {}}
         >
-          💎 Крутить за 50 кристаллов
+          Крутить за 50 💎
         </motion.button>
       </div>
 
