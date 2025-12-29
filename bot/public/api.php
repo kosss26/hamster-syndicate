@@ -230,6 +230,11 @@ try {
             handleGetBoosts($container, $telegramUser);
             break;
 
+        // GET /images/{folder}/{filename} - статические изображения
+        case preg_match('#^/images/([a-z_]+)/(.+)$#', $path, $matches) && $requestMethod === 'GET':
+            handleGetImage($matches[1], $matches[2]);
+            break;
+
         default:
             jsonError('Маршрут не найден', 404);
     }
@@ -1636,6 +1641,44 @@ function handleGetBoosts($container, ?array $telegramUser): void
         error_log('Ошибка получения бустов: ' . $e->getMessage());
         jsonError('Ошибка получения бустов', 500);
     }
+}
+
+/**
+ * GET /images/{folder}/{filename} - отдача статических изображений
+ */
+function handleGetImage(string $folder, string $filename): void
+{
+    // Безопасность: разрешаем только определенные папки
+    $allowedFolders = ['shop', 'wheel', 'cosmetics', 'ui'];
+    if (!in_array($folder, $allowedFolders)) {
+        http_response_code(404);
+        exit;
+    }
+    
+    // Очищаем имя файла от потенциально опасных символов
+    $filename = basename($filename);
+    
+    // Путь к файлу
+    $filepath = dirname(__DIR__) . '/storage/images/' . $folder . '/' . $filename;
+    
+    // Проверяем существование файла
+    if (!file_exists($filepath) || !is_file($filepath)) {
+        http_response_code(404);
+        exit;
+    }
+    
+    // Определяем MIME тип
+    $mimeType = mime_content_type($filepath);
+    
+    // Устанавливаем заголовки
+    header('Content-Type: ' . $mimeType);
+    header('Content-Length: ' . filesize($filepath));
+    header('Cache-Control: public, max-age=86400'); // Кэш на 1 день
+    header('Expires: ' . gmdate('D, d M Y H:i:s', time() + 86400) . ' GMT');
+    
+    // Отдаем файл
+    readfile($filepath);
+    exit;
 }
 
 /**
