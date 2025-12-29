@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { api } from '../api/client'
 import { useTelegram } from '../hooks/useTelegram'
+import CoinIcon from '../components/CoinIcon'
+import AvatarWithFrame from '../components/AvatarWithFrame'
 
 const InventoryPage = () => {
   const { webApp } = useTelegram()
@@ -121,7 +123,9 @@ const InventoryPage = () => {
         {inventory?.resources && (
           <div className="grid grid-cols-4 gap-2 mb-4">
             <div className="bg-game-warning/20 rounded-xl p-3 text-center border border-game-warning/30">
-              <div className="text-2xl mb-1">🪙</div>
+              <div className="flex justify-center mb-1">
+                <CoinIcon size={32} />
+              </div>
               <div className="text-white font-bold">{inventory.resources.coins}</div>
             </div>
             <div className="bg-blue-500/20 rounded-xl p-3 text-center border border-blue-500/30">
@@ -227,11 +231,29 @@ const InventoryPage = () => {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <div className="text-center mb-3">
-                    <div className="text-5xl mb-2">
-                      {cosmetic.type === 'frame' ? '🖼️' : '😎'}
+                  {/* Frame preview */}
+                  {cosmetic.type === 'frame' ? (
+                    <div className="flex justify-center mb-3">
+                      <AvatarWithFrame
+                        photoUrl={null}
+                        name="?"
+                        frameKey={cosmetic.key}
+                        size={80}
+                        animated={cosmetic.metadata?.animated || false}
+                        showGlow={false}
+                      />
                     </div>
-                    <div className="text-xs font-bold text-white/80 uppercase">
+                  ) : (
+                    <div className="text-center mb-3">
+                      <div className="text-5xl mb-2">😎</div>
+                    </div>
+                  )}
+                  
+                  <div className="text-center mb-3">
+                    <h3 className="text-white font-bold text-sm mb-1">
+                      {cosmetic.name || cosmetic.key}
+                    </h3>
+                    <div className="text-xs font-bold text-white/60 uppercase">
                       {cosmetic.rarity}
                     </div>
                   </div>

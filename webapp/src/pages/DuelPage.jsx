@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTelegram, showBackButton, hapticFeedback } from '../hooks/useTelegram'
 import api from '../api/client'
+import AvatarWithFrame from '../components/AvatarWithFrame'
 
 // Состояния дуэли
 const STATES = {
@@ -921,16 +922,15 @@ function DuelPage() {
               className="text-center"
             >
               <div className="relative">
-                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-game-primary to-purple-600 flex items-center justify-center text-4xl mb-3 shadow-glow mx-auto border-4 border-white/20 overflow-hidden">
-                  {user?.photo_url ? (
-                    <img 
-                      src={user.photo_url} 
-                      alt={user.first_name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    user?.first_name?.[0] || '?'
-                  )}
+                <div className="mb-3 flex justify-center">
+                  <AvatarWithFrame
+                    photoUrl={user?.photo_url}
+                    name={user?.first_name || 'You'}
+                    frameKey="default"
+                    size={96}
+                    animated={false}
+                    showGlow={true}
+                  />
                 </div>
                 <motion.div 
                   initial={{ scale: 0 }}
