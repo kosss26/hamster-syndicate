@@ -14,6 +14,9 @@ import ShopPage from './pages/ShopPage'
 import InventoryPage from './pages/InventoryPage'
 import FortuneWheelPage from './pages/FortuneWheelPage'
 import LootboxPage from './pages/LootboxPage'
+import AchievementsPage from './pages/AchievementsPage'
+import CollectionsPage from './pages/CollectionsPage'
+import CollectionDetailPage from './pages/CollectionDetailPage'
 
 function App() {
   const [tg, setTg] = useState(null)
@@ -122,6 +125,9 @@ function App() {
             <Route path="/inventory" element={<InventoryPage />} />
             <Route path="/wheel" element={<FortuneWheelPage />} />
             <Route path="/lootbox" element={<LootboxPage />} />
+            <Route path="/achievements" element={<AchievementsPage />} />
+            <Route path="/collections" element={<CollectionsPage />} />
+            <Route path="/collections/:collectionId" element={<CollectionDetailPage />} />
           </Routes>
         </div>
       </BrowserRouter>

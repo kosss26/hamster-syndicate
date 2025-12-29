@@ -131,6 +131,20 @@ export const api = {
   // Бусты
   getActiveBoosts: () => request('/boosts'),
 
+  // Достижения
+  getAchievements: () => request('/achievements'),
+  getMyAchievements: () => request('/achievements/my'),
+  getShowcasedAchievements: () => request('/achievements/showcased'),
+  setShowcasedAchievements: (achievementIds) => request('/achievements/showcase', {
+    method: 'POST',
+    body: JSON.stringify({ achievement_ids: achievementIds })
+  }),
+  getAchievementStats: () => request('/achievements/stats'),
+
+  // Коллекции
+  getCollections: () => request('/collections'),
+  getCollectionItems: (collectionId) => request(`/collections/${collectionId}/items`),
+
   // Админ
   getAdminStats: () => request('/admin/stats'),
   isAdmin: () => request('/admin/check'),
