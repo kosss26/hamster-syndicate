@@ -182,11 +182,19 @@ function LeaderboardPage() {
                   {/* Avatar */}
                   <div className={`relative w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold text-white bg-gradient-to-br ${getAvatarGradient(position)} ${
                     position === 2 ? 'text-gray-700' : ''
-                  }`}>
+                  } overflow-hidden`}>
                     {isTop3 && (
                       <div className={`absolute -inset-1 rounded-full bg-gradient-to-br ${getAvatarGradient(position)} opacity-30 blur-md`} />
                     )}
-                    <span className="relative">{player.name?.[0]?.toUpperCase() || '?'}</span>
+                    {player.photo_url ? (
+                      <img 
+                        src={player.photo_url} 
+                        alt={player.name}
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="relative">{player.name?.[0]?.toUpperCase() || '?'}</span>
+                    )}
                   </div>
 
                   {/* Info */}

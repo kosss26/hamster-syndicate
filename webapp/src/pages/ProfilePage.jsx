@@ -112,10 +112,18 @@ function ProfilePage() {
               
               {/* Avatar container */}
               <div className="relative w-28 h-28 rounded-full p-[3px] bg-gradient-to-r from-game-primary via-purple-500 to-game-pink">
-                <div className="w-full h-full rounded-full bg-gradient-to-br from-game-primary to-purple-700 flex items-center justify-center">
-                  <span className="text-4xl font-bold text-white">
-                    {user?.first_name?.[0]?.toUpperCase() || '?'}
-                  </span>
+                <div className="w-full h-full rounded-full bg-gradient-to-br from-game-primary to-purple-700 flex items-center justify-center overflow-hidden">
+                  {user?.photo_url ? (
+                    <img 
+                      src={user.photo_url} 
+                      alt={user.first_name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-4xl font-bold text-white">
+                      {user?.first_name?.[0]?.toUpperCase() || '?'}
+                    </span>
+                  )}
                 </div>
               </div>
               

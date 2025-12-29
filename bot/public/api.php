@@ -326,12 +326,8 @@ function handleGetProfile($container, ?array $telegramUser): void
     /** @var ProfileFormatter $profileFormatter */
     $profileFormatter = $container->get(ProfileFormatter::class);
     
-    $user = $userService->findByTelegramId((int) $telegramUser['id']);
-    
-    if (!$user) {
-        jsonError('Пользователь не найден', 404);
-    }
-
+    // Синхронизируем данные пользователя (включая photo_url)
+    $user = $userService->syncFromTelegram($telegramUser);
     $user = $userService->ensureProfile($user);
     $profile = $user->profile;
     
@@ -347,6 +343,7 @@ function handleGetProfile($container, ?array $telegramUser): void
         'coins' => (int) $profile->coins,
         'win_streak' => (int) $profile->streak_days,
         'true_false_record' => (int) $profile->true_false_record,
+        'photo_url' => $user->photo_url,
         'stats' => [
             'duel_wins' => (int) $profile->duel_wins,
             'duel_losses' => (int) $profile->duel_losses,
@@ -1018,6 +1015,7 @@ function handleGetLeaderboard($container, string $type): void
                 'position' => $playerData['position'],
                 'name' => $user->first_name ?? 'Игрок',
                 'username' => $user->username ?? '',
+                'photo_url' => $user->photo_url,
                 'rating' => $playerData['rating'],
                 'rank' => $profileFormatter->getRankByRating($playerData['rating']),
             ];
@@ -1031,6 +1029,7 @@ function handleGetLeaderboard($container, string $type): void
                 'position' => $playerData['position'],
                 'name' => $user->first_name ?? 'Игрок',
                 'username' => $user->username ?? '',
+                'photo_url' => $user->photo_url,
                 'record' => $playerData['record'],
             ];
         }

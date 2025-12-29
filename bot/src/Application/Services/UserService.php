@@ -35,6 +35,7 @@ class UserService
         $user->first_name = $from['first_name'] ?? $user->first_name;
         $user->last_name = $from['last_name'] ?? $user->last_name;
         $user->language_code = $from['language_code'] ?? $user->language_code;
+        $user->photo_url = $from['photo_url'] ?? $user->photo_url;
 
         if (!$user->exists) {
             $user->onboarded_at = Carbon::now();
