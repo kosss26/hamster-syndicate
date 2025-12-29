@@ -1,129 +1,131 @@
 <?php
 
+declare(strict_types=1);
+
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Database\Schema\Builder;
 use QuizBot\Infrastructure\Database\Migration;
 
-return new class implements Migration
-{
-    public function up(\PDO $pdo): void
+return new class implements Migration {
+    public function name(): string
     {
-        // Таблица достижений (справочник)
-        $pdo->exec("
-            CREATE TABLE IF NOT EXISTS achievements (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                key TEXT NOT NULL UNIQUE,
-                title TEXT NOT NULL,
-                description TEXT NOT NULL,
-                icon TEXT NOT NULL,
-                rarity TEXT NOT NULL DEFAULT 'common',
-                category TEXT NOT NULL,
-                condition_type TEXT NOT NULL,
-                condition_value INTEGER NOT NULL,
-                reward_coins INTEGER DEFAULT 0,
-                reward_gems INTEGER DEFAULT 0,
-                is_secret INTEGER DEFAULT 0,
-                sort_order INTEGER DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-        ");
-
-        // Таблица прогресса достижений игроков
-        $pdo->exec("
-            CREATE TABLE IF NOT EXISTS user_achievements (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                achievement_id INTEGER NOT NULL,
-                current_value INTEGER DEFAULT 0,
-                is_completed INTEGER DEFAULT 0,
-                completed_at DATETIME,
-                is_showcased INTEGER DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                FOREIGN KEY (achievement_id) REFERENCES achievements(id) ON DELETE CASCADE,
-                UNIQUE(user_id, achievement_id)
-            )
-        ");
-
-        // Таблица коллекций
-        $pdo->exec("
-            CREATE TABLE IF NOT EXISTS collections (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                key TEXT NOT NULL UNIQUE,
-                title TEXT NOT NULL,
-                description TEXT NOT NULL,
-                icon TEXT NOT NULL,
-                total_items INTEGER DEFAULT 0,
-                rarity TEXT NOT NULL DEFAULT 'common',
-                reward_coins INTEGER DEFAULT 0,
-                reward_gems INTEGER DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-        ");
-
-        // Таблица элементов коллекций
-        $pdo->exec("
-            CREATE TABLE IF NOT EXISTS collection_items (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                collection_id INTEGER NOT NULL,
-                key TEXT NOT NULL UNIQUE,
-                name TEXT NOT NULL,
-                description TEXT NOT NULL,
-                image_url TEXT,
-                rarity TEXT NOT NULL DEFAULT 'common',
-                drop_chance REAL DEFAULT 0.1,
-                sort_order INTEGER DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE
-            )
-        ");
-
-        // Таблица собранных карточек
-        $pdo->exec("
-            CREATE TABLE IF NOT EXISTS user_collection_items (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                collection_item_id INTEGER NOT NULL,
-                obtained_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                obtained_from TEXT,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                FOREIGN KEY (collection_item_id) REFERENCES collection_items(id) ON DELETE CASCADE,
-                UNIQUE(user_id, collection_item_id)
-            )
-        ");
-
-        // Таблица статистики для трекинга
-        $pdo->exec("
-            CREATE TABLE IF NOT EXISTS achievement_stats (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                stat_key TEXT NOT NULL,
-                stat_value INTEGER DEFAULT 0,
-                last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                UNIQUE(user_id, stat_key)
-            )
-        ");
-
-        // Индексы для производительности
-        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_achievements_category ON achievements(category)");
-        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_achievements_rarity ON achievements(rarity)");
-        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_user_achievements_user ON user_achievements(user_id)");
-        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_user_achievements_completed ON user_achievements(is_completed)");
-        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_user_achievements_showcased ON user_achievements(is_showcased)");
-        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_collection_items_collection ON collection_items(collection_id)");
-        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_user_collection_items_user ON user_collection_items(user_id)");
-        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_achievement_stats_user ON achievement_stats(user_id)");
-        $pdo->exec("CREATE INDEX IF NOT EXISTS idx_achievement_stats_key ON achievement_stats(stat_key)");
+        return '20241229_000004_create_achievements_system';
     }
 
-    public function down(\PDO $pdo): void
+    public function up(Builder $schema): void
     {
-        $pdo->exec("DROP TABLE IF EXISTS achievement_stats");
-        $pdo->exec("DROP TABLE IF EXISTS user_collection_items");
-        $pdo->exec("DROP TABLE IF EXISTS collection_items");
-        $pdo->exec("DROP TABLE IF EXISTS collections");
-        $pdo->exec("DROP TABLE IF EXISTS user_achievements");
-        $pdo->exec("DROP TABLE IF EXISTS achievements");
+        // Таблица достижений (справочник)
+        $schema->create('achievements', function (Blueprint $table): void {
+            $table->id();
+            $table->string('key', 100)->unique();
+            $table->string('title');
+            $table->text('description');
+            $table->string('icon', 50);
+            $table->string('rarity', 20)->default('common');
+            $table->string('category', 50);
+            $table->string('condition_type', 50);
+            $table->integer('condition_value');
+            $table->integer('reward_coins')->default(0);
+            $table->integer('reward_gems')->default(0);
+            $table->boolean('is_secret')->default(false);
+            $table->integer('sort_order')->default(0);
+            $table->timestamp('created_at')->useCurrent();
+            
+            $table->index('category');
+            $table->index('rarity');
+        });
+
+        // Таблица прогресса достижений игроков
+        $schema->create('user_achievements', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->unsignedBigInteger('achievement_id');
+            $table->integer('current_value')->default(0);
+            $table->boolean('is_completed')->default(false);
+            $table->timestamp('completed_at')->nullable();
+            $table->boolean('is_showcased')->default(false);
+            $table->timestamp('created_at')->useCurrent();
+            $table->timestamp('updated_at')->useCurrent();
+            
+            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
+            $table->foreign('achievement_id')->references('id')->on('achievements')->onDelete('cascade');
+            $table->unique(['user_id', 'achievement_id']);
+            
+            $table->index('user_id');
+            $table->index('is_completed');
+            $table->index('is_showcased');
+        });
+
+        // Таблица коллекций
+        $schema->create('collections', function (Blueprint $table): void {
+            $table->id();
+            $table->string('key', 100)->unique();
+            $table->string('title');
+            $table->text('description');
+            $table->string('icon', 50);
+            $table->integer('total_items')->default(0);
+            $table->string('rarity', 20)->default('common');
+            $table->integer('reward_coins')->default(0);
+            $table->integer('reward_gems')->default(0);
+            $table->timestamp('created_at')->useCurrent();
+        });
+
+        // Таблица элементов коллекций
+        $schema->create('collection_items', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('collection_id');
+            $table->string('key', 100)->unique();
+            $table->string('name');
+            $table->text('description');
+            $table->string('image_url')->nullable();
+            $table->string('rarity', 20)->default('common');
+            $table->decimal('drop_chance', 5, 4)->default(0.1);
+            $table->integer('sort_order')->default(0);
+            $table->timestamp('created_at')->useCurrent();
+            
+            $table->foreign('collection_id')->references('id')->on('collections')->onDelete('cascade');
+            $table->index('collection_id');
+        });
+
+        // Таблица собранных карточек
+        $schema->create('user_collection_items', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->unsignedBigInteger('collection_item_id');
+            $table->timestamp('obtained_at')->useCurrent();
+            $table->string('obtained_from', 50)->nullable();
+            
+            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
+            $table->foreign('collection_item_id')->references('id')->on('collection_items')->onDelete('cascade');
+            $table->unique(['user_id', 'collection_item_id']);
+            
+            $table->index('user_id');
+        });
+
+        // Таблица статистики для трекинга
+        $schema->create('achievement_stats', function (Blueprint $table): void {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->string('stat_key', 100);
+            $table->integer('stat_value')->default(0);
+            $table->timestamp('last_updated')->useCurrent();
+            
+            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
+            $table->unique(['user_id', 'stat_key']);
+            
+            $table->index('user_id');
+            $table->index('stat_key');
+        });
+    }
+
+    public function down(Builder $schema): void
+    {
+        $schema->dropIfExists('achievement_stats');
+        $schema->dropIfExists('user_collection_items');
+        $schema->dropIfExists('collection_items');
+        $schema->dropIfExists('collections');
+        $schema->dropIfExists('user_achievements');
+        $schema->dropIfExists('achievements');
     }
 
     public function getDescription(): string
@@ -131,4 +133,3 @@ return new class implements Migration
         return 'Создание системы достижений и коллекций';
     }
 };
-
