@@ -1183,77 +1183,111 @@ final class CommandHandler
      */
     private function sendReferralInfo($chatId, ?User $user): void
     {
-        if (!$user instanceof User) {
+        try {
+            $this->logger->debug('sendReferralInfo: начало', ['chat_id' => $chatId, 'user_id' => $user?->getKey()]);
+            
+            if (!$user instanceof User) {
+                $this->telegramClient->request('POST', 'sendMessage', [
+                    'json' => [
+                        'chat_id' => $chatId,
+                        'text' => 'Не удалось загрузить профиль. Попробуй /start.',
+                    ],
+                ]);
+                return;
+            }
+
+            $this->logger->debug('sendReferralInfo: получаем ReferralService');
+            
+            /** @var \QuizBot\Application\Services\ReferralService $referralService */
+            $referralService = $this->container->get(\QuizBot\Application\Services\ReferralService::class);
+            
+            $this->logger->debug('sendReferralInfo: получаем статистику');
+            $stats = $referralService->getReferralStats($user);
+            
+            $this->logger->debug('sendReferralInfo: получаем ссылку');
+            $link = $referralService->getReferralLink($user);
+
+            $this->logger->debug('sendReferralInfo: формируем текст', ['stats' => $stats]);
+
+            $text = implode("\n", [
+                '🎁 <b>Приглашай друзей!</b>',
+                '',
+                sprintf('Твой реферальный код: <code>%s</code>', $stats['referral_code']),
+                '',
+                '🎯 <b>Что получишь:</b>',
+                '• <b>100 монет</b> когда друг сыграет 3 игры',
+                '• <b>50 опыта</b> за каждого активного друга',
+                '• Бонусы за количество приглашенных!',
+                '',
+                '💫 <b>Что получит друг:</b>',
+                '• <b>50 монет</b> сразу при регистрации',
+                '• <b>25 опыта</b> в подарок',
+                '',
+                '📊 <b>Твоя статистика:</b>',
+                sprintf('👥 Приглашено: <b>%d</b> друзей', $stats['total_referrals']),
+                sprintf('✅ Активных: <b>%d</b>', $stats['active_referrals']),
+                sprintf('💰 Заработано: <b>%d</b> монет', $stats['total_coins_earned']),
+                sprintf('⭐ Получено опыта: <b>%d</b>', $stats['total_exp_earned']),
+            ]);
+
+            if ($stats['next_milestone']) {
+                $m = $stats['next_milestone'];
+                $text .= implode("\n", [
+                    '',
+                    '🏆 <b>Следующая награда:</b>',
+                    sprintf('%s — %d друзей', $m['title'], $m['referrals_needed']),
+                    sprintf('Прогресс: %d/%d', $m['progress'], $m['referrals_needed']),
+                    sprintf('Награда: %d монет + %d опыта', $m['reward_coins'], $m['reward_experience']),
+                ]);
+            }
+
+            $this->logger->debug('sendReferralInfo: отправляем сообщение');
+
             $this->telegramClient->request('POST', 'sendMessage', [
                 'json' => [
                     'chat_id' => $chatId,
-                    'text' => 'Не удалось загрузить профиль. Попробуй /start.',
-                ],
-            ]);
-            return;
-        }
-
-        /** @var \QuizBot\Application\Services\ReferralService $referralService */
-        $referralService = $this->container->get(\QuizBot\Application\Services\ReferralService::class);
-        
-        $stats = $referralService->getReferralStats($user);
-        $link = $referralService->getReferralLink($user);
-
-        $text = implode("\n", [
-            '🎁 <b>Приглашай друзей!</b>',
-            '',
-            sprintf('Твой реферальный код: <code>%s</code>', $stats['referral_code']),
-            '',
-            '🎯 <b>Что получишь:</b>',
-            '• <b>100 монет</b> когда друг сыграет 3 игры',
-            '• <b>50 опыта</b> за каждого активного друга',
-            '• Бонусы за количество приглашенных!',
-            '',
-            '💫 <b>Что получит друг:</b>',
-            '• <b>50 монет</b> сразу при регистрации',
-            '• <b>25 опыта</b> в подарок',
-            '',
-            '📊 <b>Твоя статистика:</b>',
-            sprintf('👥 Приглашено: <b>%d</b> друзей', $stats['total_referrals']),
-            sprintf('✅ Активных: <b>%d</b>', $stats['active_referrals']),
-            sprintf('💰 Заработано: <b>%d</b> монет', $stats['total_coins_earned']),
-            sprintf('⭐ Получено опыта: <b>%d</b>', $stats['total_exp_earned']),
-        ]);
-
-        if ($stats['next_milestone']) {
-            $m = $stats['next_milestone'];
-            $text .= implode("\n", [
-                '',
-                '🏆 <b>Следующая награда:</b>',
-                sprintf('%s — %d друзей', $m['title'], $m['referrals_needed']),
-                sprintf('Прогресс: %d/%d', $m['progress'], $m['referrals_needed']),
-                sprintf('Награда: %d монет + %d опыта', $m['reward_coins'], $m['reward_experience']),
-            ]);
-        }
-
-        $this->telegramClient->request('POST', 'sendMessage', [
-            'json' => [
-                'chat_id' => $chatId,
-                'text' => $text,
-                'parse_mode' => 'HTML',
-                'reply_markup' => [
-                    'inline_keyboard' => [
-                        [
+                    'text' => $text,
+                    'parse_mode' => 'HTML',
+                    'reply_markup' => [
+                        'inline_keyboard' => [
                             [
-                                'text' => '📤 Поделиться ссылкой',
-                                'url' => sprintf('https://t.me/share/url?url=%s&text=%s', 
-                                    urlencode($link),
-                                    urlencode('🎮 Присоединяйся к Битве знаний! Получи 50 монет в подарок!')
-                                ),
+                                [
+                                    'text' => '📤 Поделиться ссылкой',
+                                    'url' => sprintf('https://t.me/share/url?url=%s&text=%s', 
+                                        urlencode($link),
+                                        urlencode('🎮 Присоединяйся к Битве знаний! Получи 50 монет в подарок!')
+                                    ),
+                                ],
                             ],
-                        ],
-                        [
-                            ['text' => '👥 Мои рефералы', 'callback_data' => 'ref:list'],
+                            [
+                                ['text' => '👥 Мои рефералы', 'callback_data' => 'ref:list'],
+                            ],
                         ],
                     ],
                 ],
-            ],
-        ]);
+            ]);
+            
+            $this->logger->debug('sendReferralInfo: успешно завершено');
+        } catch (\Throwable $e) {
+            $this->logger->error('sendReferralInfo: ошибка', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            
+            // Отправляем сообщение об ошибке пользователю
+            try {
+                $this->telegramClient->request('POST', 'sendMessage', [
+                    'json' => [
+                        'chat_id' => $chatId,
+                        'text' => '😔 Произошла ошибка при загрузке реферальной информации. Попробуйте позже.',
+                    ],
+                ]);
+            } catch (\Throwable $e2) {
+                $this->logger->error('sendReferralInfo: не удалось отправить сообщение об ошибке', [
+                    'error' => $e2->getMessage(),
+                ]);
+            }
+        }
     }
 
     /**
