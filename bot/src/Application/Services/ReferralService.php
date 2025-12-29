@@ -274,6 +274,8 @@ class ReferralService
      */
     public function getReferralStats(User $user): array
     {
+        $user = $this->userService->ensureProfile($user);
+        
         $referrals = Referral::where('referrer_user_id', $user->getKey())
             ->with(['referred'])
             ->orderByDesc('created_at')
@@ -285,7 +287,7 @@ class ReferralService
         $totalExp = $referrals->sum('referrer_experience_earned');
 
         // Следующий milestone
-        $currentCount = $user->profile->total_referrals;
+        $currentCount = $user->profile->total_referrals ?? 0;
         $nextMilestone = ReferralMilestone::where('is_active', true)
             ->where('referrals_count', '>', $currentCount)
             ->orderBy('referrals_count')
@@ -296,20 +298,22 @@ class ReferralService
             'total_referrals' => $active + $pending,
             'active_referrals' => $active,
             'pending_referrals' => $pending,
-            'total_coins_earned' => $totalCoins,
-            'total_exp_earned' => $totalExp,
-            'referrals' => $referrals->map(function (Referral $ref) {
+            'total_coins_earned' => (int)$totalCoins,
+            'total_exp_earned' => (int)$totalExp,
+            'referrals' => $referrals->filter(function (Referral $ref) {
+                return $ref->referred !== null;
+            })->map(function (Referral $ref) {
                 return [
                     'user' => [
                         'id' => $ref->referred->getKey(),
-                        'name' => $ref->referred->first_name,
-                        'username' => $ref->referred->username,
+                        'name' => $ref->referred->first_name ?? 'Пользователь',
+                        'username' => $ref->referred->username ?? null,
                     ],
                     'status' => $ref->status,
-                    'games_played' => $ref->referred_games_played,
-                    'created_at' => $ref->created_at->format('d.m.Y'),
+                    'games_played' => $ref->referred_games_played ?? 0,
+                    'created_at' => $ref->created_at ? $ref->created_at->format('d.m.Y') : 'н/д',
                 ];
-            }),
+            })->values(),
             'next_milestone' => $nextMilestone ? [
                 'title' => $nextMilestone->title,
                 'referrals_needed' => $nextMilestone->referrals_count,
