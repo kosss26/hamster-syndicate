@@ -25,12 +25,15 @@ class GameSessionService
 
     private ?ReferralService $referralService;
 
-    public function __construct(Logger $logger, QuestionSelector $questionSelector, UserService $userService, ?ReferralService $referralService = null)
+    private ?BoostService $boostService;
+
+    public function __construct(Logger $logger, QuestionSelector $questionSelector, UserService $userService, ?ReferralService $referralService = null, ?BoostService $boostService = null)
     {
         $this->logger = $logger;
         $this->questionSelector = $questionSelector;
         $this->userService = $userService;
         $this->referralService = $referralService;
+        $this->boostService = $boostService;
     }
 
     /**
@@ -301,6 +304,12 @@ class GameSessionService
 
         $experienceGain = (int) $session->score;
         $coinsGain = (int) max(0, $session->correct_count);
+
+        // Применяем бусты если доступны
+        if ($this->boostService) {
+            $experienceGain = $this->boostService->applyBoost($user, 'exp_boost', $experienceGain);
+            $coinsGain = $this->boostService->applyBoost($user, 'coin_boost', $coinsGain);
+        }
 
         $profile->experience += $experienceGain;
         $profile->coins = max(0, $profile->coins + $coinsGain);

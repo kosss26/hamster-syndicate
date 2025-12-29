@@ -94,6 +94,43 @@ export const api = {
   // Реферальная система
   getReferralStats: () => request('/referral/stats'),
 
+  // Магазин
+  getShopItems: (category = null) => request(`/shop/items${category ? `?category=${category}` : ''}`),
+  purchaseItem: (itemId, quantity = 1) => request('/shop/purchase', {
+    method: 'POST',
+    body: JSON.stringify({ item_id: itemId, quantity })
+  }),
+  getShopHistory: () => request('/shop/history'),
+
+  // Инвентарь
+  getInventory: () => request('/inventory'),
+  equipCosmetic: (cosmeticId) => request('/inventory/equip', {
+    method: 'POST',
+    body: JSON.stringify({ cosmetic_id: cosmeticId })
+  }),
+  unequipCosmetic: (cosmeticType) => request('/inventory/unequip', {
+    method: 'POST',
+    body: JSON.stringify({ cosmetic_type: cosmeticType })
+  }),
+
+  // Колесо фортуны
+  getWheelStatus: () => request('/wheel/status'),
+  spinWheel: (usePremium = false) => request('/wheel/spin', {
+    method: 'POST',
+    body: JSON.stringify({ use_premium: usePremium })
+  }),
+  getWheelConfig: () => request('/wheel/config'),
+
+  // Лутбоксы
+  openLootbox: (lootboxType) => request('/lootbox/open', {
+    method: 'POST',
+    body: JSON.stringify({ lootbox_type: lootboxType })
+  }),
+  getLootboxHistory: () => request('/lootbox/history'),
+
+  // Бусты
+  getActiveBoosts: () => request('/boosts'),
+
   // Админ
   getAdminStats: () => request('/admin/stats'),
   isAdmin: () => request('/admin/check'),

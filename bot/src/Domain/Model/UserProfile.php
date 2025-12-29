@@ -31,6 +31,12 @@ class UserProfile extends BaseModel
         'story_progress_score',
         'true_false_record',
         'settings',
+        'gems',
+        'hints',
+        'last_wheel_spin',
+        'wheel_streak',
+        'equipped_frame',
+        'equipped_emoji',
     ];
 
     /**
@@ -53,6 +59,10 @@ class UserProfile extends BaseModel
         'settings' => 'array',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+        'gems' => 'int',
+        'hints' => 'int',
+        'last_wheel_spin' => 'datetime',
+        'wheel_streak' => 'int',
     ];
 
     public function user(): BelongsTo

@@ -9,6 +9,10 @@ import StatsPage from './pages/StatsPage'
 import TrueFalsePage from './pages/TrueFalsePage'
 import ReferralPage from './pages/ReferralPage'
 import AdminPage from './pages/AdminPage'
+import ShopPage from './pages/ShopPage'
+import InventoryPage from './pages/InventoryPage'
+import FortuneWheelPage from './pages/FortuneWheelPage'
+import LootboxPage from './pages/LootboxPage'
 
 function App() {
   const [tg, setTg] = useState(null)
@@ -88,6 +92,10 @@ function App() {
             <Route path="/truefalse" element={<TrueFalsePage />} />
             <Route path="/referral" element={<ReferralPage />} />
             <Route path="/admin" element={<AdminPage />} />
+            <Route path="/shop" element={<ShopPage />} />
+            <Route path="/inventory" element={<InventoryPage />} />
+            <Route path="/wheel" element={<FortuneWheelPage />} />
+            <Route path="/lootbox" element={<LootboxPage />} />
           </Routes>
         </div>
       </BrowserRouter>

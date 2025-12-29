@@ -168,6 +168,68 @@ try {
             handleAdminAddQuestion($container, $telegramUser, $body);
             break;
 
+        // === SHOP SYSTEM ===
+        
+        // GET /shop/items - получить товары магазина
+        case $path === '/shop/items' && $requestMethod === 'GET':
+            handleGetShopItems($container, $telegramUser, $_GET['category'] ?? null);
+            break;
+
+        // POST /shop/purchase - купить товар
+        case $path === '/shop/purchase' && $requestMethod === 'POST':
+            handleShopPurchase($container, $telegramUser, $body);
+            break;
+
+        // GET /shop/history - история покупок
+        case $path === '/shop/history' && $requestMethod === 'GET':
+            handleShopHistory($container, $telegramUser);
+            break;
+
+        // GET /inventory - получить инвентарь
+        case $path === '/inventory' && $requestMethod === 'GET':
+            handleGetInventory($container, $telegramUser);
+            break;
+
+        // POST /inventory/equip - экипировать косметику
+        case $path === '/inventory/equip' && $requestMethod === 'POST':
+            handleEquipCosmetic($container, $telegramUser, $body);
+            break;
+
+        // POST /inventory/unequip - снять косметику
+        case $path === '/inventory/unequip' && $requestMethod === 'POST':
+            handleUnequipCosmetic($container, $telegramUser, $body);
+            break;
+
+        // GET /wheel/status - статус колеса фортуны
+        case $path === '/wheel/status' && $requestMethod === 'GET':
+            handleWheelStatus($container, $telegramUser);
+            break;
+
+        // POST /wheel/spin - крутить колесо
+        case $path === '/wheel/spin' && $requestMethod === 'POST':
+            handleWheelSpin($container, $telegramUser, $body);
+            break;
+
+        // GET /wheel/config - конфигурация колеса
+        case $path === '/wheel/config' && $requestMethod === 'GET':
+            handleWheelConfig($container);
+            break;
+
+        // POST /lootbox/open - открыть лутбокс
+        case $path === '/lootbox/open' && $requestMethod === 'POST':
+            handleLootboxOpen($container, $telegramUser, $body);
+            break;
+
+        // GET /lootbox/history - история открытых лутбоксов
+        case $path === '/lootbox/history' && $requestMethod === 'GET':
+            handleLootboxHistory($container, $telegramUser);
+            break;
+
+        // GET /boosts - получить активные бусты
+        case $path === '/boosts' && $requestMethod === 'GET':
+            handleGetBoosts($container, $telegramUser);
+            break;
+
         default:
             jsonError('Маршрут не найден', 404);
     }
@@ -1236,6 +1298,344 @@ function handleAdminStats($container, ?array $telegramUser): void
         'recent_duels' => $recentDuels,
         'categories' => $categories,
     ]);
+}
+
+// ============================================================================
+// SHOP SYSTEM HANDLERS
+// ============================================================================
+
+/**
+ * GET /shop/items - получить товары магазина
+ */
+function handleGetShopItems($container, ?array $telegramUser, ?string $category): void
+{
+    if (!$telegramUser) {
+        jsonError('Не авторизован', 401);
+    }
+
+    try {
+        $shopService = $container->get(\QuizBot\Application\Services\ShopService::class);
+        $items = $shopService->getItems($category);
+        
+        jsonResponse(['items' => $items]);
+    } catch (\Throwable $e) {
+        error_log('Ошибка получения товаров: ' . $e->getMessage());
+        jsonError('Ошибка получения товаров', 500);
+    }
+}
+
+/**
+ * POST /shop/purchase - купить товар
+ */
+function handleShopPurchase($container, ?array $telegramUser, array $body): void
+{
+    if (!$telegramUser) {
+        jsonError('Не авторизован', 401);
+    }
+
+    if (!isset($body['item_id'])) {
+        jsonError('Не указан ID товара', 400);
+    }
+
+    try {
+        $userService = $container->get(\QuizBot\Application\Services\UserService::class);
+        $shopService = $container->get(\QuizBot\Application\Services\ShopService::class);
+        
+        $user = $userService->findByTelegramId((int) $telegramUser['id']);
+        if (!$user) {
+            jsonError('Пользователь не найден', 404);
+        }
+
+        $quantity = $body['quantity'] ?? 1;
+        $result = $shopService->purchase($user, (int) $body['item_id'], (int) $quantity);
+        
+        if (!$result['success']) {
+            jsonError($result['error'], 400);
+        }
+        
+        jsonResponse($result);
+    } catch (\Throwable $e) {
+        error_log('Ошибка покупки: ' . $e->getMessage());
+        jsonError('Ошибка покупки', 500);
+    }
+}
+
+/**
+ * GET /shop/history - история покупок
+ */
+function handleShopHistory($container, ?array $telegramUser): void
+{
+    if (!$telegramUser) {
+        jsonError('Не авторизован', 401);
+    }
+
+    try {
+        $userService = $container->get(\QuizBot\Application\Services\UserService::class);
+        $shopService = $container->get(\QuizBot\Application\Services\ShopService::class);
+        
+        $user = $userService->findByTelegramId((int) $telegramUser['id']);
+        if (!$user) {
+            jsonError('Пользователь не найден', 404);
+        }
+
+        $history = $shopService->getPurchaseHistory($user);
+        jsonResponse(['history' => $history]);
+    } catch (\Throwable $e) {
+        error_log('Ошибка получения истории: ' . $e->getMessage());
+        jsonError('Ошибка получения истории', 500);
+    }
+}
+
+/**
+ * GET /inventory - получить инвентарь
+ */
+function handleGetInventory($container, ?array $telegramUser): void
+{
+    if (!$telegramUser) {
+        jsonError('Не авторизован', 401);
+    }
+
+    try {
+        $userService = $container->get(\QuizBot\Application\Services\UserService::class);
+        $inventoryService = $container->get(\QuizBot\Application\Services\InventoryService::class);
+        
+        $user = $userService->findByTelegramId((int) $telegramUser['id']);
+        if (!$user) {
+            jsonError('Пользователь не найден', 404);
+        }
+
+        $inventory = $inventoryService->getInventory($user);
+        jsonResponse($inventory);
+    } catch (\Throwable $e) {
+        error_log('Ошибка получения инвентаря: ' . $e->getMessage());
+        jsonError('Ошибка получения инвентаря', 500);
+    }
+}
+
+/**
+ * POST /inventory/equip - экипировать косметику
+ */
+function handleEquipCosmetic($container, ?array $telegramUser, array $body): void
+{
+    if (!$telegramUser) {
+        jsonError('Не авторизован', 401);
+    }
+
+    if (!isset($body['cosmetic_id'])) {
+        jsonError('Не указан ID косметики', 400);
+    }
+
+    try {
+        $userService = $container->get(\QuizBot\Application\Services\UserService::class);
+        $inventoryService = $container->get(\QuizBot\Application\Services\InventoryService::class);
+        
+        $user = $userService->findByTelegramId((int) $telegramUser['id']);
+        if (!$user) {
+            jsonError('Пользователь не найден', 404);
+        }
+
+        $result = $inventoryService->equipCosmetic($user, (int) $body['cosmetic_id']);
+        
+        if (!$result['success']) {
+            jsonError($result['error'], 400);
+        }
+        
+        jsonResponse($result);
+    } catch (\Throwable $e) {
+        error_log('Ошибка экипировки: ' . $e->getMessage());
+        jsonError('Ошибка экипировки', 500);
+    }
+}
+
+/**
+ * POST /inventory/unequip - снять косметику
+ */
+function handleUnequipCosmetic($container, ?array $telegramUser, array $body): void
+{
+    if (!$telegramUser) {
+        jsonError('Не авторизован', 401);
+    }
+
+    if (!isset($body['cosmetic_type'])) {
+        jsonError('Не указан тип косметики', 400);
+    }
+
+    try {
+        $userService = $container->get(\QuizBot\Application\Services\UserService::class);
+        $inventoryService = $container->get(\QuizBot\Application\Services\InventoryService::class);
+        
+        $user = $userService->findByTelegramId((int) $telegramUser['id']);
+        if (!$user) {
+            jsonError('Пользователь не найден', 404);
+        }
+
+        $result = $inventoryService->unequipCosmetic($user, $body['cosmetic_type']);
+        jsonResponse($result);
+    } catch (\Throwable $e) {
+        error_log('Ошибка снятия косметики: ' . $e->getMessage());
+        jsonError('Ошибка снятия косметики', 500);
+    }
+}
+
+/**
+ * GET /wheel/status - статус колеса фортуны
+ */
+function handleWheelStatus($container, ?array $telegramUser): void
+{
+    if (!$telegramUser) {
+        jsonError('Не авторизован', 401);
+    }
+
+    try {
+        $userService = $container->get(\QuizBot\Application\Services\UserService::class);
+        $wheelService = $container->get(\QuizBot\Application\Services\FortuneWheelService::class);
+        
+        $user = $userService->findByTelegramId((int) $telegramUser['id']);
+        if (!$user) {
+            jsonError('Пользователь не найден', 404);
+        }
+
+        $stats = $wheelService->getStats($user);
+        jsonResponse($stats);
+    } catch (\Throwable $e) {
+        error_log('Ошибка получения статуса колеса: ' . $e->getMessage());
+        jsonError('Ошибка получения статуса колеса', 500);
+    }
+}
+
+/**
+ * POST /wheel/spin - крутить колесо
+ */
+function handleWheelSpin($container, ?array $telegramUser, array $body): void
+{
+    if (!$telegramUser) {
+        jsonError('Не авторизован', 401);
+    }
+
+    try {
+        $userService = $container->get(\QuizBot\Application\Services\UserService::class);
+        $wheelService = $container->get(\QuizBot\Application\Services\FortuneWheelService::class);
+        
+        $user = $userService->findByTelegramId((int) $telegramUser['id']);
+        if (!$user) {
+            jsonError('Пользователь не найден', 404);
+        }
+
+        $usePremium = $body['use_premium'] ?? false;
+        $result = $wheelService->spin($user, (bool) $usePremium);
+        
+        if (!$result['success']) {
+            jsonError($result['error'], 400);
+        }
+        
+        jsonResponse($result);
+    } catch (\Throwable $e) {
+        error_log('Ошибка вращения колеса: ' . $e->getMessage());
+        jsonError('Ошибка вращения колеса', 500);
+    }
+}
+
+/**
+ * GET /wheel/config - конфигурация колеса
+ */
+function handleWheelConfig($container): void
+{
+    try {
+        $wheelService = $container->get(\QuizBot\Application\Services\FortuneWheelService::class);
+        $config = $wheelService->getWheelConfig();
+        
+        jsonResponse(['sectors' => $config]);
+    } catch (\Throwable $e) {
+        error_log('Ошибка получения конфигурации колеса: ' . $e->getMessage());
+        jsonError('Ошибка получения конфигурации', 500);
+    }
+}
+
+/**
+ * POST /lootbox/open - открыть лутбокс
+ */
+function handleLootboxOpen($container, ?array $telegramUser, array $body): void
+{
+    if (!$telegramUser) {
+        jsonError('Не авторизован', 401);
+    }
+
+    if (!isset($body['lootbox_type'])) {
+        jsonError('Не указан тип лутбокса', 400);
+    }
+
+    try {
+        $userService = $container->get(\QuizBot\Application\Services\UserService::class);
+        $lootboxService = $container->get(\QuizBot\Application\Services\LootboxService::class);
+        
+        $user = $userService->findByTelegramId((int) $telegramUser['id']);
+        if (!$user) {
+            jsonError('Пользователь не найден', 404);
+        }
+
+        $result = $lootboxService->openLootbox($user, $body['lootbox_type']);
+        
+        if (!$result['success']) {
+            jsonError($result['error'], 400);
+        }
+        
+        jsonResponse($result);
+    } catch (\Throwable $e) {
+        error_log('Ошибка открытия лутбокса: ' . $e->getMessage());
+        jsonError('Ошибка открытия лутбокса', 500);
+    }
+}
+
+/**
+ * GET /lootbox/history - история открытых лутбоксов
+ */
+function handleLootboxHistory($container, ?array $telegramUser): void
+{
+    if (!$telegramUser) {
+        jsonError('Не авторизован', 401);
+    }
+
+    try {
+        $userService = $container->get(\QuizBot\Application\Services\UserService::class);
+        $lootboxService = $container->get(\QuizBot\Application\Services\LootboxService::class);
+        
+        $user = $userService->findByTelegramId((int) $telegramUser['id']);
+        if (!$user) {
+            jsonError('Пользователь не найден', 404);
+        }
+
+        $history = $lootboxService->getHistory($user);
+        jsonResponse(['history' => $history]);
+    } catch (\Throwable $e) {
+        error_log('Ошибка получения истории лутбоксов: ' . $e->getMessage());
+        jsonError('Ошибка получения истории', 500);
+    }
+}
+
+/**
+ * GET /boosts - получить активные бусты
+ */
+function handleGetBoosts($container, ?array $telegramUser): void
+{
+    if (!$telegramUser) {
+        jsonError('Не авторизован', 401);
+    }
+
+    try {
+        $userService = $container->get(\QuizBot\Application\Services\UserService::class);
+        $boostService = $container->get(\QuizBot\Application\Services\BoostService::class);
+        
+        $user = $userService->findByTelegramId((int) $telegramUser['id']);
+        if (!$user) {
+            jsonError('Пользователь не найден', 404);
+        }
+
+        $boosts = $boostService->getActiveBoosts($user);
+        jsonResponse(['boosts' => $boosts]);
+    } catch (\Throwable $e) {
+        error_log('Ошибка получения бустов: ' . $e->getMessage());
+        jsonError('Ошибка получения бустов', 500);
+    }
 }
 
 /**
