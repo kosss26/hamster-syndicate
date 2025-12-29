@@ -16,6 +16,7 @@ use QuizBot\Application\Services\DuelService;
 use QuizBot\Application\Services\ProfileFormatter;
 use QuizBot\Application\Services\TrueFalseService;
 use QuizBot\Application\Services\StatisticsService;
+use QuizBot\Application\Services\TelegramPhotoService;
 
 // Загрузка автолоадера
 require dirname(__DIR__) . '/vendor/autoload.php';
@@ -326,9 +327,19 @@ function handleGetProfile($container, ?array $telegramUser): void
     /** @var ProfileFormatter $profileFormatter */
     $profileFormatter = $container->get(ProfileFormatter::class);
     
-    // Синхронизируем данные пользователя (включая photo_url)
+    /** @var TelegramPhotoService $photoService */
+    $photoService = $container->get(TelegramPhotoService::class);
+    
+    // Синхронизируем данные пользователя
     $user = $userService->syncFromTelegram($telegramUser);
     $user = $userService->ensureProfile($user);
+    
+    // Обновляем фото если его нет
+    if (empty($user->photo_url)) {
+        $photoService->updateUserPhoto($user);
+        $user->refresh(); // Перезагружаем из БД
+    }
+    
     $profile = $user->profile;
     
     if (!$profile) {

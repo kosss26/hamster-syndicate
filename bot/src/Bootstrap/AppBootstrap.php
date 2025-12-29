@@ -26,6 +26,7 @@ use QuizBot\Application\Services\HintService;
 use QuizBot\Application\Services\TrueFalseService;
 use QuizBot\Application\Services\StatisticsService;
 use QuizBot\Application\Services\ReferralService;
+use QuizBot\Application\Services\TelegramPhotoService;
 use QuizBot\Database\Seeders\SampleDataSeeder;
 
 final class AppBootstrap
@@ -139,6 +140,12 @@ final class AppBootstrap
             },
             UserService::class => function (Container $c) {
                 return new UserService($c->get(Logger::class));
+            },
+            TelegramPhotoService::class => function (Container $c) {
+                return new TelegramPhotoService(
+                    $c->get(TelegramClientFactory::class)->create(),
+                    $c->get(Logger::class)
+                );
             },
             DuelService::class => function (Container $c) {
                 return new DuelService(
