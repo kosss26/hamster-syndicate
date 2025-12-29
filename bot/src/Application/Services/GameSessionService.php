@@ -23,11 +23,14 @@ class GameSessionService
 
     private UserService $userService;
 
-    public function __construct(Logger $logger, QuestionSelector $questionSelector, UserService $userService)
+    private ?ReferralService $referralService;
+
+    public function __construct(Logger $logger, QuestionSelector $questionSelector, UserService $userService, ?ReferralService $referralService = null)
     {
         $this->logger = $logger;
         $this->questionSelector = $questionSelector;
         $this->userService = $userService;
+        $this->referralService = $referralService;
     }
 
     /**
@@ -320,7 +323,29 @@ class GameSessionService
             $coinsGain
         ));
 
+        // Проверяем активацию реферала
+        $this->checkReferralActivation($user);
+
         return $payload['rewards'];
+    }
+
+    /**
+     * Проверяет и активирует реферала если нужно
+     */
+    private function checkReferralActivation(User $user): void
+    {
+        if ($this->referralService === null) {
+            return;
+        }
+
+        try {
+            $this->referralService->checkAndActivateReferral($user);
+        } catch (\Throwable $e) {
+            $this->logger->debug('Не удалось проверить активацию реферала', [
+                'user_id' => $user->getKey(),
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }
 

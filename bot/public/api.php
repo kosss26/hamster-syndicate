@@ -138,6 +138,11 @@ try {
             handleGetQuickStatistics($container, $telegramUser);
             break;
 
+        // GET /referral/stats - получить реферальную статистику
+        case $path === '/referral/stats' && $requestMethod === 'GET':
+            handleGetReferralStats($container, $telegramUser);
+            break;
+
         // GET /admin/check - проверить права админа
         case $path === '/admin/check' && $requestMethod === 'GET':
             handleAdminCheck($container, $telegramUser);
@@ -1244,6 +1249,41 @@ function jsonResponse(array $data, int $status = 200): void
         'data' => $data,
     ], JSON_UNESCAPED_UNICODE);
     exit;
+}
+
+/**
+ * GET /referral/stats - получить реферальную статистику
+ */
+function handleGetReferralStats($container, ?array $telegramUser): void
+{
+    if (!$telegramUser) {
+        jsonError('Не авторизован', 401);
+    }
+
+    try {
+        /** @var UserService $userService */
+        $userService = $container->get(UserService::class);
+        
+        $user = $userService->findByTelegramId((int) $telegramUser['id']);
+        
+        if (!$user) {
+            jsonError('Пользователь не найден', 404);
+        }
+
+        /** @var \QuizBot\Application\Services\ReferralService $referralService */
+        $referralService = $container->get(\QuizBot\Application\Services\ReferralService::class);
+        
+        $stats = $referralService->getReferralStats($user);
+        $link = $referralService->getReferralLink($user);
+        
+        // Добавляем ссылку в ответ
+        $stats['referral_link'] = $link;
+        
+        jsonSuccess($stats);
+    } catch (\Throwable $e) {
+        error_log('Ошибка получения реферальной статистики: ' . $e->getMessage());
+        jsonError('Ошибка получения данных', 500);
+    }
 }
 
 /**

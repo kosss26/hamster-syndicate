@@ -22,10 +22,13 @@ class DuelService
 
     private QuestionSelector $questionSelector;
 
-    public function __construct(Logger $logger, QuestionSelector $questionSelector)
+    private ?ReferralService $referralService;
+
+    public function __construct(Logger $logger, QuestionSelector $questionSelector, ?ReferralService $referralService = null)
     {
         $this->logger = $logger;
         $this->questionSelector = $questionSelector;
+        $this->referralService = $referralService;
     }
 
     /**
@@ -352,7 +355,32 @@ class DuelService
 
         $this->logger->info(sprintf('Дуэль %s завершена, результат %s', $duel->code, $resultStatus));
 
+        // Проверяем активацию рефералов для обоих участников
+        $this->checkReferralActivation($duel->initiator);
+        if ($duel->opponent) {
+            $this->checkReferralActivation($duel->opponent);
+        }
+
         return $result;
+    }
+
+    /**
+     * Проверяет и активирует реферала если нужно
+     */
+    private function checkReferralActivation(User $user): void
+    {
+        if ($this->referralService === null) {
+            return;
+        }
+
+        try {
+            $this->referralService->checkAndActivateReferral($user);
+        } catch (\Throwable $e) {
+            $this->logger->debug('Не удалось проверить активацию реферала', [
+                'user_id' => $user->getKey(),
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     public function cancelWaitingDuel(Duel $duel, User $cancelledBy): Duel

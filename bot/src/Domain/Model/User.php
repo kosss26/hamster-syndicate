@@ -66,5 +66,22 @@ class User extends BaseModel
             ->withTimestamps()
             ->withPivot(['unlocked_at', 'context']);
     }
+
+    public function referralsGiven(): HasMany
+    {
+        return $this->hasMany(Referral::class, 'referrer_user_id');
+    }
+
+    public function referralReceived(): HasOne
+    {
+        return $this->hasOne(Referral::class, 'referred_user_id');
+    }
+
+    public function referralMilestones(): BelongsToMany
+    {
+        return $this->belongsToMany(ReferralMilestone::class, 'user_referral_milestones')
+            ->withPivot(['claimed_at'])
+            ->withTimestamps();
+    }
 }
 

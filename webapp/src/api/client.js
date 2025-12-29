@@ -91,6 +91,9 @@ export const api = {
   getStatistics: () => request('/statistics'),
   getQuickStatistics: () => request('/statistics/quick'),
 
+  // Реферальная система
+  getReferralStats: () => request('/referral/stats'),
+
   // Админ
   getAdminStats: () => request('/admin/stats'),
   isAdmin: () => request('/admin/check'),

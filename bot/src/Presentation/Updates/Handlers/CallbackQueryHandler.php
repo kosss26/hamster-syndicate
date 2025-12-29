@@ -439,6 +439,12 @@ final class CallbackQueryHandler
             return;
         }
 
+        if ($this->startsWith($data, 'ref:')) {
+            $this->handleReferralAction($chatId, $data, $user, $callbackId);
+
+            return;
+        }
+
         if ($data === 'stats:full') {
             $this->handleFullStatistics($chatId, $user);
 
@@ -3028,6 +3034,98 @@ final class CallbackQueryHandler
                     'text' => '⚠️ Не удалось загрузить рейтинг. Попробуй позже.',
                     'reply_markup' => $this->getMainKeyboard(),
                 ],
+            ]);
+        }
+    }
+
+    /**
+     * Обрабатывает действия связанные с реферальной системой
+     */
+    private function handleReferralAction($chatId, string $data, ?User $user, ?string $callbackId): void
+    {
+        if (!$user instanceof User) {
+            $this->sendText($chatId, 'Не удалось загрузить профиль. Попробуй /start.');
+            return;
+        }
+
+        /** @var \QuizBot\Application\Services\ReferralService $referralService */
+        $referralService = $this->container->get(\QuizBot\Application\Services\ReferralService::class);
+        
+        $action = substr($data, strlen('ref:'));
+        
+        if ($action === 'list') {
+            $this->showReferralList($chatId, $user, $referralService);
+        } elseif ($action === 'copy') {
+            $stats = $referralService->getReferralStats($user);
+            $this->answerCallbackQuery($callbackId, 
+                sprintf('Код %s скопирован! Поделись им с друзьями 🎁', $stats['referral_code']));
+        }
+    }
+
+    /**
+     * Показывает список рефералов пользователя
+     */
+    private function showReferralList($chatId, User $user, $referralService): void
+    {
+        $stats = $referralService->getReferralStats($user);
+        
+        if (empty($stats['referrals']) || $stats['referrals']->isEmpty()) {
+            $text = '👥 У тебя пока нет приглашенных друзей.\n\nПоделись своей ссылкой, чтобы получать награды!';
+        } else {
+            $lines = ['👥 <b>Твои рефералы:</b>', ''];
+            
+            foreach ($stats['referrals'] as $ref) {
+                $statusEmoji = $ref['status'] === 'active' ? '✅' : '⏳';
+                $name = $ref['user']['name'];
+                if ($ref['user']['username']) {
+                    $name .= ' (@' . $ref['user']['username'] . ')';
+                }
+                
+                $lines[] = sprintf(
+                    '%s %s — %d игр (%s)',
+                    $statusEmoji,
+                    $name,
+                    $ref['games_played'],
+                    $ref['created_at']
+                );
+            }
+            
+            $lines[] = '';
+            $lines[] = '✅ — активный реферал (получена награда)';
+            $lines[] = '⏳ — ожидает 3 игр';
+            
+            $text = implode("\n", $lines);
+        }
+        
+        $this->telegramClient->request('POST', 'sendMessage', [
+            'json' => [
+                'chat_id' => $chatId,
+                'text' => $text,
+                'parse_mode' => 'HTML',
+            ],
+        ]);
+    }
+
+    /**
+     * Отвечает на callback query с текстом уведомления
+     */
+    private function answerCallbackQuery(?string $callbackId, string $text): void
+    {
+        if ($callbackId === null) {
+            return;
+        }
+
+        try {
+            $this->telegramClient->request('POST', 'answerCallbackQuery', [
+                'json' => [
+                    'callback_query_id' => $callbackId,
+                    'text' => $text,
+                    'show_alert' => false,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            $this->logger->error('Не удалось ответить на callback query с текстом', [
+                'error' => $e->getMessage(),
             ]);
         }
     }

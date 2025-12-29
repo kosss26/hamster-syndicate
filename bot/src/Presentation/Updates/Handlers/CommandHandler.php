@@ -116,7 +116,7 @@ final class CommandHandler
         ]);
 
         if ($this->startsWith($normalized, '/start')) {
-            $this->sendStart($chatId);
+            $this->sendStart($chatId, $user, $commandText);
 
             return;
         }
@@ -160,6 +160,12 @@ final class CommandHandler
 
         if ($this->startsWith($normalized, '/stats') || $this->startsWith($normalized, '/statistics')) {
             $this->sendStatistics($chatId, $user);
+
+            return;
+        }
+
+        if ($this->startsWith($normalized, '/referral') || $this->startsWith($normalized, '/invite')) {
+            $this->sendReferralInfo($chatId, $user);
 
             return;
         }
@@ -218,8 +224,14 @@ final class CommandHandler
     /**
      * @param int|string $chatId
      */
-    private function sendStart($chatId): void
+    private function sendStart($chatId, ?User $user = null, ?string $commandText = null): void
     {
+        // Проверяем, есть ли реферальный код в команде
+        $refCode = null;
+        if ($commandText && preg_match('/\/start\s+ref_([A-Z0-9]+)/i', $commandText, $matches)) {
+            $refCode = $matches[1];
+        }
+
         $text = implode("\n", [
             '⚔️ Добро пожаловать в «Битва знаний»!',
             '',
@@ -242,6 +254,11 @@ final class CommandHandler
                 'reply_markup' => $this->getMainKeyboard(),
             ],
         ]);
+
+        // Если есть реферальный код, обрабатываем его
+        if ($refCode && $user) {
+            $this->handleReferralCode($chatId, $user, $refCode);
+        }
     }
 
     /**
@@ -1159,6 +1176,121 @@ final class CommandHandler
                 ],
             ],
         ]);
+    }
+
+    /**
+     * Отправляет информацию о реферальной программе
+     */
+    private function sendReferralInfo($chatId, ?User $user): void
+    {
+        if (!$user instanceof User) {
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => 'Не удалось загрузить профиль. Попробуй /start.',
+                ],
+            ]);
+            return;
+        }
+
+        /** @var \QuizBot\Application\Services\ReferralService $referralService */
+        $referralService = $this->container->get(\QuizBot\Application\Services\ReferralService::class);
+        
+        $stats = $referralService->getReferralStats($user);
+        $link = $referralService->getReferralLink($user);
+
+        $text = implode("\n", [
+            '🎁 <b>Приглашай друзей!</b>',
+            '',
+            sprintf('Твой реферальный код: <code>%s</code>', $stats['referral_code']),
+            '',
+            '🎯 <b>Что получишь:</b>',
+            '• <b>100 монет</b> когда друг сыграет 3 игры',
+            '• <b>50 опыта</b> за каждого активного друга',
+            '• Бонусы за количество приглашенных!',
+            '',
+            '💫 <b>Что получит друг:</b>',
+            '• <b>50 монет</b> сразу при регистрации',
+            '• <b>25 опыта</b> в подарок',
+            '',
+            '📊 <b>Твоя статистика:</b>',
+            sprintf('👥 Приглашено: <b>%d</b> друзей', $stats['total_referrals']),
+            sprintf('✅ Активных: <b>%d</b>', $stats['active_referrals']),
+            sprintf('💰 Заработано: <b>%d</b> монет', $stats['total_coins_earned']),
+            sprintf('⭐ Получено опыта: <b>%d</b>', $stats['total_exp_earned']),
+        ]);
+
+        if ($stats['next_milestone']) {
+            $m = $stats['next_milestone'];
+            $text .= implode("\n", [
+                '',
+                '🏆 <b>Следующая награда:</b>',
+                sprintf('%s — %d друзей', $m['title'], $m['referrals_needed']),
+                sprintf('Прогресс: %d/%d', $m['progress'], $m['referrals_needed']),
+                sprintf('Награда: %d монет + %d опыта', $m['reward_coins'], $m['reward_experience']),
+            ]);
+        }
+
+        $this->telegramClient->request('POST', 'sendMessage', [
+            'json' => [
+                'chat_id' => $chatId,
+                'text' => $text,
+                'parse_mode' => 'HTML',
+                'reply_markup' => [
+                    'inline_keyboard' => [
+                        [
+                            [
+                                'text' => '📤 Поделиться ссылкой',
+                                'url' => sprintf('https://t.me/share/url?url=%s&text=%s', 
+                                    urlencode($link),
+                                    urlencode('🎮 Присоединяйся к Битве знаний! Получи 50 монет в подарок!')
+                                ),
+                            ],
+                        ],
+                        [
+                            ['text' => '👥 Мои рефералы', 'callback_data' => 'ref:list'],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * Обрабатывает реферальный код при первом запуске
+     */
+    private function handleReferralCode($chatId, User $user, string $code): void
+    {
+        /** @var \QuizBot\Application\Services\ReferralService $referralService */
+        $referralService = $this->container->get(\QuizBot\Application\Services\ReferralService::class);
+        
+        $result = $referralService->applyReferralCode($user, $code);
+        
+        if ($result['success']) {
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => implode("\n", [
+                        '🎉 <b>Отлично!</b>',
+                        '',
+                        'Ты использовал реферальный код!',
+                        sprintf('Получено: <b>%d монет</b> и <b>%d опыта</b>', 
+                            $result['reward_coins'], 
+                            $result['reward_experience']
+                        ),
+                        '',
+                        'Сыграй 3 игры, чтобы твой друг тоже получил награду! 🎁',
+                    ]),
+                    'parse_mode' => 'HTML',
+                ],
+            ]);
+        } else {
+            $this->logger->warning('Не удалось применить реферальный код', [
+                'user_id' => $user->getKey(),
+                'code' => $code,
+                'error' => $result['error'],
+            ]);
+        }
     }
 }
 

@@ -25,6 +25,7 @@ use QuizBot\Application\Services\ProfileFormatter;
 use QuizBot\Application\Services\HintService;
 use QuizBot\Application\Services\TrueFalseService;
 use QuizBot\Application\Services\StatisticsService;
+use QuizBot\Application\Services\ReferralService;
 use QuizBot\Database\Seeders\SampleDataSeeder;
 
 final class AppBootstrap
@@ -142,14 +143,16 @@ final class AppBootstrap
             DuelService::class => function (Container $c) {
                 return new DuelService(
                     $c->get(Logger::class),
-                    $c->get(QuestionSelector::class)
+                    $c->get(QuestionSelector::class),
+                    $c->get(ReferralService::class)
                 );
             },
             GameSessionService::class => function (Container $c) {
                 return new GameSessionService(
                     $c->get(Logger::class),
                     $c->get(QuestionSelector::class),
-                    $c->get(UserService::class)
+                    $c->get(UserService::class),
+                    $c->get(ReferralService::class)
                 );
             },
             StoryService::class => function (Container $c) {
@@ -174,6 +177,12 @@ final class AppBootstrap
             StatisticsService::class => function (Container $c) {
                 return new StatisticsService(
                     $c->get(Logger::class)
+                );
+            },
+            ReferralService::class => function (Container $c) {
+                return new ReferralService(
+                    $c->get(Logger::class),
+                    $c->get(UserService::class)
                 );
             },
             MessageFormatter::class => function (Container $c) {

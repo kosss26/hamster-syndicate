@@ -200,6 +200,31 @@ function HomePage() {
             </Link>
           </motion.div>
 
+          {/* Пригласить друзей */}
+          <motion.div variants={itemVariants} className="col-span-2">
+            <Link
+              to="/referral"
+              onClick={handleMenuClick}
+              className="block h-full"
+            >
+              <div className="bento-card card-shine h-full p-4 flex items-center gap-3 group cursor-pointer">
+                <div className="bento-glow bg-gradient-to-br from-pink-500/20 via-purple-500/10 to-transparent blur-2xl" />
+                
+                <motion.div 
+                  className="text-3xl"
+                  whileHover={{ scale: 1.2, rotate: 10 }}
+                  transition={{ type: "spring", stiffness: 400 }}
+                >
+                  🎁
+                </motion.div>
+                <div className="relative">
+                  <h3 className="font-semibold text-white text-sm">Пригласить</h3>
+                  <p className="text-white/40 text-xs">Получи награды</p>
+                </div>
+              </div>
+            </Link>
+          </motion.div>
+
           {/* Рейтинг - широкая карточка */}
           <motion.div variants={itemVariants} className="col-span-4">
             <Link

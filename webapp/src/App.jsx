@@ -7,6 +7,7 @@ import ProfilePage from './pages/ProfilePage'
 import LeaderboardPage from './pages/LeaderboardPage'
 import StatsPage from './pages/StatsPage'
 import TrueFalsePage from './pages/TrueFalsePage'
+import ReferralPage from './pages/ReferralPage'
 import AdminPage from './pages/AdminPage'
 
 function App() {
@@ -85,6 +86,7 @@ function App() {
             <Route path="/stats" element={<StatsPage />} />
             <Route path="/leaderboard" element={<LeaderboardPage />} />
             <Route path="/truefalse" element={<TrueFalsePage />} />
+            <Route path="/referral" element={<ReferralPage />} />
             <Route path="/admin" element={<AdminPage />} />
           </Routes>
         </div>
