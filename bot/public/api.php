@@ -1279,7 +1279,7 @@ function handleGetReferralStats($container, ?array $telegramUser): void
         // Добавляем ссылку в ответ
         $stats['referral_link'] = $link;
         
-        jsonSuccess($stats);
+        jsonResponse($stats);
     } catch (\Throwable $e) {
         error_log('Ошибка получения реферальной статистики: ' . $e->getMessage());
         jsonError('Ошибка получения данных', 500);
