@@ -20,6 +20,7 @@ use QuizBot\Application\Services\AdminService;
 use QuizBot\Application\Services\HintService;
 use QuizBot\Application\Services\TrueFalseService;
 use QuizBot\Application\Services\StatisticsService;
+use QuizBot\Application\Services\ReferralService;
 
 final class UpdateRouter
 {
@@ -49,6 +50,8 @@ final class UpdateRouter
 
     private StatisticsService $statisticsService;
 
+    private ReferralService $referralService;
+
     public function __construct(
         ClientInterface $telegramClient,
         Logger $logger,
@@ -62,7 +65,8 @@ final class UpdateRouter
         AdminService $adminService,
         HintService $hintService,
         TrueFalseService $trueFalseService,
-        StatisticsService $statisticsService
+        StatisticsService $statisticsService,
+        ReferralService $referralService
     ) {
         $this->telegramClient = $telegramClient;
         $this->logger = $logger;
@@ -77,6 +81,7 @@ final class UpdateRouter
         $this->hintService = $hintService;
         $this->trueFalseService = $trueFalseService;
         $this->statisticsService = $statisticsService;
+        $this->referralService = $referralService;
     }
 
     /**
@@ -98,7 +103,8 @@ final class UpdateRouter
                 $this->profileFormatter,
                 $this->adminService,
                 $this->trueFalseService,
-                $this->statisticsService
+                $this->statisticsService,
+                $this->referralService
             );
             $messageHandler->handle($update['message']);
 
@@ -119,7 +125,8 @@ final class UpdateRouter
                 $this->hintService,
                 $this->trueFalseService,
                 $this->profileFormatter,
-                $this->statisticsService
+                $this->statisticsService,
+                $this->referralService
             );
             $callbackHandler->handle($update['callback_query']);
 
@@ -138,7 +145,8 @@ final class UpdateRouter
                 $this->adminService,
                 $this->trueFalseService,
                 $this->statisticsService,
-                $this->cache
+                $this->cache,
+                $this->referralService
             );
             $commandHandler->handle($update['command']);
         }

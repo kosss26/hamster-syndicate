@@ -14,6 +14,7 @@ use QuizBot\Application\Services\StoryService;
 use QuizBot\Application\Services\AdminService;
 use QuizBot\Application\Services\TrueFalseService;
 use QuizBot\Application\Services\StatisticsService;
+use QuizBot\Application\Services\ReferralService;
 use QuizBot\Domain\Model\User;
 use QuizBot\Domain\Model\Duel;
 use QuizBot\Domain\Model\TrueFalseFact;
@@ -46,6 +47,8 @@ final class CommandHandler
 
     private CacheInterface $cache;
 
+    private ReferralService $referralService;
+
     public function __construct(
         ClientInterface $telegramClient,
         Logger $logger,
@@ -57,7 +60,8 @@ final class CommandHandler
         AdminService $adminService,
         TrueFalseService $trueFalseService,
         StatisticsService $statisticsService,
-        CacheInterface $cache
+        CacheInterface $cache,
+        ReferralService $referralService
     ) {
         $this->telegramClient = $telegramClient;
         $this->logger = $logger;
@@ -70,6 +74,7 @@ final class CommandHandler
         $this->trueFalseService = $trueFalseService;
         $this->statisticsService = $statisticsService;
         $this->cache = $cache;
+        $this->referralService = $referralService;
     }
 
     protected function getTelegramClient(): ClientInterface
@@ -1196,16 +1201,11 @@ final class CommandHandler
                 return;
             }
 
-            $this->logger->debug('sendReferralInfo: получаем ReferralService');
-            
-            /** @var \QuizBot\Application\Services\ReferralService $referralService */
-            $referralService = $this->container->get(\QuizBot\Application\Services\ReferralService::class);
-            
             $this->logger->debug('sendReferralInfo: получаем статистику');
-            $stats = $referralService->getReferralStats($user);
+            $stats = $this->referralService->getReferralStats($user);
             
             $this->logger->debug('sendReferralInfo: получаем ссылку');
-            $link = $referralService->getReferralLink($user);
+            $link = $this->referralService->getReferralLink($user);
 
             $this->logger->debug('sendReferralInfo: формируем текст', ['stats' => $stats]);
 
@@ -1295,10 +1295,7 @@ final class CommandHandler
      */
     private function handleReferralCode($chatId, User $user, string $code): void
     {
-        /** @var \QuizBot\Application\Services\ReferralService $referralService */
-        $referralService = $this->container->get(\QuizBot\Application\Services\ReferralService::class);
-        
-        $result = $referralService->applyReferralCode($user, $code);
+        $result = $this->referralService->applyReferralCode($user, $code);
         
         if ($result['success']) {
             $this->telegramClient->request('POST', 'sendMessage', [

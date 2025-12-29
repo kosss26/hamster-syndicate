@@ -15,6 +15,7 @@ use QuizBot\Application\Services\StoryService;
 use QuizBot\Application\Services\AdminService;
 use QuizBot\Application\Services\TrueFalseService;
 use QuizBot\Application\Services\StatisticsService;
+use QuizBot\Application\Services\ReferralService;
 use QuizBot\Domain\Model\User;
 use QuizBot\Presentation\Updates\Handlers\Concerns\SendsDuelMessages;
 
@@ -43,6 +44,8 @@ final class MessageHandler
 
     private StatisticsService $statisticsService;
 
+    private ReferralService $referralService;
+
     public function __construct(
         ClientInterface $telegramClient,
         Logger $logger,
@@ -54,7 +57,8 @@ final class MessageHandler
         ProfileFormatter $profileFormatter,
         AdminService $adminService,
         TrueFalseService $trueFalseService,
-        StatisticsService $statisticsService
+        StatisticsService $statisticsService,
+        ReferralService $referralService
     ) {
         $this->telegramClient = $telegramClient;
         $this->logger = $logger;
@@ -67,6 +71,7 @@ final class MessageHandler
         $this->adminService = $adminService;
         $this->trueFalseService = $trueFalseService;
         $this->statisticsService = $statisticsService;
+        $this->referralService = $referralService;
     }
 
     /**
@@ -107,7 +112,8 @@ final class MessageHandler
                 $this->adminService,
                 $this->trueFalseService,
                 $this->statisticsService,
-                $this->cache
+                $this->cache,
+                $this->referralService
             );
             $commandHandler->handle([
                 'chat_id' => $chatId,
@@ -142,7 +148,8 @@ final class MessageHandler
                 $this->adminService,
                 $this->trueFalseService,
                 $this->statisticsService,
-                $this->cache
+                $this->cache,
+                $this->referralService
             );
             $commandHandler->handle([
                 'chat_id' => $chatId,
@@ -166,7 +173,8 @@ final class MessageHandler
                 $this->adminService,
                 $this->trueFalseService,
                 $this->statisticsService,
-                $this->cache
+                $this->cache,
+                $this->referralService
             );
             $commandHandler->handle([
                 'chat_id' => $chatId,
@@ -212,7 +220,8 @@ final class MessageHandler
                 $this->adminService,
                 $this->trueFalseService,
                 $this->statisticsService,
-                $this->cache
+                $this->cache,
+                $this->referralService
             );
             $commandHandler->handle([
                 'chat_id' => $chatId,
@@ -309,7 +318,8 @@ final class MessageHandler
                 $this->adminService,
                 $this->trueFalseService,
                 $this->statisticsService,
-                $this->cache
+                $this->cache,
+                $this->referralService
             );
 
             // Если это админ и он ввёл @username — сначала пробуем завершить дуэль по нику

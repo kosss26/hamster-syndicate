@@ -102,7 +102,8 @@ final class WebhookHandler
             $this->container->get(\QuizBot\Application\Services\AdminService::class),
             $this->container->get(\QuizBot\Application\Services\HintService::class),
             $this->container->get(TrueFalseService::class),
-            $this->container->get(StatisticsService::class)
+            $this->container->get(StatisticsService::class),
+            $this->container->get(\QuizBot\Application\Services\ReferralService::class)
         );
 
         $updateRouter->route($payload);
