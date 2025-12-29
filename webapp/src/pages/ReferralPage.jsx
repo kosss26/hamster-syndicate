@@ -39,8 +39,15 @@ function ReferralPage() {
     const text = '🎮 Присоединяйся к Битве знаний! Получи 50 монет в подарок!'
     const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(stats.referral_link)}&text=${encodeURIComponent(text)}`
     
-    // Открываем окно шаринга Telegram
-    webApp.openTelegramLink(shareUrl)
+    // Безопасно открываем окно шаринга Telegram
+    if (webApp?.openTelegramLink) {
+      webApp.openTelegramLink(shareUrl)
+    } else if (webApp?.openLink) {
+      webApp.openLink(shareUrl)
+    } else {
+      // Fallback: открываем в новой вкладке
+      window.open(shareUrl, '_blank')
+    }
   }
 
   // Копировать ссылку в буфер обмена
