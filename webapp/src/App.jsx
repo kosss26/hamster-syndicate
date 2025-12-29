@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { TelegramContext } from './hooks/useTelegram'
+import api from './api/client'
 import HomePage from './pages/HomePage'
 import DuelPage from './pages/DuelPage'
 import ProfilePage from './pages/ProfilePage'
@@ -36,9 +37,34 @@ function App() {
       })
       
       setTg(telegram)
-      setUser(telegram.initDataUnsafe?.user || null)
-      setIsReady(true)
       
+      // Загружаем полные данные пользователя с сервера (включая photo_url)
+      const loadUserData = async () => {
+        try {
+          const response = await api.getProfile()
+          if (response.success && response.data) {
+            // Объединяем данные из Telegram с данными с сервера
+            const fullUser = {
+              ...(telegram.initDataUnsafe?.user || {}),
+              photo_url: response.data.photo_url,
+              id: response.data.telegram_id || telegram.initDataUnsafe?.user?.id,
+              first_name: response.data.first_name || telegram.initDataUnsafe?.user?.first_name,
+              last_name: response.data.last_name || telegram.initDataUnsafe?.user?.last_name,
+              username: response.data.username || telegram.initDataUnsafe?.user?.username,
+            }
+            setUser(fullUser)
+          } else {
+            setUser(telegram.initDataUnsafe?.user || null)
+          }
+        } catch (err) {
+          console.error('Failed to load user data:', err)
+          setUser(telegram.initDataUnsafe?.user || null)
+        } finally {
+          setIsReady(true)
+        }
+      }
+      
+      loadUserData()
       console.log('Telegram WebApp initialized:', telegram.initDataUnsafe)
     } else {
       // Для разработки без Telegram
