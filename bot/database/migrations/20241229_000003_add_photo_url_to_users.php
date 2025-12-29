@@ -1,26 +1,22 @@
 <?php
 
-use QuizBot\Database\Migration;
-use Illuminate\Database\Capsule\Manager as Capsule;
+declare(strict_types=1);
 
-return new class implements Migration
-{
-    public function up(): void
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Database\Schema\Builder;
+use QuizBot\Infrastructure\Database\Migration;
+
+return new class implements Migration {
+    public function name(): string
     {
-        $schema = Capsule::schema();
-
-        // Добавляем поле для хранения URL фото профиля из Telegram
-        $schema->table('users', function ($table) {
-            $table->string('photo_url', 512)->nullable()->after('username');
-        });
+        return '20241229_000003_add_photo_url_to_users';
     }
 
-    public function down(): void
+    public function up(Builder $schema): void
     {
-        $schema = Capsule::schema();
-
-        $schema->table('users', function ($table) {
-            $table->dropColumn('photo_url');
+        // Добавляем поле для хранения URL фото профиля из Telegram
+        $schema->table('users', function (Blueprint $table): void {
+            $table->string('photo_url', 512)->nullable()->after('language_code');
         });
     }
 };
