@@ -343,7 +343,7 @@ class ReferralService
     public function getReferralLink(User $user): string
     {
         $code = $this->generateReferralCode($user);
-        $botUsername = getenv('TELEGRAM_BOT_USERNAME') ?: 'your_bot';
+        $botUsername = getenv('TELEGRAM_BOT_USERNAME') ?: 'duelquizbot';
         
         return sprintf('https://t.me/%s?start=ref_%s', $botUsername, $code);
     }
