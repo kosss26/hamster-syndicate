@@ -352,9 +352,11 @@ function handleGetProfile($container, ?array $telegramUser): void
         'rating' => (int) $profile->rating,
         'rank' => $rank,
         'coins' => (int) $profile->coins,
+        'gems' => (int) $profile->gems,
         'win_streak' => (int) $profile->streak_days,
         'true_false_record' => (int) $profile->true_false_record,
         'photo_url' => $user->photo_url,
+        'equipped_frame' => $profile->equipped_frame ?? 'default',
         'stats' => [
             'duel_wins' => (int) $profile->duel_wins,
             'duel_losses' => (int) $profile->duel_losses,

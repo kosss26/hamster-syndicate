@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useTelegram, showBackButton } from '../hooks/useTelegram'
 import api from '../api/client'
+import AvatarWithFrame from '../components/AvatarWithFrame'
 
 function ProfilePage() {
   const { user } = useTelegram()
@@ -99,7 +100,7 @@ function ProfilePage() {
           animate={{ opacity: 1, y: 0 }}
           className="text-center pt-4 mb-6"
         >
-          {/* Avatar with animated ring */}
+          {/* Avatar with frame */}
           <div className="relative inline-block mb-4">
             <motion.div 
               className="relative"
@@ -107,25 +108,14 @@ function ProfilePage() {
               animate={{ scale: 1 }}
               transition={{ type: "spring", stiffness: 200 }}
             >
-              {/* Outer glow ring */}
-              <div className="absolute -inset-2 rounded-full bg-gradient-to-r from-game-primary via-purple-500 to-game-pink opacity-50 blur-lg animate-pulse-slow" />
-              
-              {/* Avatar container */}
-              <div className="relative w-28 h-28 rounded-full p-[3px] bg-gradient-to-r from-game-primary via-purple-500 to-game-pink">
-                <div className="w-full h-full rounded-full bg-gradient-to-br from-game-primary to-purple-700 flex items-center justify-center overflow-hidden">
-                  {user?.photo_url ? (
-                    <img 
-                      src={user.photo_url} 
-                      alt={user.first_name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-4xl font-bold text-white">
-                      {user?.first_name?.[0]?.toUpperCase() || '?'}
-                    </span>
-                  )}
-                </div>
-              </div>
+              <AvatarWithFrame
+                photoUrl={user?.photo_url}
+                name={user?.first_name || 'User'}
+                frameKey={profile?.equipped_frame || 'default'}
+                size={112}
+                animated={false}
+                showGlow={true}
+              />
               
               {/* Online indicator */}
               <div className="absolute bottom-1 right-1 w-6 h-6 bg-game-success rounded-full border-4 border-dark-950 shadow-glow-success" />
