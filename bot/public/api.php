@@ -455,6 +455,9 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
     /** @var UserService $userService */
     $userService = $container->get(UserService::class);
     
+    /** @var TelegramPhotoService $photoService */
+    $photoService = $container->get(TelegramPhotoService::class);
+    
     $user = $userService->findByTelegramId((int) $telegramUser['id']);
     
     $duel = $duelService->findById($duelId);
@@ -469,6 +472,16 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
     }
 
     $duel->loadMissing('rounds.question.answers', 'rounds.question.category', 'initiator.profile', 'opponent.profile');
+    
+    // Загружаем фото для участников если их нет
+    if ($duel->initiator && empty($duel->initiator->photo_url)) {
+        $photoService->updateUserPhoto($duel->initiator);
+        $duel->initiator->refresh();
+    }
+    if ($duel->opponent && empty($duel->opponent->photo_url)) {
+        $photoService->updateUserPhoto($duel->opponent);
+        $duel->opponent->refresh();
+    }
 
     // Определяем роль текущего пользователя
     $isInitiator = $user && $duel->initiator_user_id === $user->getKey();
@@ -597,11 +610,13 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
             'id' => $duel->initiator->getKey(),
             'name' => $duel->initiator->first_name,
             'rating' => $duel->initiator->profile?->rating ?? 0,
+            'photo_url' => $duel->initiator->photo_url,
         ] : null,
         'opponent' => $duel->opponent ? [
             'id' => $duel->opponent->getKey(),
             'name' => $duel->opponent->first_name,
             'rating' => $duel->opponent->profile?->rating ?? 0,
+            'photo_url' => $duel->opponent->photo_url,
         ] : null,
         'question' => $question,
         'round_status' => $roundStatus,
@@ -783,6 +798,14 @@ function handleJoinDuel($container, ?array $telegramUser, array $body): void
 
     // Присоединяемся к дуэли
     $duel = $duelService->joinDuel($duel, $user);
+    
+    // Загружаем фото initiator если его нет
+    if ($duel->initiator && empty($duel->initiator->photo_url)) {
+        /** @var TelegramPhotoService $photoService */
+        $photoService = $container->get(TelegramPhotoService::class);
+        $photoService->updateUserPhoto($duel->initiator);
+        $duel->initiator->refresh();
+    }
 
     jsonResponse([
         'duel_id' => $duel->getKey(),
@@ -791,6 +814,7 @@ function handleJoinDuel($container, ?array $telegramUser, array $body): void
         'initiator' => $duel->initiator ? [
             'id' => $duel->initiator->getKey(),
             'name' => $duel->initiator->first_name,
+            'photo_url' => $duel->initiator->photo_url,
         ] : null,
     ]);
 }
@@ -1014,6 +1038,9 @@ function handleGetLeaderboard($container, string $type): void
     
     /** @var ProfileFormatter $profileFormatter */
     $profileFormatter = $container->get(ProfileFormatter::class);
+    
+    /** @var TelegramPhotoService $photoService */
+    $photoService = $container->get(TelegramPhotoService::class);
 
     $players = [];
     
@@ -1022,6 +1049,13 @@ function handleGetLeaderboard($container, string $type): void
         
         foreach ($topPlayers as $playerData) {
             $user = $playerData['user'];
+            
+            // Загружаем фото если его нет
+            if (empty($user->photo_url)) {
+                $photoService->updateUserPhoto($user);
+                $user->refresh();
+            }
+            
             $players[] = [
                 'position' => $playerData['position'],
                 'name' => $user->first_name ?? 'Игрок',
@@ -1036,6 +1070,13 @@ function handleGetLeaderboard($container, string $type): void
         
         foreach ($topPlayers as $playerData) {
             $user = $playerData['user'];
+            
+            // Загружаем фото если его нет
+            if (empty($user->photo_url)) {
+                $photoService->updateUserPhoto($user);
+                $user->refresh();
+            }
+            
             $players[] = [
                 'position' => $playerData['position'],
                 'name' => $user->first_name ?? 'Игрок',
