@@ -27,6 +27,9 @@ use QuizBot\Application\Services\TrueFalseService;
 use QuizBot\Application\Services\StatisticsService;
 use QuizBot\Application\Services\ReferralService;
 use QuizBot\Application\Services\TelegramPhotoService;
+use QuizBot\Application\Services\AchievementService;
+use QuizBot\Application\Services\AchievementTrackerService;
+use QuizBot\Application\Services\CollectionService;
 use QuizBot\Database\Seeders\SampleDataSeeder;
 
 final class AppBootstrap
@@ -221,6 +224,17 @@ final class AppBootstrap
                 return new \QuizBot\Application\Services\BoostService(
                     $c->get(Logger::class)
                 );
+            },
+            AchievementService::class => function (Container $c) {
+                return new AchievementService();
+            },
+            AchievementTrackerService::class => function (Container $c) {
+                return new AchievementTrackerService(
+                    $c->get(AchievementService::class)
+                );
+            },
+            CollectionService::class => function (Container $c) {
+                return new CollectionService();
             },
             MessageFormatter::class => function (Container $c) {
                 return new \QuizBot\Application\Services\MessageFormatter();

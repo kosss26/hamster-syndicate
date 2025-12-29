@@ -1,44 +1,41 @@
 <?php
 
-declare(strict_types=1);
-
 namespace QuizBot\Domain\Model;
 
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Model;
 
-class Achievement extends BaseModel
+class Achievement extends Model
 {
     protected $table = 'achievements';
-
-    /**
-     * @var array<int, string>
-     */
+    
+    public $timestamps = false;
+    
     protected $fillable = [
-        'code',
+        'key',
         'title',
         'description',
-        'points',
-        'conditions',
-        'is_active',
+        'icon',
+        'rarity',
+        'category',
+        'condition_type',
+        'condition_value',
+        'reward_coins',
+        'reward_gems',
+        'is_secret',
+        'sort_order',
     ];
 
-    /**
-     * @var array<string, string>
-     */
     protected $casts = [
-        'points' => 'int',
-        'conditions' => 'array',
-        'is_active' => 'bool',
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime',
+        'is_secret' => 'boolean',
+        'condition_value' => 'integer',
+        'reward_coins' => 'integer',
+        'reward_gems' => 'integer',
+        'sort_order' => 'integer',
     ];
 
-    public function users(): BelongsToMany
+    // Связь с прогрессом пользователей
+    public function userAchievements()
     {
-        return $this->belongsToMany(User::class, 'user_achievements')
-            ->using(UserAchievement::class)
-            ->withPivot(['unlocked_at', 'context'])
-            ->withTimestamps();
+        return $this->hasMany(UserAchievement::class);
     }
 }
-
