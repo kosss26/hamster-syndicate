@@ -367,12 +367,12 @@ function TrueFalsePage() {
         </div>
 
         {/* Controls */}
-        <div className="grid grid-cols-2 gap-4 mt-auto">
+        <div className="grid grid-cols-2 gap-3 mt-4 mb-2">
           <motion.button
             whileTap={{ scale: 0.95 }}
             onClick={() => handleAnswer(true)}
             disabled={answered}
-            className={`group relative h-24 rounded-3xl font-bold text-xl overflow-hidden transition-all ${
+            className={`group relative h-20 rounded-3xl font-bold text-xl overflow-hidden transition-all ${
               answered 
                 ? result?.correctAnswer === true
                   ? 'bg-game-success ring-4 ring-game-success/30'
@@ -382,8 +382,8 @@ function TrueFalsePage() {
           >
             <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 rounded-3xl" />
             <div className="relative flex flex-col items-center justify-center h-full">
-              <span className="text-3xl mb-1">✅</span>
-              <span className="text-white">Правда</span>
+              <span className="text-2xl mb-1">✅</span>
+              <span className="text-white text-sm">Правда</span>
             </div>
           </motion.button>
           
@@ -391,7 +391,7 @@ function TrueFalsePage() {
             whileTap={{ scale: 0.95 }}
             onClick={() => handleAnswer(false)}
             disabled={answered}
-            className={`group relative h-24 rounded-3xl font-bold text-xl overflow-hidden transition-all ${
+            className={`group relative h-20 rounded-3xl font-bold text-xl overflow-hidden transition-all ${
               answered 
                 ? result?.correctAnswer === false
                   ? 'bg-game-danger ring-4 ring-game-danger/30'
@@ -401,8 +401,8 @@ function TrueFalsePage() {
           >
             <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 rounded-3xl" />
             <div className="relative flex flex-col items-center justify-center h-full">
-              <span className="text-3xl mb-1">❌</span>
-              <span className="text-white">Ложь</span>
+              <span className="text-2xl mb-1">❌</span>
+              <span className="text-white text-sm">Ложь</span>
             </div>
           </motion.button>
         </div>
