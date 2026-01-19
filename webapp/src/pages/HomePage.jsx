@@ -14,6 +14,19 @@ function HomePage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Check for active duel immediately
+    const checkActiveDuel = async () => {
+      try {
+        const userRes = await api.getUser()
+        if (userRes.success && userRes.data.active_duel_id) {
+          navigate(`/duel/${userRes.data.active_duel_id}`)
+        }
+      } catch (err) {
+        console.error('Failed to check active duel:', err)
+      }
+    }
+    checkActiveDuel()
+
     loadData()
     // Обновляем онлайн каждые 30 секунд
     const interval = setInterval(loadOnline, 30000)
@@ -24,12 +37,24 @@ function HomePage() {
     setLoading(true)
     try {
       await Promise.all([
+        checkActiveDuel(),
         loadProfile(),
         loadOnline(),
         checkAdmin()
       ])
     } finally {
       setLoading(false)
+    }
+  }
+
+  const checkActiveDuel = async () => {
+    try {
+      const response = await api.getActiveDuel()
+      if (response.success && response.data.duel_id) {
+        navigate(`/duel/${response.data.duel_id}`)
+      }
+    } catch (err) {
+      console.error('Failed to check active duel:', err)
     }
   }
 

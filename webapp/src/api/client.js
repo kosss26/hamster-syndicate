@@ -50,6 +50,7 @@ export const api = {
   getProfile: () => request('/profile'),
   
   // Дуэли
+  getActiveDuel: () => request('/duel/current'),
   createDuel: (mode = 'random') => request('/duel/create', {
     method: 'POST',
     body: JSON.stringify({ mode })

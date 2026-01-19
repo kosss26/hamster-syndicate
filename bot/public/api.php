@@ -92,6 +92,11 @@ try {
             handleCreateDuel($container, $telegramUser, $body);
             break;
 
+        // GET /duel/current - получить текущую активную дуэль
+        case $path === '/duel/current' && $requestMethod === 'GET':
+            handleGetActiveDuel($container, $telegramUser);
+            break;
+
         // GET /duel/{id} - получить информацию о дуэли
         case preg_match('#^/duel/(\d+)$#', $path, $matches) && $requestMethod === 'GET':
             handleGetDuel($container, $telegramUser, (int) $matches[1]);
@@ -346,12 +351,17 @@ function handleGetUser($container, ?array $telegramUser): void
         jsonError('Пользователь не найден', 404);
     }
 
+    /** @var DuelService $duelService */
+    $duelService = $container->get(DuelService::class);
+    $activeDuel = $duelService->findActiveDuelForUser($user, false);
+
     jsonResponse([
         'id' => $user->getKey(),
         'telegram_id' => $user->telegram_id,
         'username' => $user->username,
         'first_name' => $user->first_name,
         'last_name' => $user->last_name,
+        'active_duel_id' => $activeDuel?->getKey(),
     ]);
 }
 
@@ -1965,6 +1975,44 @@ function handleGetCollectionItems($container, ?array $telegramUser, int $collect
     } catch (\Throwable $e) {
         error_log('Ошибка получения карточек коллекции: ' . $e->getMessage());
         jsonError('Ошибка получения карточек', 500);
+    }
+}
+
+/**
+ * Получение текущей активной дуэли
+ */
+function handleGetActiveDuel($container, ?array $telegramUser): void
+{
+    if (!$telegramUser) {
+        jsonError('Не авторизован', 401);
+    }
+
+    /** @var UserService $userService */
+    $userService = $container->get(UserService::class);
+    $user = $userService->findByTelegramId((int) $telegramUser['id']);
+    
+    if (!$user) {
+        jsonError('Пользователь не найден', 404);
+    }
+
+    /** @var DuelService $duelService */
+    $duelService = $container->get(DuelService::class);
+    
+    // Очищаем старые дуэли
+    $duelService->cleanupStaleMatchmakingDuels(60);
+    
+    // Ищем активную
+    $duel = $duelService->findActiveDuelForUser($user, true);
+    
+    if ($duel) {
+        jsonResponse([
+            'duel_id' => $duel->getKey(),
+            'status' => $duel->status,
+        ]);
+    } else {
+        jsonResponse([
+            'duel_id' => null
+        ]);
     }
 }
 

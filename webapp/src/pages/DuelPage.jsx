@@ -168,7 +168,7 @@ function DuelPage() {
     }, interval)
 
     return () => clearInterval(checkInterval)
-  }, [duel, state])
+  }, [duel?.duel_id, state])
 
   // Таймер поиска соперника - 30 секунд максимум
   useEffect(() => {
@@ -327,7 +327,8 @@ function DuelPage() {
             if (data.round_status?.question_sent_at) {
               const sentAt = new Date(data.round_status.question_sent_at)
               const elapsed = Math.floor((Date.now() - sentAt.getTime()) / 1000)
-              setTimeLeft(Math.max(0, timeLimit - elapsed))
+              const newTimeLeft = Math.max(0, timeLimit - (isNaN(elapsed) ? 0 : elapsed))
+              setTimeLeft(newTimeLeft)
             } else {
               setTimeLeft(timeLimit)
             }
@@ -991,15 +992,21 @@ function DuelPage() {
                        >
                            {isCorrect ? (
                                <>
-                                 <div className="text-5xl mb-2">🔥</div>
+                                 <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-[0_0_20px_rgba(34,197,94,0.4)]">
+                                    <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                 </div>
                                  <div className="text-xl font-bold text-green-400">Верно!</div>
-                                 <div className="text-white/60 text-sm">+{lastResult.points_earned} очков</div>
                                </>
                            ) : (
                                <>
-                                 <div className="text-5xl mb-2">💀</div>
+                                 <div className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-[0_0_20px_rgba(239,68,68,0.4)]">
+                                    <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                 </div>
                                  <div className="text-xl font-bold text-red-400">Мимо</div>
-                                 <div className="text-white/60 text-sm">Повезет в следующий раз</div>
                                </>
                            )}
                        </motion.div>
