@@ -10,7 +10,7 @@ function HomePage() {
   const { user, tg } = useTelegram()
   const navigate = useNavigate()
   const [profile, setProfile] = useState(null)
-  const [onlineCount, setOnlineCount] = useState(0)
+  const [onlineCount, setOnlineCount] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -181,7 +181,7 @@ function HomePage() {
             <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
           </span>
           <span className="text-white/60 text-sm font-medium">
-            {onlineCount > 0 ? `${onlineCount} онлайн` : 'Загрузка...'}
+            {onlineCount !== null ? `${onlineCount} онлайн` : 'Загрузка...'}
           </span>
         </div>
 
