@@ -67,7 +67,6 @@ function DuelPage() {
   }
 
   useEffect(() => {
-    showBackButton(true)
     loadProfile()
   }, [])
 

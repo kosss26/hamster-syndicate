@@ -19,6 +19,7 @@ import AchievementsPage from './pages/AchievementsPage'
 import CollectionsPage from './pages/CollectionsPage'
 import CollectionDetailPage from './pages/CollectionDetailPage'
 import AdminButton from './components/AdminButton'
+import TelegramBackButton from './components/TelegramBackButton'
 
 function App() {
   const [tg, setTg] = useState(null)
@@ -35,11 +36,6 @@ function App() {
       // Настройка темы
       telegram.setHeaderColor('#0a0a0f')
       telegram.setBackgroundColor('#0a0a0f')
-      
-      // Включаем кнопку "Назад"
-      telegram.BackButton.onClick(() => {
-        window.history.back()
-      })
       
       setTg(telegram)
       
@@ -113,6 +109,7 @@ function App() {
     <TelegramContext.Provider value={{ tg, user }}>
       <BrowserRouter basename="/webapp">
         <div className="min-h-screen">
+          <TelegramBackButton />
           <AdminButton />
           <Routes>
             {/* Routes with Bottom Menu */}
