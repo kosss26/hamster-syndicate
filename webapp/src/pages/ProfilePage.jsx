@@ -184,6 +184,7 @@ function ProfilePage() {
           transition={{ delay: 0.2 }}
           className="relative mb-4 overflow-hidden"
         >
+          {/* ... existing code ... */}
           <div className="bento-card p-6">
             <div className="bento-glow bg-gradient-to-br from-game-primary/30 via-purple-500/20 to-transparent blur-2xl" />
             
@@ -220,6 +221,43 @@ function ProfilePage() {
             </div>
           </div>
         </motion.div>
+
+        {/* Inventory & Lootboxes Grid */}
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+            <Link to="/inventory" className="block h-full">
+              <div className="bento-card p-4 h-full relative overflow-hidden group">
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="relative z-10">
+                  <span className="text-3xl mb-2 block">🎒</span>
+                  <h3 className="font-semibold text-white">Инвентарь</h3>
+                  <p className="text-xs text-white/40 mt-1">Предметы и скины</p>
+                </div>
+              </div>
+            </Link>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+            <Link to="/lootbox" className="block h-full">
+              <div className="bento-card p-4 h-full relative overflow-hidden group">
+                <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="relative z-10">
+                  <span className="text-3xl mb-2 block">🎁</span>
+                  <h3 className="font-semibold text-white">Лутбоксы</h3>
+                  <p className="text-xs text-white/40 mt-1">Испытай удачу</p>
+                </div>
+              </div>
+            </Link>
+          </motion.div>
+        </div>
 
         {/* Duel Statistics */}
         <motion.div 

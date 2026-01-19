@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { TelegramContext } from './hooks/useTelegram'
 import api from './api/client'
+import Layout from './components/Layout'
 import HomePage from './pages/HomePage'
 import DuelPage from './pages/DuelPage'
 import ProfilePage from './pages/ProfilePage'
@@ -112,22 +113,27 @@ function App() {
       <BrowserRouter basename="/webapp">
         <div className="min-h-screen">
           <Routes>
-            <Route path="/" element={<HomePage />} />
+            {/* Routes with Bottom Menu */}
+            <Route element={<Layout />}>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/stats" element={<StatsPage />} />
+              <Route path="/leaderboard" element={<LeaderboardPage />} />
+              <Route path="/referral" element={<ReferralPage />} />
+              <Route path="/shop" element={<ShopPage />} />
+              <Route path="/inventory" element={<InventoryPage />} />
+              <Route path="/wheel" element={<FortuneWheelPage />} />
+              <Route path="/lootbox" element={<LootboxPage />} />
+              <Route path="/achievements" element={<AchievementsPage />} />
+              <Route path="/collections" element={<CollectionsPage />} />
+              <Route path="/collections/:collectionId" element={<CollectionDetailPage />} />
+              <Route path="/admin" element={<AdminPage />} />
+            </Route>
+
+            {/* Routes WITHOUT Bottom Menu */}
             <Route path="/duel" element={<DuelPage />} />
             <Route path="/duel/:id" element={<DuelPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/stats" element={<StatsPage />} />
-            <Route path="/leaderboard" element={<LeaderboardPage />} />
             <Route path="/truefalse" element={<TrueFalsePage />} />
-            <Route path="/referral" element={<ReferralPage />} />
-            <Route path="/admin" element={<AdminPage />} />
-            <Route path="/shop" element={<ShopPage />} />
-            <Route path="/inventory" element={<InventoryPage />} />
-            <Route path="/wheel" element={<FortuneWheelPage />} />
-            <Route path="/lootbox" element={<LootboxPage />} />
-            <Route path="/achievements" element={<AchievementsPage />} />
-            <Route path="/collections" element={<CollectionsPage />} />
-            <Route path="/collections/:collectionId" element={<CollectionDetailPage />} />
           </Routes>
         </div>
       </BrowserRouter>
