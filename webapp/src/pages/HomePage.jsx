@@ -203,7 +203,7 @@ function HomePage() {
             className="bento-card p-4 flex flex-col items-center justify-center bg-gradient-to-br from-blue-500/10 to-cyan-500/5 hover:from-blue-500/20 transition-colors h-24"
           >
             <div className="text-2xl mb-1">🧠</div>
-            <div className="font-semibold text-white text-xs">Правда / Ложь</div>
+            <div className="font-semibold text-white text-xs">Правда или ложь</div>
             <div className="text-white/40 text-[10px]">Режим игры</div>
           </motion.button>
 

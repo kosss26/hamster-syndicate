@@ -1409,11 +1409,8 @@ function handleGetOnline($container): void
         ->where('updated_at', '>=', $threshold)
         ->count();
         
-    // Если игроков совсем мало (например, только мы), можно показывать случайное число от 15 до 40 для вида
-    // Но для начала лучше реальное + 5-10
-    $fakeOnline = $onlineCount + rand(5, 15);
-    
-    jsonResponse(['online' => $fakeOnline]);
+    // Показываем реальное количество активных игроков за 15 минут
+    jsonResponse(['online' => $onlineCount]);
 }
 
 /**

@@ -98,7 +98,7 @@ function LeaderboardPage() {
             onClick={() => handleTabChange('truefalse')}
             className={`relative z-10 flex-1 py-3 text-sm font-bold transition-colors ${activeTab === 'truefalse' ? 'text-white' : 'text-white/60 hover:text-white'}`}
           >
-            🧠 IQ Тест
+            🧠 Правда или ложь
           </button>
         </div>
       </div>
