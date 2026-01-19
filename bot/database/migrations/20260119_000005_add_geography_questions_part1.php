@@ -13,7 +13,18 @@ return new class implements Migration {
     {
         $db = $schema->getConnection();
         $now = date('Y-m-d H:i:s');
-        $categoryId = 4; // География
+        
+        // Получаем ID категории динамически по названию
+        $category = $db->table('categories')->where('title', 'География')->first();
+        
+        if (!$category) {
+            // Если категория не найдена, пропускаем миграцию или выводим ошибку
+            // В данном случае просто вернемся, чтобы не ломать процесс
+            echo "Category 'География' not found. Skipping questions import.\n";
+            return;
+        }
+        
+        $categoryId = $category->id;
 
         $questions = [
             [

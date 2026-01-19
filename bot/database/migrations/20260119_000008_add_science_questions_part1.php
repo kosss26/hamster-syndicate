@@ -13,7 +13,16 @@ return new class implements Migration {
     {
         $db = $schema->getConnection();
         $now = date('Y-m-d H:i:s');
-        $categoryId = 9; // Наука и технологии
+        
+        // Получаем ID категории динамически по названию
+        $category = $db->table('categories')->where('title', 'Наука и технологии')->first();
+        
+        if (!$category) {
+            echo "Category 'Наука и технологии' not found. Skipping questions import.\n";
+            return;
+        }
+        
+        $categoryId = $category->id;
 
         $questions = [
             [

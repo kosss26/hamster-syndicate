@@ -13,7 +13,16 @@ return new class implements Migration {
     {
         $db = $schema->getConnection();
         $now = date('Y-m-d H:i:s');
-        $categoryId = 1; // История
+        
+        // Получаем ID категории динамически по названию
+        $category = $db->table('categories')->where('title', 'История')->first();
+        
+        if (!$category) {
+            echo "Category 'История' not found. Skipping questions import.\n";
+            return;
+        }
+        
+        $categoryId = $category->id;
 
         $questions = [
             [
