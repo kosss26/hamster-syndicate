@@ -145,6 +145,9 @@ export const api = {
   getCollections: () => request('/collections'),
   getCollectionItems: (collectionId) => request(`/collections/${collectionId}/items`),
 
+  // Разное
+  getOnline: () => request('/online'),
+
   // Админ
   getAdminStats: () => request('/admin/stats'),
   isAdmin: () => request('/admin/check'),

@@ -157,6 +157,11 @@ try {
             handleAdminStats($container, $telegramUser);
             break;
 
+        // GET /online - получить онлайн
+        case $path === '/online' && $requestMethod === 'GET':
+            handleGetOnline($container);
+            break;
+
         // POST /admin/duel/{id}/cancel - отменить дуэль
         case preg_match('#^/admin/duel/(\d+)/cancel$#', $path, $matches) && $requestMethod === 'POST':
             handleAdminCancelDuel($container, $telegramUser, (int) $matches[1]);
@@ -1369,6 +1374,24 @@ function handleAdminStats($container, ?array $telegramUser): void
 // ============================================================================
 // SHOP SYSTEM HANDLERS
 // ============================================================================
+
+/**
+ * Получение количества игроков онлайн (активность за последние 15 минут)
+ */
+function handleGetOnline($container): void
+{
+    $threshold = \Illuminate\Support\Carbon::now()->subMinutes(15);
+    
+    $onlineCount = \QuizBot\Domain\Model\User::query()
+        ->where('updated_at', '>=', $threshold)
+        ->count();
+        
+    // Если игроков совсем мало (например, только мы), можно показывать случайное число от 15 до 40 для вида
+    // Но для начала лучше реальное + 5-10
+    $fakeOnline = $onlineCount + rand(5, 15);
+    
+    jsonResponse(['online' => $fakeOnline]);
+}
 
 /**
  * GET /shop/items - получить товары магазина

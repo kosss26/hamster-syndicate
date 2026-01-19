@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { useTelegram, hapticFeedback } from '../hooks/useTelegram'
 import api from '../api/client'
 import AvatarWithFrame from '../components/AvatarWithFrame'
@@ -9,17 +9,29 @@ function HomePage() {
   const { user, tg } = useTelegram()
   const navigate = useNavigate()
   const [profile, setProfile] = useState(null)
+  const [onlineCount, setOnlineCount] = useState(0)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [onlineCount, setOnlineCount] = useState(1234)
 
   useEffect(() => {
-    loadProfile()
-    // Имитация изменения онлайна
-    const interval = setInterval(() => {
-      setOnlineCount(prev => prev + Math.floor(Math.random() * 5) - 2)
-    }, 5000)
+    loadData()
+    // Обновляем онлайн каждые 30 секунд
+    const interval = setInterval(loadOnline, 30000)
     return () => clearInterval(interval)
   }, [])
+
+  const loadData = async () => {
+    setLoading(true)
+    try {
+      await Promise.all([
+        loadProfile(),
+        loadOnline(),
+        checkAdmin()
+      ])
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const loadProfile = async () => {
     try {
@@ -29,8 +41,28 @@ function HomePage() {
       }
     } catch (err) {
       console.error('Failed to load profile:', err)
-    } finally {
-      setLoading(false)
+    }
+  }
+
+  const loadOnline = async () => {
+    try {
+      const response = await api.getOnline()
+      if (response.success) {
+        setOnlineCount(response.data.online)
+      }
+    } catch (err) {
+      console.error('Failed to load online:', err)
+    }
+  }
+
+  const checkAdmin = async () => {
+    try {
+      const response = await api.isAdmin()
+      if (response.success) {
+        setIsAdmin(response.data.is_admin)
+      }
+    } catch (err) {
+      // Игнорируем ошибку проверки админа
     }
   }
 
@@ -58,14 +90,14 @@ function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-aurora relative overflow-hidden flex flex-col">
+    <div className="min-h-dvh bg-aurora relative flex flex-col overflow-hidden">
       {/* Background Effects */}
       <div className="aurora-blob aurora-blob-1" />
       <div className="aurora-blob aurora-blob-2" />
       <div className="noise-overlay" />
       
       {/* Top Header */}
-      <div className="relative z-10 px-6 pt-6 flex justify-between items-center">
+      <div className="relative z-10 px-6 pt-6 flex justify-between items-center safe-top">
         <div className="flex items-center gap-3">
           <AvatarWithFrame 
             photoUrl={user?.photo_url} 
@@ -75,7 +107,7 @@ function HomePage() {
           />
           <div>
             <p className="text-white/60 text-xs uppercase tracking-wider">Привет,</p>
-            <h2 className="text-white font-bold text-lg">{user?.first_name || 'Игрок'}</h2>
+            <h2 className="text-white font-bold text-lg leading-tight">{user?.first_name || 'Игрок'}</h2>
           </div>
         </div>
 
@@ -89,10 +121,10 @@ function HomePage() {
       </div>
 
       {/* Main Content - Centered */}
-      <div className="flex-1 flex flex-col items-center justify-center relative z-10 px-6">
+      <div className="flex-1 flex flex-col items-center justify-center relative z-10 px-6 overflow-y-auto pb-24">
         
         {/* Animated Play Button Container */}
-        <div className="relative mb-12 group">
+        <div className="relative mb-8 group shrink-0">
           {/* Pulsing Circles */}
           <motion.div 
             className="absolute inset-0 bg-game-primary/30 rounded-full blur-3xl"
@@ -117,38 +149,63 @@ function HomePage() {
         </div>
 
         {/* Online Status */}
-        <div className="mb-12 flex items-center gap-2 bg-white/5 px-4 py-2 rounded-full backdrop-blur-sm">
+        <div className="mb-8 flex items-center gap-2 bg-white/5 px-4 py-2 rounded-full backdrop-blur-sm shrink-0">
           <span className="relative flex h-3 w-3">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
           </span>
-          <span className="text-white/60 text-sm font-medium">{onlineCount} онлайн</span>
+          <span className="text-white/60 text-sm font-medium">
+            {onlineCount > 0 ? `${onlineCount} онлайн` : 'Загрузка...'}
+          </span>
         </div>
 
-        {/* Secondary Actions */}
-        <div className="grid grid-cols-2 gap-4 w-full max-w-sm">
+        {/* Secondary Actions Grid */}
+        <div className="grid grid-cols-2 gap-3 w-full max-w-sm shrink-0">
           <motion.button
             whileTap={{ scale: 0.98 }}
             onClick={handleInvite}
-            className="bg-white/5 hover:bg-white/10 border border-white/5 rounded-2xl p-4 text-center backdrop-blur-md transition-colors"
+            className="bento-card p-4 flex flex-col items-center justify-center bg-white/5 hover:bg-white/10 transition-colors h-24"
           >
-            <div className="text-2xl mb-2">👥</div>
-            <div className="font-semibold text-white text-sm">Пригласить друга</div>
+            <div className="text-2xl mb-1">👥</div>
+            <div className="font-semibold text-white text-xs">Пригласить</div>
+            <div className="text-white/40 text-[10px]">друга</div>
+          </motion.button>
+
+          <motion.button
+            whileTap={{ scale: 0.98 }}
+            onClick={() => navigate('/truefalse')}
+            className="bento-card p-4 flex flex-col items-center justify-center bg-gradient-to-br from-blue-500/10 to-cyan-500/5 hover:from-blue-500/20 transition-colors h-24"
+          >
+            <div className="text-2xl mb-1">🧠</div>
+            <div className="font-semibold text-white text-xs">Правда / Ложь</div>
+            <div className="text-white/40 text-[10px]">Режим игры</div>
           </motion.button>
 
           <motion.button
             whileTap={{ scale: 0.98 }}
             onClick={() => navigate('/wheel')}
-            className="bg-gradient-to-br from-amber-500/20 to-orange-500/10 hover:from-amber-500/30 border border-amber-500/20 rounded-2xl p-4 text-center backdrop-blur-md transition-colors"
+            className="col-span-2 bento-card p-3 flex items-center justify-center gap-3 bg-gradient-to-r from-amber-500/10 to-orange-500/5 hover:from-amber-500/20 transition-colors"
           >
-            <div className="text-2xl mb-2">🎡</div>
-            <div className="font-semibold text-white text-sm">Испытать удачу</div>
+            <div className="text-2xl">🎡</div>
+            <div className="text-left">
+              <div className="font-semibold text-white text-sm">Колесо Фортуны</div>
+              <div className="text-white/40 text-xs">Ежедневный бонус</div>
+            </div>
           </motion.button>
+
+          {isAdmin && (
+            <motion.button
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate('/admin')}
+              className="col-span-2 mt-2 bg-red-500/10 border border-red-500/20 rounded-xl p-2 text-red-400 text-xs font-medium"
+            >
+              🛠 Админ панель
+            </motion.button>
+          )}
         </div>
       </div>
       
-      {/* Spacer for Bottom Menu */}
-      <div className="h-20" />
+      {/* Spacer is handled by padding-bottom in main content */}
     </div>
   )
 }
