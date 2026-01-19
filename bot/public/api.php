@@ -61,6 +61,17 @@ $initData = $_SERVER['HTTP_X_TELEGRAM_INIT_DATA'] ?? '';
 $config = $container->get(Config::class);
 $telegramUser = verifyTelegramInitData($initData, $config->get('TELEGRAM_BOT_TOKEN', ''));
 
+if ($telegramUser) {
+    // Обновляем время последней активности пользователя
+    try {
+        \QuizBot\Domain\Model\User::query()
+            ->where('telegram_id', $telegramUser['id'])
+            ->update(['updated_at' => \Illuminate\Support\Carbon::now()]);
+    } catch (Throwable $e) {
+        // Игнорируем ошибки обновления активности, чтобы не ломать основной запрос
+    }
+}
+
 // Роутинг
 try {
     switch (true) {
@@ -164,7 +175,7 @@ try {
 
         // GET /online - получить онлайн
         case $path === '/online' && $requestMethod === 'GET':
-            handleGetOnline($container);
+            handleGetOnline($container, $telegramUser);
             break;
 
         // POST /admin/duel/{id}/cancel - отменить дуэль
@@ -1401,7 +1412,7 @@ function handleAdminStats($container, ?array $telegramUser): void
 /**
  * Получение количества игроков онлайн (активность за последние 15 минут)
  */
-function handleGetOnline($container): void
+function handleGetOnline($container, ?array $telegramUser = null): void
 {
     $threshold = \Illuminate\Support\Carbon::now()->subMinutes(15);
     
