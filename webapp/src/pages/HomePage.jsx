@@ -73,7 +73,7 @@ function HomePage() {
 
   const handleInvite = () => {
     hapticFeedback('medium')
-    navigate('/duel?mode=invite')
+    navigate('/referral')
   }
 
   // Анимация кругов на фоне
