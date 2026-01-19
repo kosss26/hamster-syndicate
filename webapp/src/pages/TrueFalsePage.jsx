@@ -132,7 +132,7 @@ function TrueFalsePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-aurora relative overflow-hidden flex items-center justify-center">
+      <div className="min-h-dvh bg-aurora relative overflow-hidden flex items-center justify-center">
         <div className="aurora-blob aurora-blob-1" />
         <div className="aurora-blob aurora-blob-2" />
         <div className="noise-overlay" />
@@ -147,11 +147,11 @@ function TrueFalsePage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-aurora relative overflow-hidden flex items-center justify-center p-4">
+      <div className="min-h-dvh bg-aurora relative overflow-hidden flex items-center justify-center p-4">
         <div className="aurora-blob aurora-blob-1" />
         <div className="noise-overlay" />
         
-        <div className="relative z-10 text-center">
+        <div className="relative z-10 text-center w-full max-w-sm">
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
@@ -162,7 +162,7 @@ function TrueFalsePage() {
           <p className="text-white/50 mb-6">{error}</p>
           <button 
             onClick={loadQuestion}
-            className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl font-semibold text-white shadow-glow"
+            className="w-full py-4 bg-gradient-to-r from-game-primary to-purple-600 rounded-2xl font-semibold text-white shadow-glow active:scale-95 transition-transform"
           >
             Попробовать снова
           </button>
@@ -171,43 +171,52 @@ function TrueFalsePage() {
     )
   }
 
-  // Game Over
+  // Game Over Screen
   if (result && !result.isCorrect) {
     return (
-      <div className="min-h-screen bg-aurora relative overflow-hidden flex items-center justify-center p-4">
+      <div className="min-h-dvh bg-aurora relative overflow-hidden flex items-center justify-center p-4">
         <div className="aurora-blob aurora-blob-1" />
         <div className="aurora-blob aurora-blob-2" />
-        <div className="aurora-blob aurora-blob-3" />
         <div className="noise-overlay" />
 
         <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
+          initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="relative z-10 text-center max-w-md w-full"
+          className="relative z-10 w-full max-w-sm"
         >
-          <motion.div
-            initial={{ scale: 0, rotate: -180 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
-            className="text-8xl mb-6"
-          >
-            😔
-          </motion.div>
-          
-          <h2 className="text-3xl font-bold mb-6 text-white">Игра окончена!</h2>
+          <div className="text-center mb-8">
+            <motion.div
+              initial={{ scale: 0, rotate: -180 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
+              className="text-8xl mb-4 inline-block"
+            >
+              💔
+            </motion.div>
+            <h2 className="text-3xl font-bold text-white mb-2">Неверно!</h2>
+            <p className="text-white/60">Серия прервана</p>
+          </div>
           
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="glass rounded-3xl p-6 mb-6"
+            className="bento-card p-6 mb-6"
           >
-            <p className="text-white/50 text-sm mb-2">Правильный ответ:</p>
-            <p className="text-2xl font-bold mb-4 text-white">
-              {result.correctAnswer ? '✅ Правда' : '❌ Ложь'}
-            </p>
+            <div className="bento-glow bg-gradient-to-br from-red-500/20 to-transparent blur-2xl" />
+            
+            <p className="text-white/50 text-xs uppercase tracking-wider mb-2">Правильный ответ</p>
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-2xl">{result.correctAnswer ? '✅' : '❌'}</span>
+              <span className={`text-xl font-bold ${result.correctAnswer ? 'text-game-success' : 'text-game-danger'}`}>
+                {result.correctAnswer ? 'Правда' : 'Ложь'}
+              </span>
+            </div>
+            
             {result.explanation && (
-              <p className="text-sm text-white/50">{result.explanation}</p>
+              <div className="bg-white/5 rounded-xl p-3 border border-white/5">
+                <p className="text-sm text-white/80 leading-relaxed">{result.explanation}</p>
+              </div>
             )}
           </motion.div>
           
@@ -215,17 +224,15 @@ function TrueFalsePage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="glass rounded-3xl p-5 mb-8"
+            className="grid grid-cols-2 gap-4 mb-8"
           >
-            <div className="grid grid-cols-2 gap-6">
-              <div className="text-center">
-                <div className="text-4xl font-bold text-gradient-primary">{streak}</div>
-                <div className="text-xs text-white/40 mt-1">Серия</div>
-              </div>
-              <div className="text-center">
-                <div className="text-4xl font-bold text-gradient-gold">{record}</div>
-                <div className="text-xs text-white/40 mt-1">Рекорд</div>
-              </div>
+            <div className="glass rounded-2xl p-4 text-center">
+              <div className="text-3xl font-bold text-white mb-1">{streak}</div>
+              <div className="text-xs text-white/40 uppercase tracking-wider">Серия</div>
+            </div>
+            <div className="glass rounded-2xl p-4 text-center">
+              <div className="text-3xl font-bold text-gradient-gold mb-1">{record}</div>
+              <div className="text-xs text-white/40 uppercase tracking-wider">Рекорд</div>
             </div>
           </motion.div>
 
@@ -233,19 +240,19 @@ function TrueFalsePage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
-            className="flex gap-4"
+            className="flex gap-3"
           >
             <button
               onClick={() => navigate('/')}
-              className="flex-1 py-4 px-6 glass rounded-2xl font-semibold text-white/70 hover:text-white transition-colors active:scale-95"
+              className="flex-1 py-4 glass rounded-2xl font-semibold text-white/60 hover:text-white transition-colors active:scale-95"
             >
-              Домой
+              Выход
             </button>
             <button
               onClick={loadQuestion}
-              className="flex-1 py-4 px-6 bg-gradient-to-r from-purple-500 to-pink-500 rounded-2xl font-semibold text-white shadow-glow active:scale-95 transition-transform"
+              className="flex-[2] py-4 bg-gradient-to-r from-game-primary to-purple-600 rounded-2xl font-semibold text-white shadow-glow active:scale-95 transition-transform"
             >
-              Ещё раз
+              Играть снова
             </button>
           </motion.div>
         </motion.div>
@@ -257,193 +264,148 @@ function TrueFalsePage() {
   const timerColor = timeLeft <= 5 ? '#ef4444' : timeLeft <= 10 ? '#f59e0b' : '#a855f7'
 
   return (
-    <div className="min-h-screen bg-aurora relative overflow-hidden">
-      <div className="aurora-blob aurora-blob-2" style={{ opacity: 0.4 }} />
+    <div className="min-h-dvh bg-aurora relative overflow-hidden flex flex-col">
       <div className="aurora-blob aurora-blob-3" style={{ opacity: 0.4 }} />
       <div className="noise-overlay" />
 
-      <div className="relative z-10 p-4 flex flex-col min-h-screen">
+      {/* Confetti Effects */}
+      <AnimatePresence>
+        {result?.isCorrect && (
+          <>
+            {[...Array(12)].map((_, i) => (
+              <motion.div
+                key={i}
+                className="confetti"
+                initial={{ opacity: 1, y: -20, x: Math.random() * 300 - 150 }}
+                animate={{ opacity: 0, y: 600, rotate: 720 }}
+                transition={{ duration: 2, delay: i * 0.1 }}
+                style={{
+                  left: `${10 + Math.random() * 80}%`,
+                  backgroundColor: ['#6366f1', '#ec4899', '#22c55e', '#fbbf24'][Math.floor(Math.random() * 4)]
+                }}
+              />
+            ))}
+          </>
+        )}
+      </AnimatePresence>
+
+      <div className="relative z-10 p-6 flex-1 flex flex-col safe-top safe-bottom">
         {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between mb-6 pt-2"
-        >
-          <div className="flex items-center gap-3">
-            <motion.div 
-              className="text-4xl"
-              animate={{ scale: [1, 1.1, 1] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            >
-              🧠
-            </motion.div>
-            <div>
-              <h1 className="font-bold text-white">Правда или ложь</h1>
-              <p className="text-xs text-white/40">Проверь свои знания</p>
-            </div>
-          </div>
+        <div className="flex items-center justify-between mb-8">
+          <button 
+            onClick={() => navigate('/')}
+            className="w-10 h-10 rounded-full glass flex items-center justify-center text-white/60 hover:text-white active:scale-95 transition-all"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
 
           {/* Timer */}
-          <div className="relative w-16 h-16">
+          <div className="relative w-14 h-14">
             <svg className="w-full h-full -rotate-90">
-              <circle
-                cx="32"
-                cy="32"
-                r="28"
-                fill="none"
-                stroke="rgba(255,255,255,0.1)"
-                strokeWidth="4"
-              />
+              <circle cx="28" cy="28" r="24" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="3" />
               <motion.circle
-                cx="32"
-                cy="32"
-                r="28"
+                cx="28" cy="28" r="24"
                 fill="none"
                 stroke={timerColor}
-                strokeWidth="4"
+                strokeWidth="3"
                 strokeLinecap="round"
-                strokeDasharray={176}
-                strokeDashoffset={176 - (176 * timerProgress)}
+                strokeDasharray={151}
+                strokeDashoffset={151 - (151 * timerProgress)}
+                initial={{ strokeDashoffset: 151 }}
+                animate={{ strokeDashoffset: 151 - (151 * timerProgress) }}
                 className="timer-glow"
-                style={{ filter: `drop-shadow(0 0 8px ${timerColor})` }}
               />
             </svg>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className={`font-bold text-lg ${timeLeft <= 5 ? 'text-game-danger' : 'text-white'}`}>
-                {timeLeft}
-              </span>
+            <div className={`absolute inset-0 flex items-center justify-center font-bold ${timeLeft <= 5 ? 'text-game-danger animate-pulse' : 'text-white'}`}>
+              {timeLeft}
             </div>
           </div>
           
-          <div className="glass rounded-xl px-4 py-2 text-center">
-            <div className="text-2xl font-bold text-gradient-primary">{streak}</div>
-            <div className="text-2xs text-white/40">серия</div>
+          <div className="glass rounded-full px-4 py-2 flex items-center gap-2">
+            <span className="text-xl">🔥</span>
+            <span className="font-bold text-white">{streak}</span>
           </div>
-        </motion.div>
+        </div>
 
-        {/* Streak Progress */}
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2 }}
-          className="mb-6"
-        >
-          <div className="flex justify-between text-xs text-white/40 mb-2">
-            <span>Текущая серия</span>
-            <span>Рекорд: {record}</span>
-          </div>
-          <div className="flex gap-1.5">
-            {Array.from({ length: 10 }).map((_, i) => (
-              <motion.div
-                key={i}
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.1 + i * 0.03 }}
-                className={`flex-1 h-2 rounded-full transition-all duration-300 ${
-                  i < streak 
-                    ? 'bg-gradient-to-r from-purple-500 to-pink-500 shadow-glow' 
-                    : 'bg-white/10'
-                }`}
-              />
-            ))}
-          </div>
-        </motion.div>
+        {/* Fact Card - Centered */}
+        <div className="flex-1 flex flex-col justify-center mb-8">
+          <motion.div
+            key={fact?.id}
+            initial={{ opacity: 0, scale: 0.9, rotateX: -15 }}
+            animate={{ opacity: 1, scale: 1, rotateX: 0 }}
+            className="perspective-1000"
+          >
+            <div className="bento-card card-shine p-8 min-h-[240px] flex flex-col items-center justify-center text-center">
+              <div className="bento-glow bg-gradient-to-br from-purple-500/20 via-pink-500/10 to-transparent blur-2xl" />
+              
+              <div className="text-4xl mb-6">🤔</div>
+              <p className="relative text-xl md:text-2xl font-medium leading-relaxed text-white">
+                {fact?.statement}
+              </p>
+            </div>
+          </motion.div>
 
-        {/* Fact Card */}
-        <motion.div
-          key={fact?.id}
-          initial={{ opacity: 0, x: 50 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="flex-1 flex flex-col justify-center"
-        >
-          <div className="bento-card card-shine p-8 mb-6">
-            <div className="bento-glow bg-gradient-to-br from-purple-500/20 via-pink-500/10 to-transparent blur-2xl" />
-            
-            <p className="relative text-xl font-medium leading-relaxed text-center text-white">
-              {fact?.statement}
-            </p>
-          </div>
-
-          {/* Result overlay */}
+          {/* Success Overlay inside layout */}
           <AnimatePresence>
             {result && result.isCorrect && (
               <motion.div
-                initial={{ opacity: 0, y: 20, scale: 0.9 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                className="glass rounded-3xl p-5 mb-4 border-2 border-game-success shadow-glow-success"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="mt-4 glass rounded-2xl p-4 border border-game-success/30 flex items-start gap-3"
               >
-                <div className="flex items-center gap-4">
-                  <motion.span 
-                    className="text-4xl"
-                    initial={{ scale: 0, rotate: -180 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                    transition={{ type: "spring", stiffness: 300 }}
-                  >
-                    ✅
-                  </motion.span>
-                  <div>
-                    <p className="font-bold text-game-success text-lg">Правильно!</p>
-                    {result.explanation && (
-                      <p className="text-sm text-white/50">{result.explanation}</p>
-                    )}
-                  </div>
+                <div className="bg-game-success/20 p-2 rounded-full text-game-success">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div>
+                  <p className="font-bold text-game-success mb-1">Верно!</p>
+                  <p className="text-sm text-white/60">{result.explanation}</p>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
+        </div>
 
-          {/* Answer Buttons */}
-          <div className="grid grid-cols-2 gap-4">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => handleAnswer(true)}
-              disabled={answered}
-              className={`relative py-8 rounded-3xl font-bold text-xl transition-all overflow-hidden ${
-                answered 
-                  ? result?.correctAnswer === true
-                    ? 'bg-game-success shadow-glow-success'
-                    : 'bg-white/5 opacity-40'
-                  : 'bg-gradient-to-br from-game-success to-emerald-600 shadow-glow-success hover:shadow-glow-success'
-              }`}
-            >
-              {/* Shine effect */}
-              {!answered && (
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full hover:translate-x-full transition-transform duration-700" />
-              )}
-              
-              <span className="relative flex flex-col items-center gap-2">
-                <span className="text-4xl">✅</span>
-                <span>Правда</span>
-              </span>
-            </motion.button>
-            
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => handleAnswer(false)}
-              disabled={answered}
-              className={`relative py-8 rounded-3xl font-bold text-xl transition-all overflow-hidden ${
-                answered 
-                  ? result?.correctAnswer === false
-                    ? 'bg-game-danger shadow-glow-danger'
-                    : 'bg-white/5 opacity-40'
-                  : 'bg-gradient-to-br from-game-danger to-red-600 shadow-glow-danger hover:shadow-glow-danger'
-              }`}
-            >
-              {/* Shine effect */}
-              {!answered && (
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full hover:translate-x-full transition-transform duration-700" />
-              )}
-              
-              <span className="relative flex flex-col items-center gap-2">
-                <span className="text-4xl">❌</span>
-                <span>Ложь</span>
-              </span>
-            </motion.button>
-          </div>
-        </motion.div>
+        {/* Controls */}
+        <div className="grid grid-cols-2 gap-4 mt-auto">
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => handleAnswer(true)}
+            disabled={answered}
+            className={`group relative h-24 rounded-3xl font-bold text-xl overflow-hidden transition-all ${
+              answered 
+                ? result?.correctAnswer === true
+                  ? 'bg-game-success ring-4 ring-game-success/30'
+                  : 'bg-white/5 opacity-30 grayscale'
+                : 'bg-gradient-to-br from-green-500 to-emerald-600 shadow-glow-success'
+            }`}
+          >
+            <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 rounded-3xl" />
+            <div className="relative flex flex-col items-center justify-center h-full">
+              <span className="text-3xl mb-1">✅</span>
+              <span className="text-white">Правда</span>
+            </div>
+          </motion.button>
+          
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => handleAnswer(false)}
+            disabled={answered}
+            className={`group relative h-24 rounded-3xl font-bold text-xl overflow-hidden transition-all ${
+              answered 
+                ? result?.correctAnswer === false
+                  ? 'bg-game-danger ring-4 ring-game-danger/30'
+                  : 'bg-white/5 opacity-30 grayscale'
+                : 'bg-gradient-to-br from-red-500 to-rose-600 shadow-glow-danger'
+            }`}
+          >
+            <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 rounded-3xl" />
+            <div className="relative flex flex-col items-center justify-center h-full">
+              <span className="text-3xl mb-1">❌</span>
+              <span className="text-white">Ложь</span>
+            </div>
+          </motion.button>
+        </div>
       </div>
     </div>
   )
