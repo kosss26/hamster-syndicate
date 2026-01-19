@@ -486,9 +486,56 @@ class DuelService
         return $cancelled;
     }
 
-    public function findActiveDuelForUser(User $user): ?Duel
+    /**
+     * Отменяет все зависшие matchmaking-дуэли старше указанного TTL
+     */
+    public function cleanupStaleMatchmakingDuels(int $ttlSeconds = 60): int
     {
-        return Duel::query()
+        $threshold = Carbon::now()->subSeconds($ttlSeconds);
+        $now = Carbon::now();
+        
+        $staleDuels = Duel::query()
+            ->where('status', 'waiting')
+            ->whereNull('opponent_user_id')
+            ->where('created_at', '<', $threshold)
+            ->get()
+            ->filter(function (Duel $duel): bool {
+                return $this->isMatchmaking($duel);
+            });
+
+        if ($staleDuels->isEmpty()) {
+            return 0;
+        }
+
+        $cancelled = 0;
+
+        foreach ($staleDuels as $duel) {
+            $settings = $duel->settings ?? [];
+            unset($settings['matchmaking'], $settings['matchmaking_started_at']);
+            
+            $duel->status = 'cancelled';
+            $duel->finished_at = $now;
+            $duel->settings = $settings;
+            $duel->save();
+
+            $cancelled++;
+
+            $this->logger->info(sprintf(
+                'Зависшая matchmaking-дуэль %s отменена (возраст: %d сек)',
+                $duel->code,
+                $duel->created_at->diffInSeconds($now)
+            ));
+        }
+
+        return $cancelled;
+    }
+
+    public function findActiveDuelForUser(User $user, bool $autoCleanup = true): ?Duel
+    {
+        $matchmakingTtl = 60; // секунд - TTL для matchmaking дуэлей
+        $threshold = Carbon::now()->subSeconds($matchmakingTtl);
+
+        $duel = Duel::query()
             ->where(function ($query) use ($user): void {
                 $query->where('initiator_user_id', $user->getKey())
                     ->orWhere('opponent_user_id', $user->getKey());
@@ -496,6 +543,34 @@ class DuelService
             ->whereIn('status', ['waiting', 'matched', 'in_progress'])
             ->latest()
             ->first();
+
+        if ($duel === null) {
+            return null;
+        }
+
+        // Если это старая waiting matchmaking-дуэль - автоматически отменяем
+        if ($autoCleanup && $duel->status === 'waiting' && $this->isMatchmaking($duel)) {
+            if ($duel->created_at < $threshold) {
+                $this->logger->info(sprintf(
+                    'Автоматическая отмена зависшей matchmaking-дуэли %s (создана %s)',
+                    $duel->code,
+                    $duel->created_at->toDateTimeString()
+                ));
+                
+                $initiator = $duel->initiator;
+                if ($initiator instanceof User) {
+                    $this->cancelWaitingDuel($duel, $initiator);
+                } else {
+                    $duel->status = 'cancelled';
+                    $duel->finished_at = Carbon::now();
+                    $duel->save();
+                }
+                
+                return null;
+            }
+        }
+
+        return $duel;
     }
 
     /**

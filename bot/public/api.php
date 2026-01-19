@@ -427,8 +427,11 @@ function handleCreateDuel($container, ?array $telegramUser, array $body): void
     
     $mode = $body['mode'] ?? 'random';
     
-    // Проверяем, есть ли у пользователя активная дуэль
-    $existingDuel = $duelService->findActiveDuelForUser($user);
+    // Очищаем зависшие matchmaking-дуэли (старше 60 секунд)
+    $duelService->cleanupStaleMatchmakingDuels(60);
+    
+    // Проверяем, есть ли у пользователя активная дуэль (с автоочисткой старых)
+    $existingDuel = $duelService->findActiveDuelForUser($user, true);
     if ($existingDuel) {
         jsonResponse([
             'duel_id' => $existingDuel->getKey(),
