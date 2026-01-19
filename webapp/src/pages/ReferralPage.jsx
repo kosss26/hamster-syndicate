@@ -386,7 +386,7 @@ function ReferralItem({ referral, index }) {
           <div className="text-white/40 text-xs flex items-center gap-2">
             <span>{referral.games_played} игр</span>
             <span className="w-1 h-1 rounded-full bg-white/20" />
-            <span>{new Date(referral.created_at).toLocaleDateString()}</span>
+            <span>{referral.created_at}</span>
           </div>
         </div>
       </div>
