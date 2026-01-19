@@ -187,7 +187,8 @@ final class AppBootstrap
             },
             StatisticsService::class => function (Container $c) {
                 return new StatisticsService(
-                    $c->get(Logger::class)
+                    $c->get(Logger::class),
+                    $c->get(AchievementTrackerService::class)
                 );
             },
             ReferralService::class => function (Container $c) {

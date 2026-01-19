@@ -15,6 +15,7 @@ use QuizBot\Domain\Model\UserStats;
 class StatisticsService
 {
     private Logger $logger;
+    private AchievementTrackerService $achievementTracker;
 
     private const HISTORY_LIMIT = 1000; // Храним последние N ответов
 
@@ -28,9 +29,10 @@ class StatisticsService
         'Sun' => 'Воскресенье',
     ];
 
-    public function __construct(Logger $logger)
+    public function __construct(Logger $logger, AchievementTrackerService $achievementTracker)
     {
         $this->logger = $logger;
+        $this->achievementTracker = $achievementTracker;
     }
 
     /**
@@ -67,6 +69,25 @@ class StatisticsService
 
         // Очищаем старую историю
         $this->pruneHistory($user);
+
+        // --- Achievement Tracking ---
+        try {
+            $this->achievementTracker->incrementStat($user->getKey(), 'total_answers');
+            if ($isCorrect) {
+                $this->achievementTracker->incrementStat($user->getKey(), 'correct_answers');
+                if ($timeMs < 3000) {
+                    $this->achievementTracker->incrementStat($user->getKey(), 'speed_answers_under_3s');
+                }
+            }
+            
+            $this->achievementTracker->checkAndUnlock($user->getKey(), [
+                'context' => 'quiz_answer',
+                'is_correct' => $isCorrect,
+                'answer_time_ms' => $timeMs
+            ]);
+        } catch (\Throwable $e) {
+            $this->logger->error('Error tracking answer achievements: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -149,6 +170,25 @@ class StatisticsService
         $userStats->games_played++;
         $userStats->last_activity_at = Carbon::now();
         $userStats->save();
+
+        // --- Achievement Tracking ---
+        try {
+            $this->achievementTracker->incrementStat($user->getKey(), 'total_duels');
+            
+            if ($isWin) {
+                $this->achievementTracker->incrementStat($user->getKey(), 'duel_wins');
+                $this->achievementTracker->setStat($user->getKey(), 'current_win_streak', $userStats->current_streak);
+            } else {
+                $this->achievementTracker->incrementStat($user->getKey(), 'duel_losses');
+                $this->achievementTracker->setStat($user->getKey(), 'current_win_streak', 0);
+            }
+            
+            $this->achievementTracker->checkAndUnlock($user->getKey(), [
+                'context' => $isWin ? 'duel_win' : 'duel_loss',
+            ]);
+        } catch (\Throwable $e) {
+            $this->logger->error('Error tracking duel achievements: ' . $e->getMessage());
+        }
     }
 
     /**

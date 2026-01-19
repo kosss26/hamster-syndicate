@@ -17,6 +17,11 @@ $seeder = $container->get(SampleDataSeeder::class);
 
 try {
     $seeder->run();
+    
+    // Запуск дополнительных сидеров
+    (new \QuizBot\Database\Seeders\AchievementsSeeder())->seed();
+    (new \QuizBot\Database\Seeders\CollectionsSeeder())->seed();
+    
     fwrite(STDOUT, "Сидирование завершено успешно.\n");
 } catch (Throwable $e) {
     fwrite(STDERR, sprintf("Ошибка сидирования: %s\n", $e->getMessage()));
