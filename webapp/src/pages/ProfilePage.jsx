@@ -138,12 +138,12 @@ function ProfilePage() {
                 name={user?.first_name}
                 frameKey={profile?.equipped_frame}
                 size={100}
-                animated={true}
+                animated={false}
                 showGlow={true}
               />
               <div className="absolute -bottom-2 -right-2 bg-black/50 backdrop-blur-md border border-white/10 rounded-full px-3 py-1 flex items-center gap-1">
                 <div className="w-2 h-2 rounded-full bg-game-success animate-pulse" />
-                <span className="text-[10px] font-bold text-white uppercase tracking-wider">Online</span>
+                <span className="text-[10px] font-bold text-white uppercase tracking-wider">В сети</span>
               </div>
             </motion.div>
 
@@ -170,12 +170,12 @@ function ProfilePage() {
             >
               <span className="text-lg">🏆</span>
               <div className="text-left">
-                <p className="text-[10px] text-white/40 uppercase font-bold tracking-widest leading-none">Rank</p>
+                <p className="text-[10px] text-white/40 uppercase font-bold tracking-widest leading-none">Ранг</p>
                 <p className="text-sm font-bold text-white leading-none mt-0.5">{rankName}</p>
               </div>
               <div className="w-px h-6 bg-white/10 mx-2" />
               <div className="text-right">
-                <p className="text-[10px] text-white/40 uppercase font-bold tracking-widest leading-none">Rating</p>
+                <p className="text-[10px] text-white/40 uppercase font-bold tracking-widest leading-none">Рейтинг</p>
                 <p className="text-sm font-bold text-gradient-primary leading-none mt-0.5">{profile.rating}</p>
               </div>
             </motion.div>
@@ -253,19 +253,19 @@ function ProfilePage() {
                     <span className="text-xl">📚</span> Коллекции
                   </h3>
                   <Link to="/collections" className="text-xs font-bold text-game-primary bg-game-primary/10 px-3 py-1 rounded-full">
-                    VIEW ALL
+                    ВСЕ
                   </Link>
                 </div>
                 {collections.length > 0 ? (
-                  <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                    {collections.map((col) => (
+                  <div className="grid grid-cols-3 gap-3">
+                    {collections.slice(0, 3).map((col) => (
                       <Link 
                         key={col.id} 
                         to={`/collections/${col.id}`}
-                        className="min-w-[140px] bg-white/5 rounded-2xl p-3 flex flex-col items-center text-center hover:bg-white/10 transition-colors"
+                        className="bg-white/5 rounded-2xl p-3 flex flex-col items-center text-center hover:bg-white/10 transition-colors"
                       >
                         <div className="text-3xl mb-2">{col.icon}</div>
-                        <p className="text-xs font-bold text-white line-clamp-1">{col.title}</p>
+                        <p className="text-xs font-bold text-white line-clamp-1 w-full">{col.title}</p>
                         <div className="w-full h-1 bg-white/10 rounded-full mt-3 overflow-hidden">
                           <div className="h-full bg-game-primary" style={{ width: `${col.progress_percent}%` }} />
                         </div>
@@ -291,7 +291,7 @@ function ProfilePage() {
               {/* Main Stats */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="glass rounded-3xl p-5 flex flex-col justify-between h-32">
-                  <div className="text-white/40 text-xs font-bold uppercase tracking-wider">Win Rate</div>
+                  <div className="text-white/40 text-xs font-bold uppercase tracking-wider">% Побед</div>
                   <div className="text-right">
                     <span className="text-4xl font-black text-white">{winRate}</span>
                     <span className="text-lg text-white/40">%</span>
@@ -301,7 +301,7 @@ function ProfilePage() {
                   </div>
                 </div>
                 <div className="glass rounded-3xl p-5 flex flex-col justify-between h-32">
-                  <div className="text-white/40 text-xs font-bold uppercase tracking-wider">Total Games</div>
+                  <div className="text-white/40 text-xs font-bold uppercase tracking-wider">Всего игр</div>
                   <div className="text-right">
                     <span className="text-4xl font-black text-white">{totalGames}</span>
                   </div>
@@ -316,7 +316,7 @@ function ProfilePage() {
               {/* T/F Stats */}
               <div className="bento-card p-5 flex items-center justify-between">
                 <div>
-                  <div className="text-white/40 text-xs font-bold uppercase tracking-wider mb-1">True/False Record</div>
+                  <div className="text-white/40 text-xs font-bold uppercase tracking-wider mb-1">Рекорд Правда/Ложь</div>
                   <div className="text-2xl font-bold text-white">{profile.true_false_record}</div>
                 </div>
                 <div className="text-4xl">🧠</div>
@@ -326,7 +326,7 @@ function ProfilePage() {
                 onClick={() => navigate('/stats')}
                 className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl text-white font-bold text-sm hover:bg-white/10 transition-colors"
               >
-                VIEW DETAILED STATISTICS
+                ПОДРОБНАЯ СТАТИСТИКА
               </button>
             </motion.div>
           )}
@@ -360,7 +360,7 @@ function ProfilePage() {
                     </div>
                   </div>
                   <p className="text-white/60 text-sm">
-                    Unlocked <span className="text-white font-bold">{achievementStats.completed}</span> of <span className="text-white font-bold">{achievementStats.total}</span>
+                    Открыто <span className="text-white font-bold">{achievementStats.completed}</span> из <span className="text-white font-bold">{achievementStats.total}</span>
                   </p>
                 </div>
               )}
@@ -382,7 +382,7 @@ function ProfilePage() {
                   to="/achievements"
                   className="block w-full py-4 text-center text-game-primary font-bold text-sm bg-game-primary/10 rounded-2xl mt-4"
                 >
-                  SHOW ALL ACHIEVEMENTS
+                  ВСЕ ДОСТИЖЕНИЯ
                 </Link>
               </div>
             </motion.div>
