@@ -206,7 +206,7 @@ const PodiumItem = ({ player, place, activeTab, delay }) => {
         >
             <div className="relative">
                 {isFirst && (
-                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 text-3xl animate-bounce">
+                    <div className="absolute -top-10 left-0 w-full flex justify-center text-3xl animate-bounce z-20">
                         👑
                     </div>
                 )}
