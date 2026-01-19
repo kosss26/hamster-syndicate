@@ -18,6 +18,7 @@ import LootboxPage from './pages/LootboxPage'
 import AchievementsPage from './pages/AchievementsPage'
 import CollectionsPage from './pages/CollectionsPage'
 import CollectionDetailPage from './pages/CollectionDetailPage'
+import AdminButton from './components/AdminButton'
 
 function App() {
   const [tg, setTg] = useState(null)
@@ -112,6 +113,7 @@ function App() {
     <TelegramContext.Provider value={{ tg, user }}>
       <BrowserRouter basename="/webapp">
         <div className="min-h-screen">
+          <AdminButton />
           <Routes>
             {/* Routes with Bottom Menu */}
             <Route element={<Layout />}>
