@@ -854,8 +854,8 @@ function DuelPage() {
                     </div>
                     
                     {/* Timer */}
-                    <div className="relative flex flex-col items-center">
-                        <svg className="w-14 h-14 -rotate-90">
+                    <div className="relative w-14 h-14 flex items-center justify-center">
+                        <svg className="w-full h-full -rotate-90 absolute inset-0">
                            <circle cx="28" cy="28" r="26" stroke="rgba(255,255,255,0.1)" strokeWidth="4" fill="none" />
                            <motion.circle 
                               cx="28" cy="28" r="26" 
@@ -870,10 +870,9 @@ function DuelPage() {
                               transition={{ duration: 0.5 }}
                            />
                         </svg>
-                        <span className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 font-bold ${timeLeft <= 10 ? 'text-red-500' : 'text-white'}`}>
+                        <span className={`relative z-10 font-bold ${timeLeft <= 10 ? 'text-red-500' : 'text-white'}`}>
                             {timeLeft}
                         </span>
-                        <div className="mt-1 text-[10px] font-mono text-white/40">R{round}/{totalRounds}</div>
                     </div>
                     
                     {/* Opponent */}
@@ -897,7 +896,7 @@ function DuelPage() {
             </div>
 
             {/* Question Area */}
-            <div className="flex-1 flex items-center justify-center p-4 relative z-10">
+            <div className="flex-1 flex flex-col justify-start pt-12 p-4 relative z-10">
                 <AnimatePresence mode="wait">
                     <motion.div
                         key={question.id}
@@ -1030,6 +1029,9 @@ function DuelPage() {
   if (state === STATES.FINISHED) {
       const isWin = score.player > score.opponent
       const isDraw = score.player === score.opponent
+      // Используем значение с сервера или фоллбэк
+      const ratingChangeVal = duel?.rating_change ?? (isWin ? 10 : isDraw ? 0 : -10)
+      const ratingChange = ratingChangeVal > 0 ? `+${ratingChangeVal}` : `${ratingChangeVal}`
       
       return (
          <div className="min-h-dvh bg-aurora relative overflow-hidden flex flex-col items-center justify-center p-6 text-center">
@@ -1070,7 +1072,7 @@ function DuelPage() {
                 <div className="bg-white/5 rounded-2xl p-4 mb-6">
                     <div className="text-sm text-white/40 uppercase font-bold tracking-wider mb-1">Рейтинг</div>
                     <div className="text-2xl font-bold text-white">
-                        {isWin ? '+25' : isDraw ? '+0' : '-25'} <span className="text-sm font-normal text-white/40">MMR</span>
+                        {ratingChange} <span className="text-sm font-normal text-white/40">MMR</span>
                     </div>
                 </div>
                 

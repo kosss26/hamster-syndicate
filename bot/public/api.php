@@ -546,7 +546,7 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
     $roundStatus = null;
     
     // Перезагружаем раунды после проверки таймаутов
-    $duel->load('rounds.question.answers', 'rounds.question.category');
+    $duel->load('rounds.question.answers', 'rounds.question.category', 'result');
     
     // Получаем последний закрытый раунд (для показа результата)
     $lastClosedRound = $duel->rounds
@@ -636,10 +636,23 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
     $opponentScore = $duel->rounds->sum('opponent_score');
     $completedRounds = $duel->rounds->whereNotNull('closed_at')->count();
 
+    // Получаем изменение рейтинга, если дуэль завершена
+    $ratingChange = 0;
+    if ($duel->status === 'finished') {
+        $result = $duel->result;
+        if ($result && isset($result->metadata['rating_changes'])) {
+            $changes = $result->metadata['rating_changes'];
+            $ratingChange = $isInitiator 
+                ? ($changes['initiator_rating_change'] ?? 0)
+                : ($changes['opponent_rating_change'] ?? 0);
+        }
+    }
+
     jsonResponse([
         'duel_id' => $duel->getKey(),
         'status' => $duel->status,
         'code' => $duel->code,
+        'rating_change' => $ratingChange,
         'current_round' => $completedRounds + 1,
         'total_rounds' => $duel->rounds_to_win * 2,
         'initiator_score' => $initiatorScore,
