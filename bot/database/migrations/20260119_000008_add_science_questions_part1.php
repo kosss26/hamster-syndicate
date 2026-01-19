@@ -3,7 +3,12 @@
 use Illuminate\Database\Schema\Builder;
 use QuizBot\Infrastructure\Database\Migration;
 
-return new class extends Migration {
+return new class implements Migration {
+    public function name(): string
+    {
+        return '20260119_000008_add_science_questions_part1';
+    }
+
     public function up(Builder $schema): void
     {
         $db = $schema->getConnection();
