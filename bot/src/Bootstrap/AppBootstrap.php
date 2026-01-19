@@ -201,19 +201,22 @@ final class AppBootstrap
             \QuizBot\Application\Services\ShopService::class => function (Container $c) {
                 return new \QuizBot\Application\Services\ShopService(
                     $c->get(Logger::class),
-                    $c->get(UserService::class)
+                    $c->get(UserService::class),
+                    $c->get(AchievementTrackerService::class)
                 );
             },
             \QuizBot\Application\Services\FortuneWheelService::class => function (Container $c) {
                 return new \QuizBot\Application\Services\FortuneWheelService(
                     $c->get(Logger::class),
-                    $c->get(UserService::class)
+                    $c->get(UserService::class),
+                    $c->get(AchievementTrackerService::class)
                 );
             },
             \QuizBot\Application\Services\LootboxService::class => function (Container $c) {
                 return new \QuizBot\Application\Services\LootboxService(
                     $c->get(Logger::class),
-                    $c->get(UserService::class)
+                    $c->get(UserService::class),
+                    $c->get(AchievementTrackerService::class)
                 );
             },
             \QuizBot\Application\Services\InventoryService::class => function (Container $c) {

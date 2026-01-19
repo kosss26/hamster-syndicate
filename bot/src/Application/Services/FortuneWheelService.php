@@ -14,6 +14,7 @@ class FortuneWheelService
 {
     private Logger $logger;
     private UserService $userService;
+    private ?AchievementTrackerService $achievementTracker;
 
     // Конфигурация секторов колеса (вероятности в процентах)
     private const WHEEL_SECTORS = [
@@ -30,10 +31,11 @@ class FortuneWheelService
     private const COOLDOWN_HOURS = 3;
     private const PAID_SPIN_COST = 50; // кристаллов
 
-    public function __construct(Logger $logger, UserService $userService)
+    public function __construct(Logger $logger, UserService $userService, ?AchievementTrackerService $achievementTracker = null)
     {
         $this->logger = $logger;
         $this->userService = $userService;
+        $this->achievementTracker = $achievementTracker;
     }
 
     /**
@@ -144,6 +146,16 @@ class FortuneWheelService
             'paid' => $usePremium,
             'streak' => $profile->wheel_streak,
         ]);
+
+        // Трекинг достижений
+        if ($this->achievementTracker) {
+            try {
+                $this->achievementTracker->incrementStat($user->getKey(), 'wheel_spins');
+                $this->achievementTracker->checkAndUnlock($user->getKey(), ['context' => 'wheel_spin']);
+            } catch (\Throwable $e) {
+                $this->logger->error('Error tracking wheel achievements: ' . $e->getMessage());
+            }
+        }
 
         return [
             'success' => true,

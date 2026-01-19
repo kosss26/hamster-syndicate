@@ -17,11 +17,13 @@ class ShopService
 {
     private Logger $logger;
     private UserService $userService;
+    private ?AchievementTrackerService $achievementTracker;
 
-    public function __construct(Logger $logger, UserService $userService)
+    public function __construct(Logger $logger, UserService $userService, ?AchievementTrackerService $achievementTracker = null)
     {
         $this->logger = $logger;
         $this->userService = $userService;
+        $this->achievementTracker = $achievementTracker;
     }
 
     /**
@@ -130,6 +132,16 @@ class ShopService
             'coins' => $totalCoins,
             'gems' => $totalGems,
         ]);
+
+        // Трекинг достижений
+        if ($this->achievementTracker) {
+            try {
+                $this->achievementTracker->incrementStat($user->getKey(), 'shop_purchases', $quantity);
+                $this->achievementTracker->checkAndUnlock($user->getKey(), ['context' => 'shop_purchase']);
+            } catch (\Throwable $e) {
+                $this->logger->error('Error tracking shop achievements: ' . $e->getMessage());
+            }
+        }
 
         return [
             'success' => true,

@@ -16,6 +16,7 @@ class LootboxService
 {
     private Logger $logger;
     private UserService $userService;
+    private ?AchievementTrackerService $achievementTracker;
 
     // Конфигурация лутбоксов
     private const LOOTBOX_CONFIG = [
@@ -72,10 +73,11 @@ class LootboxService
         ],
     ];
 
-    public function __construct(Logger $logger, UserService $userService)
+    public function __construct(Logger $logger, UserService $userService, ?AchievementTrackerService $achievementTracker = null)
     {
         $this->logger = $logger;
         $this->userService = $userService;
+        $this->achievementTracker = $achievementTracker;
     }
 
     /**
@@ -126,6 +128,16 @@ class LootboxService
             'lootbox_type' => $lootboxType,
             'rewards_count' => count($rewards),
         ]);
+
+        // Трекинг достижений
+        if ($this->achievementTracker) {
+            try {
+                $this->achievementTracker->incrementStat($user->getKey(), 'lootbox_openings');
+                $this->achievementTracker->checkAndUnlock($user->getKey(), ['context' => 'lootbox_open']);
+            } catch (\Throwable $e) {
+                $this->logger->error('Error tracking lootbox achievements: ' . $e->getMessage());
+            }
+        }
 
         return [
             'success' => true,

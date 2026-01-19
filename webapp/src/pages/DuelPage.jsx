@@ -230,7 +230,8 @@ function DuelPage() {
           if (data.opponent) {
             setOpponent({
               name: data.opponent.name || 'Соперник',
-              rating: data.opponent.rating ?? 0
+              rating: data.opponent.rating ?? 0,
+              photo_url: data.opponent.photo_url
             })
           }
           setState(STATES.FOUND)
@@ -365,7 +366,8 @@ function DuelPage() {
           if (data.opponent) {
             setOpponent({
               name: data.opponent.name || 'Соперник',
-              rating: data.opponent.rating ?? 0
+              rating: data.opponent.rating ?? 0,
+              photo_url: data.opponent.photo_url
             })
           }
           setState(STATES.FOUND)
@@ -449,6 +451,15 @@ function DuelPage() {
       if (response.success) {
         const data = response.data
         setDuel(data)
+        
+        if (data.initiator) {
+           setOpponent({
+             name: data.initiator.name || 'Игрок',
+             rating: data.initiator.rating ?? 0,
+             photo_url: data.initiator.photo_url
+           })
+        }
+        
         setState(STATES.FOUND)
         hapticFeedback('success')
         
@@ -532,26 +543,6 @@ function DuelPage() {
     }
   }
 
-  const handleTimeout = async () => {
-    if (selectedAnswer !== null) return
-    hapticFeedback('warning')
-    
-    setSelectedAnswer(-1)
-    setLastResult({ is_correct: false, timeout: true })
-    
-    if (timerRef.current) {
-      clearInterval(timerRef.current)
-      timerRef.current = null
-    }
-    
-    setOpponentAnswer({
-      answered: false,
-      correct: null
-    })
-    
-    setState(STATES.WAITING_OPPONENT_ANSWER)
-  }
-
   // Использование подсказки 50/50
   const useHint = async () => {
     if (hintUsed || selectedAnswer !== null || !duel) return
@@ -588,59 +579,53 @@ function DuelPage() {
   // Меню выбора режима
   if (state === STATES.MENU) {
     return (
-      <div className="min-h-screen bg-aurora relative overflow-hidden">
-        <div className="aurora-blob aurora-blob-1" />
-        <div className="aurora-blob aurora-blob-2" />
+      <div className="min-h-dvh bg-aurora relative overflow-hidden flex flex-col p-4">
+        <div className="aurora-blob aurora-blob-1 opacity-50" />
+        <div className="aurora-blob aurora-blob-2 opacity-50" />
         <div className="noise-overlay" />
 
-        <div className="relative z-10 p-4 flex flex-col min-h-screen">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center pt-8 mb-8"
+          className="relative z-10 pt-8 mb-8"
         >
-            <motion.div 
-              className="text-6xl mb-4"
-              animate={{ scale: [1, 1.1, 1] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            >
-              ⚔️
-            </motion.div>
-            <h1 className="text-3xl font-bold text-gradient-primary">Дуэль</h1>
-            <p className="text-white/40 mt-2">Выбери режим игры</p>
+          <button 
+             onClick={() => navigate('/')}
+             className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center mb-6 hover:bg-white/20 transition-colors"
+          >
+             <span className="text-xl">←</span>
+          </button>
+          <h1 className="text-4xl font-black text-white italic tracking-tight mb-2 uppercase">Дуэли</h1>
+          <p className="text-white/60 text-lg">Сразись за рейтинг и монеты</p>
         </motion.div>
 
         {error && (
           <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="glass rounded-2xl p-4 mb-4 border border-game-danger/30"
+              className="relative z-10 bg-red-500/10 border border-red-500/20 rounded-2xl p-4 mb-4 backdrop-blur-md"
           >
-            <p className="text-game-danger text-sm">{error}</p>
+            <p className="text-red-400 text-sm font-medium">{error}</p>
           </motion.div>
         )}
 
-        <div className="flex-1 flex flex-col gap-4">
+        <div className="relative z-10 flex-1 flex flex-col gap-4 justify-end pb-8">
           <motion.button
-              initial={{ opacity: 0, x: -30 }}
+            initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
             onClick={startSearch}
             disabled={loading}
-              className="bento-card p-6 text-left group disabled:opacity-50"
-            >
-              <div className="bento-glow bg-gradient-to-br from-game-primary/30 to-purple-500/20 blur-2xl" />
-              
-              <div className="relative flex items-center gap-5">
-                <motion.div 
-                  className="w-16 h-16 rounded-2xl bg-gradient-to-br from-game-primary to-purple-600 flex items-center justify-center text-3xl shadow-glow"
-                  whileHover={{ scale: 1.1, rotate: 5 }}
-                >
-                🎲
-                </motion.div>
-              <div>
-                  <h3 className="font-bold text-lg text-white">Случайный соперник</h3>
-                  <p className="text-white/40 text-sm">Найдём тебе достойного противника</p>
-              </div>
+            className="group relative overflow-hidden rounded-[32px] bg-gradient-to-br from-[#4F46E5] to-[#7C3AED] p-1 disabled:opacity-50 transition-transform active:scale-95"
+          >
+            <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+            <div className="relative bg-[#0F172A]/40 backdrop-blur-sm rounded-[28px] p-6 flex items-center gap-5">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-white/20 to-white/5 flex items-center justify-center text-3xl shadow-inner border border-white/10">
+                  🎲
+                </div>
+                <div>
+                  <h3 className="font-bold text-xl text-white mb-1">Случайный бой</h3>
+                  <p className="text-white/60 text-sm">Поиск по рейтингу</p>
+                </div>
             </div>
           </motion.button>
 
@@ -650,97 +635,30 @@ function DuelPage() {
             transition={{ delay: 0.1 }}
             onClick={inviteFriend}
             disabled={loading}
-            className="bento-card p-6 text-left group disabled:opacity-50"
+            className="group relative overflow-hidden rounded-[32px] bg-gradient-to-br from-[#06B6D4] to-[#3B82F6] p-1 disabled:opacity-50 transition-transform active:scale-95"
           >
-            <div className="bento-glow bg-gradient-to-br from-blue-500/30 to-cyan-500/20 blur-2xl" />
-            
-            <div className="relative flex items-center gap-5">
-              <motion.div 
-                className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-3xl shadow-glow"
-                whileHover={{ scale: 1.1, rotate: -5 }}
-              >
-                👥
-              </motion.div>
+             <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+            <div className="relative bg-[#0F172A]/40 backdrop-blur-sm rounded-[28px] p-6 flex items-center gap-5">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-white/20 to-white/5 flex items-center justify-center text-3xl shadow-inner border border-white/10">
+                ⚔️
+              </div>
               <div>
-                <h3 className="font-bold text-lg text-white">Пригласить друга</h3>
-                <p className="text-white/40 text-sm">Создай дуэль и поделись кодом</p>
+                <h3 className="font-bold text-xl text-white mb-1">С другом</h3>
+                <p className="text-white/60 text-sm">Создать приватную игру</p>
               </div>
             </div>
           </motion.button>
 
-          {/* Кнопка ввода кода */}
           <motion.button
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
             onClick={() => setState(STATES.ENTER_CODE)}
-            className="glass rounded-2xl p-4 text-center hover:bg-white/10 transition-colors"
+            className="w-full py-4 text-center text-white/40 font-medium hover:text-white transition-colors"
           >
-            <span className="text-white/60">🔑 Есть код? </span>
-            <span className="text-game-primary font-semibold">Присоединиться</span>
+            Ввести код приглашения
           </motion.button>
-          </div>
         </div>
-      </div>
-    )
-  }
-
-  // Экран приглашения друга
-  if (state === STATES.INVITE) {
-    return (
-      <div className="min-h-screen bg-aurora relative overflow-hidden flex items-center justify-center p-4">
-        <div className="aurora-blob aurora-blob-1" />
-        <div className="aurora-blob aurora-blob-2" />
-        <div className="noise-overlay" />
-
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="relative z-10 text-center max-w-sm w-full"
-        >
-          <div className="text-6xl mb-6">👥</div>
-          <h2 className="text-2xl font-bold mb-2 text-white">Пригласи друга!</h2>
-          <p className="text-white/40 mb-6">Отправь код или поделись ссылкой</p>
-          
-          {/* Код дуэли */}
-          <div className="glass rounded-2xl p-6 mb-6">
-            <p className="text-white/50 text-sm mb-2">Код дуэли</p>
-            <p className="text-4xl font-mono font-bold text-gradient-primary tracking-widest">
-              {duel?.code}
-            </p>
-          </div>
-          
-          {/* Кнопки */}
-          <div className="space-y-3">
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={shareInvite}
-              className="w-full py-4 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl font-bold text-lg shadow-glow flex items-center justify-center gap-3"
-            >
-              <span>📤</span> Поделиться
-            </motion.button>
-            
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={() => {
-                navigator.clipboard.writeText(duel?.code || '')
-                hapticFeedback('success')
-              }}
-              className="w-full py-4 glass rounded-2xl font-medium text-white/70 hover:text-white transition-colors"
-            >
-              📋 Скопировать код
-            </motion.button>
-            
-            <button
-              onClick={() => {
-                setState(STATES.WAITING_OPPONENT)
-              }}
-              className="w-full py-3 text-white/50 hover:text-white transition-colors"
-            >
-              Ожидать соперника →
-            </button>
-          </div>
-        </motion.div>
       </div>
     )
   }
@@ -748,586 +666,433 @@ function DuelPage() {
   // Экран ввода кода
   if (state === STATES.ENTER_CODE) {
     return (
-      <div className="min-h-screen bg-aurora relative overflow-hidden flex items-center justify-center p-4">
-        <div className="aurora-blob aurora-blob-1" />
-        <div className="aurora-blob aurora-blob-3" />
+      <div className="min-h-dvh bg-aurora relative overflow-hidden flex flex-col items-center justify-center p-6">
         <div className="noise-overlay" />
-
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="relative z-10 text-center max-w-sm w-full"
+        
+        <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="relative z-10 w-full max-w-sm"
         >
-          <div className="text-6xl mb-6">🔑</div>
-          <h2 className="text-2xl font-bold mb-2 text-white">Введи код</h2>
-          <p className="text-white/40 mb-6">Код дуэли от друга</p>
-          
-          {error && (
-            <div className="glass rounded-xl p-3 mb-4 text-red-400 text-sm">
-              {error}
-            </div>
-          )}
-          
-          {/* Поле ввода */}
-          <div className="glass rounded-2xl p-4 mb-6">
+            <h2 className="text-3xl font-bold text-white text-center mb-8">Ввод кода</h2>
+            
             <input
               type="text"
               value={inviteCode}
               onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-              placeholder="XXXXXXXX"
+              placeholder="CODE"
               maxLength={8}
-              className="w-full text-center text-3xl font-mono font-bold bg-transparent text-white placeholder-white/30 outline-none tracking-widest"
+              className="w-full bg-white/5 border border-white/10 rounded-2xl py-6 text-center text-4xl font-mono font-bold text-white placeholder-white/20 outline-none focus:border-game-primary transition-colors mb-6 tracking-widest uppercase"
               autoFocus
             />
-          </div>
-          
-          {/* Кнопки */}
-          <div className="space-y-3">
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={joinByCode}
-              disabled={loading || inviteCode.length < 4}
-              className="w-full py-4 bg-gradient-to-r from-game-primary to-purple-600 rounded-2xl font-bold text-lg shadow-glow disabled:opacity-50"
-            >
-              {loading ? 'Подключение...' : 'Присоединиться'}
-            </motion.button>
             
             <button
-              onClick={() => {
-                setState(STATES.MENU)
-                setInviteCode('')
-                setError(null)
-              }}
-              className="w-full py-3 text-white/50 hover:text-white transition-colors"
+              onClick={joinByCode}
+              disabled={loading || inviteCode.length < 4}
+              className="w-full py-4 bg-game-primary rounded-xl font-bold text-white shadow-lg shadow-game-primary/30 disabled:opacity-50 disabled:shadow-none transition-all active:scale-95 mb-4"
             >
-              ← Назад
+              {loading ? 'Поиск...' : 'Присоединиться'}
             </button>
-          </div>
-        </motion.div>
-      </div>
-    )
-  }
-
-  // Поиск соперника
-  if (state === STATES.SEARCHING) {
-    return (
-      <div className="min-h-screen bg-aurora relative overflow-hidden flex items-center justify-center p-4">
-        <div className="aurora-blob aurora-blob-1" />
-        <div className="aurora-blob aurora-blob-2" />
-        <div className="noise-overlay" />
-
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="relative z-10 text-center"
-        >
-          <div className="relative w-36 h-36 mx-auto mb-8">
-            {/* Pulse rings */}
-            <div className="absolute inset-0 rounded-full bg-game-primary/20 pulse-ring" />
-            <div className="absolute inset-4 rounded-full bg-game-primary/30 pulse-ring" style={{ animationDelay: '0.3s' }} />
-            <div className="absolute inset-8 rounded-full bg-game-primary/40 pulse-ring" style={{ animationDelay: '0.6s' }} />
             
-            {/* Center icon */}
-            <motion.div 
-              className="absolute inset-12 rounded-full bg-gradient-to-br from-game-primary to-purple-600 flex items-center justify-center shadow-glow-lg"
-              animate={{ scale: [1, 1.1, 1] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
+            <button
+               onClick={() => setState(STATES.MENU)}
+               className="w-full py-3 text-white/40 font-medium"
             >
-              <span className="text-4xl">🔍</span>
-            </motion.div>
-            </div>
-          
-          <h2 className="text-2xl font-bold mb-2 text-white">Ищем соперника...</h2>
-          <p className="text-white/40">Это займёт несколько секунд</p>
+                Отмена
+            </button>
         </motion.div>
       </div>
     )
   }
 
-  // Ожидание соперника
-  if (state === STATES.WAITING_OPPONENT) {
-    return (
-      <div className="min-h-screen bg-aurora relative overflow-hidden flex items-center justify-center p-4">
-        <div className="aurora-blob aurora-blob-1" />
-        <div className="aurora-blob aurora-blob-3" />
-        <div className="noise-overlay" />
-
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="relative z-10 text-center"
-        >
-          <div className="relative w-36 h-36 mx-auto mb-8">
-            <div className="absolute inset-0 rounded-full bg-game-warning/20 pulse-ring" />
-            <motion.div 
-              className="absolute inset-8 rounded-full bg-gradient-to-br from-game-warning to-orange-500 flex items-center justify-center shadow-glow-warning"
-              animate={{ rotate: 360 }}
-              transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-            >
-              <span className="text-4xl">⏳</span>
-            </motion.div>
-            </div>
-          
-          <h2 className="text-2xl font-bold mb-2 text-white">Ожидаем соперника</h2>
-          <p className="text-white/40 mb-2">
-            Код дуэли: <span className="font-mono font-bold text-game-primary">{duel?.code}</span>
-          </p>
-          <p className={`text-lg font-bold mb-4 ${searchTimeLeft <= 10 ? 'text-red-400' : 'text-white/60'}`}>
-            {searchTimeLeft} сек
-          </p>
-          
-          <button
-            onClick={() => {
-              setState(STATES.MENU)
-              setDuel(null)
-            }}
-            className="px-8 py-3 glass rounded-xl text-white/70 hover:text-white transition-colors"
-          >
-            Отмена
-          </button>
-        </motion.div>
-      </div>
-    )
+  // Экраны ожидания/поиска
+  if (state === STATES.SEARCHING || state === STATES.WAITING_OPPONENT || state === STATES.INVITE) {
+     const isInvite = state === STATES.INVITE
+     const isSearching = state === STATES.SEARCHING
+     
+     return (
+       <div className="min-h-dvh bg-aurora relative overflow-hidden flex flex-col items-center justify-center p-6 text-center">
+         <div className="noise-overlay" />
+         
+         <div className="relative z-10 w-full max-w-sm">
+             {/* Radar Animation */}
+             <div className="relative w-64 h-64 mx-auto mb-12 flex items-center justify-center">
+                 <motion.div 
+                    animate={{ scale: [1, 2], opacity: [0.5, 0] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
+                    className="absolute inset-0 border border-game-primary/30 rounded-full"
+                 />
+                 <motion.div 
+                    animate={{ scale: [1, 2], opacity: [0.5, 0] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "easeOut", delay: 0.5 }}
+                    className="absolute inset-0 border border-game-primary/30 rounded-full"
+                 />
+                 
+                 <div className="w-32 h-32 bg-white/5 backdrop-blur-xl rounded-full border border-white/10 flex items-center justify-center relative overflow-hidden">
+                     <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                        className="absolute inset-0 bg-gradient-to-t from-game-primary/20 to-transparent w-full h-1/2 origin-bottom"
+                     />
+                     <div className="text-4xl relative z-10">
+                        {isInvite ? '📨' : '🔭'}
+                     </div>
+                 </div>
+             </div>
+             
+             <h2 className="text-2xl font-bold text-white mb-2">
+                 {isInvite ? 'Ожидание друга' : isSearching ? 'Поиск оппонента' : 'Ожидание...'}
+             </h2>
+             
+             {isInvite ? (
+                 <div className="mb-8">
+                     <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-4">
+                        <p className="text-white/40 text-xs uppercase mb-1">Код комнаты</p>
+                        <p className="text-3xl font-mono font-bold text-white tracking-widest">{duel?.code}</p>
+                     </div>
+                     <button onClick={shareInvite} className="w-full py-3 bg-white/10 rounded-xl text-white font-medium mb-2">
+                        Поделиться ссылкой
+                     </button>
+                 </div>
+             ) : (
+                 <p className="text-white/40 mb-8 font-mono">
+                    {searchTimeLeft > 0 ? `00:${searchTimeLeft.toString().padStart(2, '0')}` : 'Отмена...'}
+                 </p>
+             )}
+             
+             <button 
+                onClick={() => {
+                   if (duel) api.cancelDuel(duel.duel_id).catch(console.error)
+                   setState(STATES.MENU)
+                }}
+                className="text-white/40 text-sm hover:text-white"
+             >
+                Отменить поиск
+             </button>
+         </div>
+       </div>
+     )
   }
 
   // Соперник найден
   if (state === STATES.FOUND) {
-    return (
-      <div className="min-h-screen bg-aurora relative overflow-hidden flex items-center justify-center p-4">
-        <div className="aurora-blob aurora-blob-1" />
-        <div className="aurora-blob aurora-blob-2" />
-        <div className="noise-overlay" />
-
-        <motion.div
-          initial={{ opacity: 0, scale: 0.5 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="relative z-10 text-center"
-        >
-          <motion.div
-            initial={{ scale: 0, rotate: -180 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
-            className="text-7xl mb-6"
-          >
-            ⚔️
-          </motion.div>
-          
-          <h2 className="text-3xl font-bold mb-6 text-gradient-primary">Соперник найден!</h2>
-          
-          <div className="flex items-center justify-center gap-6">
-            <motion.div 
-              initial={{ x: -50, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.4 }}
-              className="text-center"
-            >
-              <div className="relative">
-                <div className="mb-3 flex justify-center">
-                  <AvatarWithFrame
-                    photoUrl={user?.photo_url}
-                    name={user?.first_name || 'You'}
-                    frameKey="default"
-                    size={96}
-                    animated={false}
-                    showGlow={true}
-                  />
-                </div>
-                <motion.div 
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: 0.7, type: "spring" }}
-                  className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-3 py-1 bg-gradient-to-r from-amber-500 to-yellow-400 rounded-full shadow-lg"
-                >
-                  <span className="text-sm font-bold text-black">🏆 {myRating}</span>
-                </motion.div>
-              </div>
-              <p className="font-semibold text-white mt-3">{user?.first_name || 'Ты'}</p>
-            </motion.div>
+      return (
+        <div className="min-h-dvh bg-aurora relative overflow-hidden flex flex-col items-center justify-center p-6">
+            <div className="noise-overlay" />
             
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.6, type: "spring" }}
-              className="flex flex-col items-center"
-            >
-              <div className="text-4xl mb-2">⚔️</div>
-              <div className="text-lg text-white/50 font-bold">VS</div>
-            </motion.div>
-            
-            <motion.div 
-              initial={{ x: 50, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.4 }}
-              className="text-center"
-            >
-              <div className="relative">
-                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-game-danger to-orange-500 flex items-center justify-center text-4xl mb-3 shadow-glow-danger mx-auto border-4 border-white/20">
-                  {opponent?.name?.[0] || '👤'}
-                </div>
-                <motion.div 
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: 0.7, type: "spring" }}
-                  className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-3 py-1 bg-gradient-to-r from-amber-500 to-yellow-400 rounded-full shadow-lg"
+            <div className="relative z-10 w-full flex flex-col items-center gap-8">
+                <motion.div
+                   initial={{ x: -100, opacity: 0 }}
+                   animate={{ x: 0, opacity: 1 }}
+                   transition={{ type: "spring", stiffness: 100 }}
+                   className="flex flex-col items-center"
                 >
-                  <span className="text-sm font-bold text-black">🏆 {opponent?.rating ?? 0}</span>
+                    <AvatarWithFrame user={user} size={96} showGlow />
+                    <p className="mt-4 font-bold text-xl text-white">{user?.first_name || 'Вы'}</p>
+                    <div className="px-3 py-1 bg-white/10 rounded-full text-xs font-mono mt-2 text-white/60">
+                        {myRating} MMR
+                    </div>
                 </motion.div>
-              </div>
-              <p className="font-semibold text-white mt-3">{opponent?.name || 'Соперник'}</p>
-            </motion.div>
-          </div>
-        </motion.div>
-      </div>
-    )
+                
+                <motion.div
+                    initial={{ scale: 0, rotate: -180 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    transition={{ delay: 0.3, type: "spring" }}
+                    className="text-6xl font-black italic text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-orange-500"
+                >
+                    VS
+                </motion.div>
+                
+                <motion.div
+                   initial={{ x: 100, opacity: 0 }}
+                   animate={{ x: 0, opacity: 1 }}
+                   transition={{ type: "spring", stiffness: 100, delay: 0.1 }}
+                   className="flex flex-col items-center"
+                >
+                     <div className="w-24 h-24 rounded-full bg-gradient-to-br from-red-500 to-orange-600 p-1 shadow-[0_0_30px_rgba(239,68,68,0.4)]">
+                        <div className="w-full h-full rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-4xl overflow-hidden">
+                            {opponent?.photo_url ? (
+                                <img src={opponent.photo_url} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                                <span>{opponent?.name?.[0] || '?'}</span>
+                            )}
+                        </div>
+                     </div>
+                    <p className="mt-4 font-bold text-xl text-white">{opponent?.name || 'Соперник'}</p>
+                    <div className="px-3 py-1 bg-white/10 rounded-full text-xs font-mono mt-2 text-white/60">
+                        {opponent?.rating || '???'} MMR
+                    </div>
+                </motion.div>
+            </div>
+        </div>
+      )
   }
-
-  // Игра
+  
+  // ИГРОВОЙ ПРОЦЕСС
   if ((state === STATES.PLAYING || state === STATES.WAITING_OPPONENT_ANSWER || state === STATES.SHOWING_RESULT) && question) {
-    const timerProgress = timeLeft / 30
-    const timerColor = timeLeft <= 10 ? '#ef4444' : timeLeft <= 20 ? '#f59e0b' : '#6366f1'
-
-    return (
-      <div className="min-h-screen bg-aurora relative overflow-hidden">
-        <div className="aurora-blob aurora-blob-1" style={{ opacity: 0.3 }} />
-        <div className="aurora-blob aurora-blob-2" style={{ opacity: 0.3 }} />
-        <div className="noise-overlay" />
-
-        <div className="relative z-10 p-4 flex flex-col min-h-screen">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-            <div className="glass rounded-xl px-3 py-2">
-              <span className="text-white/50 text-xs">Раунд</span>
-              <span className="font-bold ml-1 text-white">{round}/{totalRounds}</span>
-          </div>
-          
-          {/* Timer */}
-            <div className="relative w-16 h-16">
-            <svg className="w-full h-full -rotate-90">
-              <circle
-                  cx="32"
-                  cy="32"
-                  r="28"
-                fill="none"
-                stroke="rgba(255,255,255,0.1)"
-                strokeWidth="4"
-              />
-                <motion.circle
-                  cx="32"
-                  cy="32"
-                  r="28"
-                fill="none"
-                  stroke={timerColor}
-                strokeWidth="4"
-                strokeLinecap="round"
-                  strokeDasharray={176}
-                  strokeDashoffset={176 - (176 * timerProgress)}
-                  className="timer-glow"
-                  style={{ filter: `drop-shadow(0 0 8px ${timerColor})` }}
-              />
-            </svg>
-            <div className="absolute inset-0 flex items-center justify-center">
-                <span className={`font-bold text-lg ${timeLeft <= 10 ? 'text-game-danger' : 'text-white'}`}>
-                {timeLeft}
-              </span>
-            </div>
-          </div>
-
-            <div className="glass rounded-xl px-3 py-2 flex items-center gap-2">
-            <span className="text-game-success font-bold">{score.player}</span>
-              <span className="text-white/30">:</span>
-            <span className="text-game-danger font-bold">{score.opponent}</span>
-          </div>
-        </div>
-
-        {/* Progress */}
-        <div className="flex gap-1 mb-6">
-          {Array.from({ length: totalRounds }).map((_, i) => (
-              <motion.div
-              key={i}
-                className={`flex-1 h-1.5 rounded-full transition-all duration-300 ${
-                  i < round - 1 ? 'bg-game-success shadow-glow-success' : 
-                  i === round - 1 ? 'bg-game-primary shadow-glow' : 
-                'bg-white/10'
-              }`}
-                initial={i === round - 1 ? { scale: 0.8 } : {}}
-                animate={i === round - 1 ? { scale: 1 } : {}}
-            />
-          ))}
-        </div>
-
-        {/* Category */}
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-4"
-        >
-            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass text-sm">
-              <span>📜</span>
-              <span className="text-white/70">{question.category}</span>
-          </span>
-        </motion.div>
-
-        {/* Question */}
-        <motion.div
-            key={question.id}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="glass rounded-3xl p-6 mb-6"
-        >
-            <p className="text-lg font-medium leading-relaxed text-center text-white">
-            {question.text}
-          </p>
-        </motion.div>
-
-        {/* Answers */}
-        <div className="flex-1 flex flex-col gap-3">
-            {question.answers
-              .filter(answer => !hiddenAnswers.includes(answer.id))
-              .map((answer, index) => (
-            <motion.button
-              key={answer.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.1 }}
-              onClick={() => handleAnswerSelect(answer.id)}
-              disabled={selectedAnswer !== null}
-              className={`btn-answer ${getAnswerClass(answer.id)}`}
-            >
-                  <div className="flex items-center gap-4">
-                    <span className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center font-bold text-white/50">
-                  {String.fromCharCode(65 + index)}
-                </span>
-                    <span className="flex-1 text-left text-white">{answer.text}</span>
-                    
-                {selectedAnswer === answer.id && lastResult?.is_correct && (
-                  <motion.span
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                        className="text-2xl"
-                  >
-                    ✓
-                  </motion.span>
-                )}
-                {selectedAnswer === answer.id && lastResult && !lastResult.is_correct && !lastResult.timeout && (
-                  <motion.span
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                        className="text-2xl"
-                  >
-                    ✗
-                  </motion.span>
-                )}
-              </div>
-            </motion.button>
-          ))}
-        </div>
-
-          {/* Кнопка подсказки 50/50 */}
-          {state === STATES.PLAYING && selectedAnswer === null && !hintUsed && (
-            <div className="mt-4">
-              <button
-                onClick={useHint}
-                disabled={coins < 10}
-                className={`w-full py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all ${
-                  coins >= 10 
-                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 active:scale-95' 
-                    : 'bg-white/10 opacity-50'
-                }`}
-              >
-                <span className="text-lg">💡</span>
-                <span className="font-semibold">50/50</span>
-                <span className="text-sm opacity-75">({coins}/10 💰)</span>
-              </button>
-            </div>
-          )}
-
-        {/* Результат раунда */}
-        <AnimatePresence>
-            {(state === STATES.SHOWING_RESULT || state === STATES.WAITING_OPPONENT_ANSWER) && lastResult && (
-            <motion.div
-                initial={{ opacity: 0, y: 100 }}
-              animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 100 }}
-                className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-dark-950 via-dark-950/95 to-transparent"
-            >
-                <div className="glass rounded-3xl p-5">
-                {/* Твой результат */}
-                  <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-game-primary to-purple-600 flex items-center justify-center font-bold text-white">
-                      {user?.first_name?.[0] || '?'}
-                    </div>
-                      <span className="font-medium text-white">Ты</span>
-                  </div>
-                  <div className={`flex items-center gap-2 ${lastResult.is_correct ? 'text-game-success' : 'text-game-danger'}`}>
-                    {lastResult.timeout ? (
-                      <>
-                        <span>⏱️</span>
-                        <span className="font-bold">Время вышло</span>
-                      </>
-                    ) : lastResult.is_correct ? (
-                      <>
-                        <span>✅</span>
-                        <span className="font-bold">+{lastResult.points_earned || 10}</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>❌</span>
-                        <span className="font-bold">Неверно</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-                
-                  <div className="border-t border-white/10 my-3" />
-                
-                {/* Результат соперника */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-game-danger to-orange-500 flex items-center justify-center">
-                      👤
-                    </div>
-                    <span className="font-medium text-white/70">Соперник</span>
-                  </div>
-                    <div className="flex items-center gap-2">
-                      {opponentAnswer && opponentAnswer.answered ? (
-                      opponentAnswer.correct ? (
-                          <span className="text-game-success font-bold flex items-center gap-2">
-                            <span>✅</span> Верно
-                          </span>
-                        ) : (
-                          <span className="text-game-danger font-bold flex items-center gap-2">
-                            <span>❌</span> Неверно
-                          </span>
-                      )
-                    ) : (
-                        <span className="text-white/40 flex items-center gap-2">
-                          <motion.span
-                            animate={{ opacity: [0.5, 1, 0.5] }}
-                            transition={{ duration: 1.5, repeat: Infinity }}
-                          >
-                            ⏳
-                          </motion.span>
-                        <span>Ожидание...</span>
-                        </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-        </div>
-      </div>
-    )
-  }
-
-  // Финиш
-  if (state === STATES.FINISHED) {
-    const isWinner = score.player > score.opponent
-    const isDraw = score.player === score.opponent
-    const ratingChange = isWinner ? '+10' : isDraw ? '0' : '-10'
-
-    return (
-      <div className="min-h-screen bg-aurora relative overflow-hidden flex items-center justify-center p-4">
-        <div className="aurora-blob aurora-blob-1" />
-        <div className="aurora-blob aurora-blob-2" />
-        <div className="aurora-blob aurora-blob-3" />
-        <div className="noise-overlay" />
-
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="relative z-10 text-center w-full max-w-sm"
-        >
-          <motion.div
-            initial={{ scale: 0, rotate: -180 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
-            className="text-8xl mb-6"
-          >
-            {isWinner ? '🏆' : isDraw ? '🤝' : '😔'}
-          </motion.div>
-          
-          <motion.h2 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className={`text-4xl font-bold mb-4 ${
-              isWinner ? 'text-gradient-gold' : isDraw ? 'text-white' : 'text-white/60'
-            }`}
-          >
-            {isWinner ? 'Победа!' : isDraw ? 'Ничья!' : 'Поражение'}
-          </motion.h2>
-          
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.5 }}
-            className="text-6xl font-bold my-8"
-          >
-            <span className="text-game-success">{score.player}</span>
-            <span className="text-white/30 mx-4">:</span>
-            <span className="text-game-danger">{score.opponent}</span>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-            className="glass rounded-2xl p-5 mb-8"
-          >
-              <div className="text-center">
-              <div className={`text-3xl font-bold ${
-                isWinner ? 'text-game-success' : isDraw ? 'text-white/50' : 'text-game-danger'
-              }`}>
-                {ratingChange}
-                </div>
-              <div className="text-sm text-white/40">Рейтинг</div>
-            </div>
-          </motion.div>
-
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.7 }}
-            className="flex gap-4"
-          >
-            <button
-              onClick={() => navigate('/')}
-              className="flex-1 py-4 px-6 glass rounded-2xl font-semibold text-white/70 hover:text-white transition-colors active:scale-95"
-            >
-              Домой
-            </button>
-            <button
-              onClick={() => {
-                setState(STATES.MENU)
-                setDuel(null)
-                setRound(1)
-                setScore({ player: 0, opponent: 0 })
-                currentQuestionId.current = null
-              }}
-              className="flex-1 py-4 px-6 bg-gradient-to-r from-game-primary to-purple-600 rounded-2xl font-semibold text-white shadow-glow active:scale-95 transition-transform"
-            >
-              Ещё раз
-            </button>
-          </motion.div>
-        </motion.div>
-      </div>
-    )
-  }
-
-  // Loading state
-  return (
-    <div className="min-h-screen bg-aurora relative overflow-hidden flex items-center justify-center">
-      <div className="aurora-blob aurora-blob-1" />
-      <div className="noise-overlay" />
+      const isCorrect = lastResult?.is_correct
+      const isWrong = lastResult && !lastResult.is_correct
       
-      <div className="relative z-10 text-center">
-        <div className="spinner mx-auto mb-4" />
-        <p className="text-white/40">Загрузка...</p>
+      return (
+        <div className="min-h-dvh bg-aurora relative overflow-hidden flex flex-col">
+            <div className="noise-overlay" />
+            
+            {/* Header VS */}
+            <div className="relative z-20 pt-4 px-4 pb-2 bg-gradient-to-b from-black/40 to-transparent">
+                <div className="flex justify-between items-center max-w-md mx-auto w-full">
+                    {/* Player */}
+                    <div className="flex items-center gap-3">
+                         <div className="relative">
+                             <AvatarWithFrame user={user} size={48} />
+                             <div className="absolute -bottom-1 -right-1 bg-game-primary text-white text-[10px] font-bold px-1.5 py-0.5 rounded-md">
+                                 YOU
+                             </div>
+                         </div>
+                         <div className="flex flex-col">
+                             <span className="text-2xl font-black text-white">{score.player}</span>
+                         </div>
+                    </div>
+                    
+                    {/* Timer */}
+                    <div className="relative flex flex-col items-center">
+                        <svg className="w-14 h-14 -rotate-90">
+                           <circle cx="28" cy="28" r="26" stroke="rgba(255,255,255,0.1)" strokeWidth="4" fill="none" />
+                           <motion.circle 
+                              cx="28" cy="28" r="26" 
+                              stroke={timeLeft <= 10 ? '#EF4444' : '#6366F1'} 
+                              strokeWidth="4" 
+                              fill="none" 
+                              strokeDasharray={163}
+                              strokeDashoffset={163 - (163 * (timeLeft / 30))}
+                              strokeLinecap="round"
+                              initial={{ strokeDashoffset: 163 }}
+                              animate={{ strokeDashoffset: 163 - (163 * (timeLeft / 30)) }}
+                              transition={{ duration: 0.5 }}
+                           />
+                        </svg>
+                        <span className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 font-bold ${timeLeft <= 10 ? 'text-red-500' : 'text-white'}`}>
+                            {timeLeft}
+                        </span>
+                        <div className="mt-1 text-[10px] font-mono text-white/40">R{round}/{totalRounds}</div>
+                    </div>
+                    
+                    {/* Opponent */}
+                    <div className="flex items-center gap-3 flex-row-reverse">
+                         <div className="relative">
+                             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-500 to-orange-600 p-0.5 shadow-lg">
+                                <div className="w-full h-full rounded-full bg-black/40 backdrop-blur-sm overflow-hidden flex items-center justify-center text-lg">
+                                    {opponent?.photo_url ? (
+                                        <img src={opponent.photo_url} alt="" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <span>{opponent?.name?.[0] || '?'}</span>
+                                    )}
+                                </div>
+                             </div>
+                         </div>
+                         <div className="flex flex-col items-end">
+                             <span className="text-2xl font-black text-white">{score.opponent}</span>
+                         </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Question Area */}
+            <div className="flex-1 flex items-center justify-center p-4 relative z-10">
+                <AnimatePresence mode="wait">
+                    <motion.div
+                        key={question.id}
+                        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                        className="w-full max-w-md"
+                    >
+                         <div className="mb-4 flex justify-center">
+                            <span className="px-3 py-1 rounded-full bg-white/10 text-xs font-medium text-white/60 backdrop-blur-md">
+                                {question.category || 'Вопрос'}
+                            </span>
+                         </div>
+                         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[32px] p-8 text-center shadow-2xl relative overflow-hidden">
+                             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+                             <p className="text-xl md:text-2xl font-bold text-white leading-relaxed">
+                                 {question.text}
+                             </p>
+                         </div>
+                    </motion.div>
+                </AnimatePresence>
+            </div>
+            
+            {/* Answers Grid */}
+            <div className="p-4 relative z-10 pb-8">
+                 <div className="grid grid-cols-2 gap-3 max-w-md mx-auto mb-4">
+                     {question.answers
+                        .filter(answer => !hiddenAnswers.includes(answer.id))
+                        .map((answer, idx) => {
+                            const isSelected = selectedAnswer === answer.id
+                            const isCorrectAnswer = correctAnswer === answer.id
+                            
+                            let statusClass = "bg-white/5 border-white/10 text-white"
+                            if (isSelected) statusClass = "bg-white/20 border-white/30 text-white"
+                            if (isCorrectAnswer) statusClass = "bg-green-500/20 border-green-500 text-green-400"
+                            if (isSelected && lastResult && !lastResult.is_correct) statusClass = "bg-red-500/20 border-red-500 text-red-400"
+                            if (selectedAnswer !== null && !isSelected && !isCorrectAnswer) statusClass = "opacity-30 bg-white/5 border-white/5"
+
+                            return (
+                                <motion.button
+                                    key={answer.id}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: idx * 0.1 }}
+                                    onClick={() => handleAnswerSelect(answer.id)}
+                                    disabled={selectedAnswer !== null}
+                                    className={`relative min-h-[100px] rounded-2xl p-4 flex flex-col items-center justify-center text-center text-sm font-semibold border backdrop-blur-md transition-all active:scale-95 ${statusClass}`}
+                                >
+                                    {answer.text}
+                                    
+                                    {isCorrectAnswer && (
+                                        <div className="absolute top-2 right-2 text-green-400">✓</div>
+                                    )}
+                                    {isSelected && lastResult && !lastResult.is_correct && (
+                                        <div className="absolute top-2 right-2 text-red-400">✗</div>
+                                    )}
+                                </motion.button>
+                            )
+                        })}
+                 </div>
+                 
+                 {/* Hint Button */}
+                 {state === STATES.PLAYING && !selectedAnswer && !hintUsed && (
+                     <div className="flex justify-center">
+                         <button
+                            onClick={useHint}
+                            disabled={coins < 10}
+                            className={`px-6 py-2 rounded-full text-xs font-bold flex items-center gap-2 transition-all ${
+                                coins >= 10 ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-white/5 text-white/30'
+                            }`}
+                         >
+                            <span>💡 50/50</span>
+                            <span className="opacity-50">10 💰</span>
+                         </button>
+                     </div>
+                 )}
+            </div>
+            
+            {/* Round Result Overlay */}
+            <AnimatePresence>
+                {state === STATES.SHOWING_RESULT && (
+                   <motion.div 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 backdrop-blur-sm pointer-events-none"
+                   >
+                       <motion.div 
+                          initial={{ scale: 0.5, y: 50 }}
+                          animate={{ scale: 1, y: 0 }}
+                          className="bg-[#0F172A] border border-white/10 rounded-3xl p-6 text-center shadow-2xl min-w-[200px]"
+                       >
+                           {isCorrect ? (
+                               <>
+                                 <div className="text-5xl mb-2">🔥</div>
+                                 <div className="text-xl font-bold text-green-400">Верно!</div>
+                                 <div className="text-white/60 text-sm">+{lastResult.points_earned} очков</div>
+                               </>
+                           ) : (
+                               <>
+                                 <div className="text-5xl mb-2">💀</div>
+                                 <div className="text-xl font-bold text-red-400">Мимо</div>
+                                 <div className="text-white/60 text-sm">Повезет в следующий раз</div>
+                               </>
+                           )}
+                       </motion.div>
+                   </motion.div>
+                )}
+            </AnimatePresence>
+            
+            {/* Waiting Opponent Toast */}
+            <AnimatePresence>
+                {state === STATES.WAITING_OPPONENT_ANSWER && (
+                    <motion.div
+                       initial={{ y: 100 }}
+                       animate={{ y: 0 }}
+                       exit={{ y: 100 }}
+                       className="fixed bottom-8 left-1/2 -translate-x-1/2 z-30 bg-black/80 backdrop-blur-md px-6 py-3 rounded-full border border-white/10 text-white text-sm font-medium flex items-center gap-3"
+                    >
+                        <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
+                        Ожидаем соперника...
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+      )
+  }
+  
+  // FINISH SCREEN
+  if (state === STATES.FINISHED) {
+      const isWin = score.player > score.opponent
+      const isDraw = score.player === score.opponent
+      
+      return (
+         <div className="min-h-dvh bg-aurora relative overflow-hidden flex flex-col items-center justify-center p-6 text-center">
+            <div className="noise-overlay" />
+            
+            {isWin && (
+                <>
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-game-primary/20 blur-[100px] rounded-full" />
+                  {/* Confetti particles could go here */}
+                </>
+            )}
+            
+            <motion.div
+               initial={{ scale: 0.8, opacity: 0 }}
+               animate={{ scale: 1, opacity: 1 }}
+               className="relative z-10 bg-black/40 backdrop-blur-xl border border-white/10 rounded-[40px] p-8 w-full max-w-sm"
+            >
+                <div className="text-7xl mb-6">{isWin ? '🏆' : isDraw ? '🤝' : '💀'}</div>
+                
+                <h1 className={`text-4xl font-black uppercase italic mb-2 ${isWin ? 'text-gradient-gold' : 'text-white'}`}>
+                    {isWin ? 'Победа' : isDraw ? 'Ничья' : 'Поражение'}
+                </h1>
+                
+                <div className="flex items-center justify-center gap-6 my-8">
+                     <div className="text-center">
+                         <AvatarWithFrame user={user} size={64} />
+                         <div className="text-3xl font-bold text-white mt-2">{score.player}</div>
+                     </div>
+                     <div className="text-white/20 font-black text-2xl">VS</div>
+                     <div className="text-center">
+                        <div className="w-16 h-16 rounded-full bg-white/10 mx-auto flex items-center justify-center text-2xl border-2 border-white/10">
+                            {opponent?.photo_url ? <img src={opponent.photo_url} className="w-full h-full rounded-full object-cover"/> : (opponent?.name?.[0] || '?')}
+                        </div>
+                        <div className="text-3xl font-bold text-white/60 mt-2">{score.opponent}</div>
+                     </div>
+                </div>
+                
+                <div className="bg-white/5 rounded-2xl p-4 mb-6">
+                    <div className="text-sm text-white/40 uppercase font-bold tracking-wider mb-1">Рейтинг</div>
+                    <div className="text-2xl font-bold text-white">
+                        {isWin ? '+25' : isDraw ? '+0' : '-25'} <span className="text-sm font-normal text-white/40">MMR</span>
+                    </div>
+                </div>
+                
+                <button
+                    onClick={() => {
+                        setState(STATES.MENU)
+                        setDuel(null)
+                        setScore({ player: 0, opponent: 0 })
+                    }} 
+                    className="w-full py-4 bg-white rounded-2xl text-black font-bold text-lg mb-3 hover:bg-white/90 transition-colors"
+                >
+                    Продолжить
+                </button>
+            </motion.div>
+         </div>
+      )
+  }
+
+  return (
+      <div className="min-h-dvh bg-aurora flex items-center justify-center">
+          <div className="spinner" />
       </div>
-    </div>
   )
 }
 
