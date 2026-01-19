@@ -154,7 +154,8 @@ final class AppBootstrap
                 return new DuelService(
                     $c->get(Logger::class),
                     $c->get(QuestionSelector::class),
-                    $c->get(ReferralService::class)
+                    $c->get(ReferralService::class),
+                    $c->get(StatisticsService::class)
                 );
             },
             GameSessionService::class => function (Container $c) {

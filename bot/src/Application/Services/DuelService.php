@@ -24,11 +24,18 @@ class DuelService
 
     private ?ReferralService $referralService;
 
-    public function __construct(Logger $logger, QuestionSelector $questionSelector, ?ReferralService $referralService = null)
-    {
+    private ?StatisticsService $statisticsService;
+
+    public function __construct(
+        Logger $logger,
+        QuestionSelector $questionSelector,
+        ?ReferralService $referralService = null,
+        ?StatisticsService $statisticsService = null
+    ) {
         $this->logger = $logger;
         $this->questionSelector = $questionSelector;
         $this->referralService = $referralService;
+        $this->statisticsService = $statisticsService;
     }
 
     /**
@@ -354,6 +361,23 @@ class DuelService
         $result->save();
 
         $this->logger->info(sprintf('Дуэль %s завершена, результат %s', $duel->code, $resultStatus));
+
+        // Обновляем статистику и проверяем достижения
+        if ($this->statisticsService) {
+            try {
+                // Для инициатора
+                $isInitiatorWin = $resultStatus === 'initiator_win';
+                $this->statisticsService->recordDuelResult($duel->initiator, $isInitiatorWin);
+
+                // Для оппонента (если есть)
+                if ($duel->opponent) {
+                    $isOpponentWin = $resultStatus === 'opponent_win';
+                    $this->statisticsService->recordDuelResult($duel->opponent, $isOpponentWin);
+                }
+            } catch (\Throwable $e) {
+                $this->logger->error('Ошибка обновления статистики дуэли: ' . $e->getMessage());
+            }
+        }
 
         // Проверяем активацию рефералов для обоих участников
         $this->checkReferralActivation($duel->initiator);
