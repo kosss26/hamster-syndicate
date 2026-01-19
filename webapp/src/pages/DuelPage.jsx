@@ -487,10 +487,11 @@ function DuelPage() {
     hasAnsweredRef.current = true
     hapticFeedback('light')
     
-    if (timerRef.current) {
-      clearInterval(timerRef.current)
-      timerRef.current = null
-    }
+    // Не останавливаем таймер визуально, чтобы видеть, сколько времени осталось у соперника
+    // if (timerRef.current) {
+    //   clearInterval(timerRef.current)
+    //   timerRef.current = null
+    // }
     
     try {
       const response = await api.submitAnswer(duel.duel_id, round, answerId)
@@ -855,25 +856,28 @@ function DuelPage() {
                     </div>
                     
                     {/* Timer */}
-                    <div className="relative w-14 h-14 flex items-center justify-center">
-                        <svg className="w-full h-full -rotate-90 absolute inset-0">
-                           <circle cx="28" cy="28" r="26" stroke="rgba(255,255,255,0.1)" strokeWidth="4" fill="none" />
-                           <motion.circle 
-                              cx="28" cy="28" r="26" 
-                              stroke={timeLeft <= 10 ? '#EF4444' : '#6366F1'} 
-                              strokeWidth="4" 
-                              fill="none" 
-                              strokeDasharray={163}
-                              strokeDashoffset={163 - (163 * (timeLeft / 30))}
-                              strokeLinecap="round"
-                              initial={{ strokeDashoffset: 163 }}
-                              animate={{ strokeDashoffset: 163 - (163 * (timeLeft / 30)) }}
-                              transition={{ duration: 0.5 }}
-                           />
-                        </svg>
-                        <span className={`relative z-10 font-bold ${timeLeft <= 10 ? 'text-red-500' : 'text-white'}`}>
-                            {timeLeft}
-                        </span>
+                    <div className="relative flex flex-col items-center">
+                        <div className="relative w-14 h-14 flex items-center justify-center">
+                            <svg className="w-full h-full -rotate-90 absolute inset-0">
+                               <circle cx="28" cy="28" r="26" stroke="rgba(255,255,255,0.1)" strokeWidth="4" fill="none" />
+                               <motion.circle 
+                                  cx="28" cy="28" r="26" 
+                                  stroke={timeLeft <= 10 ? '#EF4444' : '#6366F1'} 
+                                  strokeWidth="4" 
+                                  fill="none" 
+                                  strokeDasharray={163}
+                                  strokeDashoffset={163 - (163 * (timeLeft / 30))}
+                                  strokeLinecap="round"
+                                  initial={{ strokeDashoffset: 163 }}
+                                  animate={{ strokeDashoffset: 163 - (163 * (timeLeft / 30)) }}
+                                  transition={{ duration: 0.5 }}
+                               />
+                            </svg>
+                            <span className={`relative z-10 font-bold ${timeLeft <= 10 ? 'text-red-500' : 'text-white'}`}>
+                                {timeLeft}
+                            </span>
+                        </div>
+                        <div className="mt-1 text-[10px] font-mono text-white/40 font-bold">R{round}/{totalRounds}</div>
                     </div>
                     
                     {/* Opponent */}
