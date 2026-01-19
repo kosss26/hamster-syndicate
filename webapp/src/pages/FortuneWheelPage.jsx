@@ -285,14 +285,17 @@ const FortuneWheelPage = () => {
                         )
                     })}
                     
-                    {/* Center Decoration */}
-                    <circle cx="100" cy="100" r="20" fill="url(#centerGrad)" stroke="white" strokeWidth="2" filter="url(#shadow)" />
-                    <text x="100" y="100" textAnchor="middle" dominantBaseline="central" fontSize="16">💎</text>
+                    {/* Center Decoration (STATIC) - Removed from here */}
                  </svg>
                  
                  {/* Shiny Overlay on Wheel */}
                  <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-white/10 to-transparent pointer-events-none" />
                </motion.div>
+
+               {/* Static Center Hub */}
+               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-14 h-14 rounded-full bg-gradient-to-br from-[#4f46e5] to-[#c026d3] shadow-[0_0_15px_rgba(79,70,229,0.5)] border-2 border-white/20 flex items-center justify-center pointer-events-none">
+                   <div className="w-8 h-8 rounded-full bg-white/10 backdrop-blur-sm shadow-inner" />
+               </div>
 
                {/* Outer Decor Ring (Fixed) */}
                <div className="absolute -inset-1 rounded-full border-[6px] border-[#312e81] pointer-events-none shadow-[0_0_20px_rgba(0,0,0,0.5)] z-0" />

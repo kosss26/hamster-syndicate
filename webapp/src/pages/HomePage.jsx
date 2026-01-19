@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { useTelegram, hapticFeedback } from '../hooks/useTelegram'
 import api from '../api/client'
 import AvatarWithFrame from '../components/AvatarWithFrame'
+import CoinIcon from '../components/CoinIcon'
 
 function HomePage() {
   const { user, tg } = useTelegram()
@@ -139,7 +140,7 @@ function HomePage() {
         {/* Currency Display */}
         {profile && (
           <div className="flex items-center gap-2 bg-black/20 backdrop-blur-md rounded-full px-3 py-1.5 border border-white/5">
-            <span className="text-xl">💰</span>
+            <CoinIcon className="w-5 h-5" />
             <span className="font-bold text-white text-sm">{profile.coins}</span>
           </div>
         )}
