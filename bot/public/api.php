@@ -61,6 +61,18 @@ $initData = $_SERVER['HTTP_X_TELEGRAM_INIT_DATA'] ?? '';
 $config = $container->get(Config::class);
 $telegramUser = verifyTelegramInitData($initData, $config->get('TELEGRAM_BOT_TOKEN', ''));
 
+// Rate Limiting
+if ($telegramUser) {
+    try {
+        $rateLimiter = $container->get(\QuizBot\Infrastructure\Security\RateLimiter::class);
+        if (!$rateLimiter->check((string) $telegramUser['id'])) {
+            jsonError('Too many requests. Please try again later.', 429);
+        }
+    } catch (Throwable $e) {
+        // Fail open if rate limiter fails
+    }
+}
+
 if ($telegramUser) {
     // Обновляем время последней активности пользователя
     try {

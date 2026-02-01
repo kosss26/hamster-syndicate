@@ -69,5 +69,32 @@ class UserProfile extends BaseModel
     {
         return $this->belongsTo(User::class);
     }
+
+    public function referrer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'referred_by_user_id');
+    }
+
+    // Scopes
+
+    public function scopeTopByExperience($query, int $limit = 100)
+    {
+        return $query->orderByDesc('experience')->limit($limit);
+    }
+
+    public function scopeTopByWins($query, int $limit = 100)
+    {
+        return $query->orderByDesc('duel_wins')->limit($limit);
+    }
+
+    public function scopeTopByRating($query, int $limit = 100)
+    {
+        return $query->orderByDesc('rating')->limit($limit);
+    }
+
+    public function scopeTopByCoins($query, int $limit = 100)
+    {
+        return $query->orderByDesc('coins')->limit($limit);
+    }
 }
 

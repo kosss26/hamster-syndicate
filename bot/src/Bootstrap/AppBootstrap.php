@@ -10,6 +10,7 @@ use Illuminate\Database\Capsule\Manager as Capsule;
 use Monolog\Handler\StreamHandler;
 use Monolog\Logger;
 use Psr\Container\ContainerInterface;
+use QuizBot\Infrastructure\Security\RateLimiter;
 use QuizBot\Infrastructure\Config\Config;
 use QuizBot\Infrastructure\Logging\LoggerFactory;
 use QuizBot\Infrastructure\Telegram\TelegramClientFactory;
@@ -130,7 +131,11 @@ final class AppBootstrap
                 /** @var Config $config */
                 $config = $c->get(Config::class);
 
-                return new CacheFactory($config->get('CACHE_DRIVER', 'array'), $this->basePath . '/storage/cache');
+                return new CacheFactory(
+                    $config->get('CACHE_DRIVER', 'array'),
+                    $this->basePath . '/storage/cache',
+                    $config->get('REDIS_URL')
+                );
             },
             TelegramClientFactory::class => function (Container $c) {
                 /** @var Config $config */
@@ -280,6 +285,13 @@ final class AppBootstrap
                 return new MigrationRunner(
                     $c->get(Capsule::class),
                     $c->get(Logger::class)
+                );
+            },
+            RateLimiter::class => function (Container $c) {
+                return new RateLimiter(
+                    $c->get(CacheFactory::class)->create(),
+                    100, // Limit
+                    60   // Period (seconds)
                 );
             },
         ]);
