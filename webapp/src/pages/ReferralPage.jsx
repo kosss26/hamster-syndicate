@@ -24,10 +24,12 @@ function ReferralPage() {
       if (response.success) {
         setStats(response.data)
       } else {
-        setError(response.error || 'Ошибка API')
+        console.error('Ошибка API рефералов:', response.error)
+        setError(response.error || 'Ошибка загрузки данных')
       }
     } catch (err) {
-      setError(err.message)
+      console.error('Ошибка загрузки рефералов:', err)
+      setError(err.message || 'Ошибка соединения')
     } finally {
       setLoading(false)
     }

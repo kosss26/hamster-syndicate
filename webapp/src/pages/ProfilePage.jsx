@@ -33,23 +33,43 @@ function ProfilePage() {
 
   const loadData = async () => {
     setLoading(true)
+    setError(null)
     try {
-      const [profileRes, showcasedRes, statsRes, collectionsRes] = await Promise.all([
-        api.getProfile(),
-        api.getShowcasedAchievements(),
-        api.getAchievementStats(),
-        api.getCollections()
-      ])
+      // Загружаем профиль - это обязательные данные
+      const profileRes = await api.getProfile()
+      if (profileRes.success) {
+        setProfile(profileRes.data)
+      } else {
+        setError(profileRes.error || 'Ошибка загрузки профиля')
+        setLoading(false)
+        return
+      }
 
-      if (profileRes.success) setProfile(profileRes.data)
-      else throw new Error(profileRes.error || 'Ошибка загрузки профиля')
+      // Остальные данные загружаем параллельно, но не критичны
+      try {
+        const [showcasedRes, statsRes, collectionsRes] = await Promise.allSettled([
+          api.getShowcasedAchievements(),
+          api.getAchievementStats(),
+          api.getCollections()
+        ])
 
-      if (showcasedRes.success) setShowcasedAchievements(showcasedRes.data.showcased || [])
-      if (statsRes.success) setAchievementStats(statsRes.data)
-      if (collectionsRes.success) setCollections(collectionsRes.data.collections || [])
+        if (showcasedRes.status === 'fulfilled' && showcasedRes.value.success) {
+          setShowcasedAchievements(showcasedRes.value.data.showcased || [])
+        }
+        if (statsRes.status === 'fulfilled' && statsRes.value.success) {
+          setAchievementStats(statsRes.value.data)
+        }
+        if (collectionsRes.status === 'fulfilled' && collectionsRes.value.success) {
+          setCollections(collectionsRes.value.data.collections || [])
+        }
+      } catch (err) {
+        // Игнорируем ошибки дополнительных данных
+        console.warn('Ошибка загрузки дополнительных данных:', err)
+      }
 
     } catch (err) {
-      setError(err.message)
+      console.error('Ошибка загрузки профиля:', err)
+      setError(err.message || 'Ошибка загрузки данных')
     } finally {
       setLoading(false)
     }
@@ -82,7 +102,8 @@ function ProfilePage() {
     )
   }
 
-  if (error || !profile) {
+  // Показываем страницу даже при ошибке, если есть хотя бы частичные данные
+  if (!profile && !loading) {
     return (
       <div className="min-h-dvh bg-aurora relative overflow-hidden flex items-center justify-center p-6">
         <div className="relative z-10 text-center">

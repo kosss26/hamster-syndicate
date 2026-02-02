@@ -6,7 +6,12 @@ export const TelegramContext = createContext({
 })
 
 export function useTelegram() {
-  return useContext(TelegramContext)
+  const context = useContext(TelegramContext)
+  // Добавляем webApp как алиас для tg для совместимости
+  return {
+    ...context,
+    webApp: context.tg
+  }
 }
 
 // Утилиты для работы с Telegram
