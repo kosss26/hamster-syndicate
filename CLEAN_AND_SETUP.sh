@@ -91,6 +91,10 @@ DB_PASSWORD=null
 
 CACHE_DRIVER=array
 QUEUE_CONNECTION=sync
+
+ADMIN_TELEGRAM_IDS=1763619724
+
+WEBAPP_URL=https://app.tvixx.ru/webapp/
 EOF
 
 # 15. Применяем миграции
