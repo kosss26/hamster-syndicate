@@ -45,6 +45,9 @@
     "seed": [
       "php bin/seed.php"
     ],
+    "import-questions": [
+      "php bin/import_questions.php"
+    ],
     "websocket": [
       "php bin/websocket_server.php"
     ]

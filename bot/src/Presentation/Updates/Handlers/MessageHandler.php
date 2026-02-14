@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace QuizBot\Presentation\Updates\Handlers;
 
 use GuzzleHttp\ClientInterface;
+use Illuminate\Database\Capsule\Manager as Capsule;
 use Monolog\Logger;
 use Symfony\Contracts\Cache\CacheInterface;
 use QuizBot\Application\Services\UserService;
@@ -122,6 +123,22 @@ final class MessageHandler
                 'user' => $user,
             ]);
 
+            return;
+        }
+
+        if (isset($message['document']) && is_array($message['document'])) {
+            if (!($user instanceof User) || !$this->adminService->isAdmin($user)) {
+                $this->telegramClient->request('POST', 'sendMessage', [
+                    'json' => [
+                        'chat_id' => $chatId,
+                        'text' => '⛔️ Загрузка вопросов доступна только администраторам.',
+                    ],
+                ]);
+                return;
+            }
+
+            $caption = isset($message['caption']) && is_string($message['caption']) ? trim($message['caption']) : '';
+            $this->handleAdminQuestionsFileImport((int) $chatId, $user, $message['document'], $caption);
             return;
         }
 
@@ -637,6 +654,422 @@ final class MessageHandler
     }
 
     /**
+     * @param array<string, mixed> $document
+     */
+    private function handleAdminQuestionsFileImport(int $chatId, User $admin, array $document, string $caption): void
+    {
+        $fileName = isset($document['file_name']) ? (string) $document['file_name'] : 'questions.txt';
+        $mimeType = isset($document['mime_type']) ? mb_strtolower((string) $document['mime_type']) : '';
+        $ext = mb_strtolower((string) pathinfo($fileName, PATHINFO_EXTENSION));
+        $fileSize = isset($document['file_size']) ? (int) $document['file_size'] : 0;
+        $maxFileSize = 2 * 1024 * 1024; // 2MB
+
+        $allowedExtensions = ['txt', 'json', 'ndjson', 'jsonl'];
+        $allowedMimeTypes = ['text/plain', 'application/json', 'application/x-ndjson'];
+
+        if (!in_array($ext, $allowedExtensions, true) && !in_array($mimeType, $allowedMimeTypes, true)) {
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => '❌ Нужен текстовый файл вопросов (.txt, .json, .ndjson).',
+                ],
+            ]);
+            return;
+        }
+
+        if ($fileSize > $maxFileSize) {
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => '❌ Файл слишком большой. Максимум: 2MB.',
+                ],
+            ]);
+            return;
+        }
+
+        try {
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => '⏳ Импортирую вопросы из файла...',
+                ],
+            ]);
+
+            $content = $this->downloadTelegramDocument($document);
+            $defaultCategory = $this->extractCategoryFromCaption($caption);
+            $result = $this->importQuestionsFromFileContent($content, $fileName, $defaultCategory);
+
+            $summary = sprintf(
+                "✅ Импорт завершен.\n\nФайл: %s\nДобавлено: %d\nОшибок: %d",
+                htmlspecialchars($fileName, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                $result['inserted'],
+                count($result['errors'])
+            );
+
+            if (!empty($result['errors'])) {
+                $preview = array_slice($result['errors'], 0, 5);
+                $summary .= "\n\nПервые ошибки:\n- " . implode("\n- ", array_map(static function (string $e): string {
+                    return htmlspecialchars($e, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+                }, $preview));
+            }
+
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => $summary,
+                    'parse_mode' => 'HTML',
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            $this->logger->error('Ошибка импорта файла вопросов админом', [
+                'admin_id' => $admin->getKey(),
+                'telegram_id' => $admin->telegram_id,
+                'file_name' => $fileName,
+                'error' => $e->getMessage(),
+            ]);
+
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => "❌ Не удалось импортировать файл.\n\nФормат:\nCATEGORY: География\nQ: Вопрос?\n+ Правильный ответ\n- Неправильный ответ\n- Неправильный ответ\n\n(пустая строка между вопросами)",
+                ],
+            ]);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $document
+     */
+    private function downloadTelegramDocument(array $document): string
+    {
+        $fileId = isset($document['file_id']) ? (string) $document['file_id'] : '';
+        if ($fileId === '') {
+            throw new \RuntimeException('В документе отсутствует file_id');
+        }
+
+        $botToken = (string) (getenv('TELEGRAM_BOT_TOKEN') ?: ($_ENV['TELEGRAM_BOT_TOKEN'] ?? ''));
+        if ($botToken === '') {
+            throw new \RuntimeException('TELEGRAM_BOT_TOKEN не найден в окружении');
+        }
+
+        $response = $this->telegramClient->request('POST', 'getFile', [
+            'json' => ['file_id' => $fileId],
+        ]);
+        $payload = json_decode((string) $response->getBody(), true);
+
+        $filePath = isset($payload['result']['file_path']) ? (string) $payload['result']['file_path'] : '';
+        if ($filePath === '') {
+            throw new \RuntimeException('Telegram не вернул file_path');
+        }
+
+        $fileResponse = $this->telegramClient->request('GET', sprintf(
+            'https://api.telegram.org/file/bot%s/%s',
+            $botToken,
+            $filePath
+        ));
+
+        $content = (string) $fileResponse->getBody();
+        if (trim($content) === '') {
+            throw new \RuntimeException('Файл пустой');
+        }
+
+        return $content;
+    }
+
+    private function extractCategoryFromCaption(string $caption): ?string
+    {
+        if ($caption === '') {
+            return null;
+        }
+
+        if (preg_match('/category\\s*:\\s*(.+)$/i', $caption, $m) === 1) {
+            $value = trim($m[1]);
+            return $value !== '' ? $value : null;
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{inserted:int,errors:array<int,string>}
+     */
+    private function importQuestionsFromFileContent(string $content, string $fileName, ?string $defaultCategory): array
+    {
+        $lowerFileName = mb_strtolower($fileName);
+        $isNdjson = $this->endsWith($lowerFileName, '.ndjson') || $this->endsWith($lowerFileName, '.jsonl');
+        $isJson = $this->endsWith($lowerFileName, '.json');
+
+        if ($isNdjson || $isJson) {
+            return $this->importQuestionsFromJsonContent($content, $isNdjson);
+        }
+
+        return $this->importQuestionsFromPlainText($content, $defaultCategory);
+    }
+
+    /**
+     * @return array{inserted:int,errors:array<int,string>}
+     */
+    private function importQuestionsFromJsonContent(string $content, bool $isNdjson): array
+    {
+        $records = [];
+
+        if ($isNdjson) {
+            $lines = preg_split('/\\R/', $content) ?: [];
+            foreach ($lines as $index => $line) {
+                $line = trim($line);
+                if ($line === '') {
+                    continue;
+                }
+                $decoded = json_decode($line, true);
+                if (!is_array($decoded)) {
+                    throw new \RuntimeException(sprintf('Некорректный JSON в строке %d', $index + 1));
+                }
+                $records[] = $decoded;
+            }
+        } else {
+            $decoded = json_decode($content, true);
+            if (!is_array($decoded)) {
+                throw new \RuntimeException('JSON файл должен содержать массив вопросов');
+            }
+            $records = isset($decoded['questions']) && is_array($decoded['questions']) ? $decoded['questions'] : $decoded;
+        }
+
+        $inserted = 0;
+        $errors = [];
+
+        Capsule::connection()->transaction(function () use ($records, &$inserted, &$errors): void {
+            $now = date('Y-m-d H:i:s');
+
+            foreach ($records as $idx => $record) {
+                try {
+                    if (!is_array($record)) {
+                        throw new \RuntimeException('Элемент вопроса не объект');
+                    }
+
+                    $categoryTitle = trim((string) ($record['category'] ?? ''));
+                    if ($categoryTitle === '') {
+                        throw new \RuntimeException('Не указана category');
+                    }
+
+                    $category = \QuizBot\Domain\Model\Category::query()
+                        ->where('title', $categoryTitle)
+                        ->first();
+                    if (!$category) {
+                        throw new \RuntimeException('Категория не найдена: ' . $categoryTitle);
+                    }
+
+                    $questionText = trim((string) ($record['question'] ?? $record['question_text'] ?? ''));
+                    if ($questionText === '') {
+                        throw new \RuntimeException('Пустой вопрос');
+                    }
+
+                    $answers = $record['answers'] ?? null;
+                    if (!is_array($answers) || count($answers) < 2) {
+                        throw new \RuntimeException('Нужно минимум 2 ответа');
+                    }
+
+                    $questionId = (int) Capsule::table('questions')->insertGetId([
+                        'category_id' => $category->getKey(),
+                        'type' => 'multiple_choice',
+                        'question_text' => $questionText,
+                        'image_url' => isset($record['image_url']) ? (string) $record['image_url'] : null,
+                        'explanation' => isset($record['explanation']) ? (string) $record['explanation'] : null,
+                        'difficulty' => is_numeric($record['difficulty'] ?? null) ? (int) $record['difficulty'] : 1,
+                        'time_limit' => is_numeric($record['time_limit'] ?? null) ? (int) $record['time_limit'] : 30,
+                        'is_active' => true,
+                        'tags' => null,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+
+                    $correctCount = 0;
+                    $answerRows = [];
+                    foreach ($answers as $a) {
+                        if (!is_array($a)) {
+                            continue;
+                        }
+                        $text = trim((string) ($a['text'] ?? $a['answer_text'] ?? ''));
+                        if ($text === '') {
+                            continue;
+                        }
+                        $isCorrect = (bool) ($a['is_correct'] ?? false);
+                        if ($isCorrect) {
+                            $correctCount++;
+                        }
+                        $answerRows[] = [
+                            'question_id' => $questionId,
+                            'answer_text' => $text,
+                            'is_correct' => $isCorrect,
+                            'score_delta' => 0,
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ];
+                    }
+
+                    if ($correctCount !== 1 || count($answerRows) < 2) {
+                        throw new \RuntimeException('В вопросе должен быть ровно 1 правильный ответ');
+                    }
+
+                    Capsule::table('answers')->insert($answerRows);
+                    $inserted++;
+                } catch (\Throwable $e) {
+                    $errors[] = sprintf('JSON #%d: %s', $idx + 1, $e->getMessage());
+                }
+            }
+        });
+
+        return [
+            'inserted' => $inserted,
+            'errors' => $errors,
+        ];
+    }
+
+    /**
+     * @return array{inserted:int,errors:array<int,string>}
+     */
+    private function importQuestionsFromPlainText(string $content, ?string $defaultCategory): array
+    {
+        $normalized = str_replace(["\r\n", "\r"], "\n", $content);
+        $blocks = preg_split('/\\n\\s*\\n/', $normalized) ?: [];
+
+        $inserted = 0;
+        $errors = [];
+        $globalCategory = $defaultCategory;
+
+        Capsule::connection()->transaction(function () use ($blocks, &$inserted, &$errors, &$globalCategory): void {
+            $now = date('Y-m-d H:i:s');
+
+            foreach ($blocks as $blockIndex => $blockRaw) {
+                $block = trim($blockRaw);
+                if ($block === '') {
+                    continue;
+                }
+
+                try {
+                    $lines = array_values(array_filter(array_map('trim', explode("\n", $block)), static function (string $line): bool {
+                        return $line !== '' && strpos($line, '#') !== 0;
+                    }));
+
+                    if (count($lines) === 0) {
+                        continue;
+                    }
+
+                    $categoryTitle = $globalCategory;
+                    if (preg_match('/^category\\s*:\\s*(.+)$/i', $lines[0], $m) === 1) {
+                        $categoryTitle = trim($m[1]);
+                        $globalCategory = $categoryTitle;
+                        array_shift($lines);
+                    }
+
+                    if (!$categoryTitle) {
+                        throw new \RuntimeException('Не указана категория. Добавьте CATEGORY: Название');
+                    }
+
+                    if (count($lines) < 3) {
+                        throw new \RuntimeException('Слишком мало строк: нужен вопрос и минимум 2 ответа');
+                    }
+
+                    $questionLine = array_shift($lines);
+                    $questionText = preg_replace('/^q\\s*:\\s*/i', '', $questionLine) ?? $questionLine;
+                    $questionText = trim($questionText);
+                    if ($questionText === '') {
+                        throw new \RuntimeException('Пустой текст вопроса');
+                    }
+
+                    $category = \QuizBot\Domain\Model\Category::query()
+                        ->where('title', $categoryTitle)
+                        ->first();
+                    if (!$category) {
+                        throw new \RuntimeException('Категория не найдена: ' . $categoryTitle);
+                    }
+
+                    $questionId = (int) Capsule::table('questions')->insertGetId([
+                        'category_id' => $category->getKey(),
+                        'type' => 'multiple_choice',
+                        'question_text' => $questionText,
+                        'image_url' => null,
+                        'explanation' => null,
+                        'difficulty' => 1,
+                        'time_limit' => 30,
+                        'is_active' => true,
+                        'tags' => null,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+
+                    $answerRows = [];
+                    $correctCount = 0;
+                    foreach ($lines as $answerIndex => $line) {
+                        $isCorrect = false;
+                        $text = $line;
+
+                        if (preg_match('/^\\+\\s*(.+)$/u', $line, $m) === 1) {
+                            $isCorrect = true;
+                            $text = trim($m[1]);
+                        } elseif (preg_match('/^-\\s*(.+)$/u', $line, $m) === 1) {
+                            $isCorrect = false;
+                            $text = trim($m[1]);
+                        } elseif (preg_match('/^a\\*\\s*:\\s*(.+)$/iu', $line, $m) === 1) {
+                            $isCorrect = true;
+                            $text = trim($m[1]);
+                        } elseif (preg_match('/^a\\s*:\\s*(.+)$/iu', $line, $m) === 1) {
+                            $isCorrect = false;
+                            $text = trim($m[1]);
+                        } else {
+                            // Фолбэк: первый ответ считаем правильным
+                            $isCorrect = $answerIndex === 0;
+                            $text = trim($line);
+                        }
+
+                        if ($text === '') {
+                            continue;
+                        }
+                        if ($isCorrect) {
+                            $correctCount++;
+                        }
+
+                        $answerRows[] = [
+                            'question_id' => $questionId,
+                            'answer_text' => $text,
+                            'is_correct' => $isCorrect,
+                            'score_delta' => 0,
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ];
+                    }
+
+                    if ($correctCount !== 1 || count($answerRows) < 2) {
+                        throw new \RuntimeException('Нужен минимум 2 ответа и ровно 1 правильный');
+                    }
+
+                    Capsule::table('answers')->insert($answerRows);
+                    $inserted++;
+                } catch (\Throwable $e) {
+                    $errors[] = sprintf('Блок #%d: %s', $blockIndex + 1, $e->getMessage());
+                }
+            }
+        });
+
+        return [
+            'inserted' => $inserted,
+            'errors' => $errors,
+        ];
+    }
+
+    private function endsWith(string $value, string $suffix): bool
+    {
+        if ($suffix === '') {
+            return true;
+        }
+
+        if (strlen($value) < strlen($suffix)) {
+            return false;
+        }
+
+        return substr($value, -strlen($suffix)) === $suffix;
+    }
+
+    /**
      * Обрабатывает добавление вопроса от админа
      */
     private function handleAdminAddQuestion($chatId, User $admin, int $categoryId, string $input): void
@@ -859,4 +1292,3 @@ final class MessageHandler
         }
     }
 }
-

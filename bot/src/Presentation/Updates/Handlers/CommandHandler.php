@@ -181,6 +181,12 @@ final class CommandHandler
             return;
         }
 
+        if ($this->startsWith($normalized, '/import_help')) {
+            $this->sendImportHelp($chatId, $user);
+
+            return;
+        }
+
         if ($this->startsWith($normalized, '/admin')) {
             $this->handleAdmin($chatId, $user);
 
@@ -584,6 +590,60 @@ final class CommandHandler
                 'text' => $text,
                 'parse_mode' => 'HTML',
                 'reply_markup' => $this->getMainKeyboard(),
+            ],
+        ]);
+    }
+
+    /**
+     * @param int|string $chatId
+     */
+    private function sendImportHelp($chatId, ?User $user): void
+    {
+        if (!$user instanceof User || !$this->adminService->isAdmin($user)) {
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => '⛔️ Команда доступна только администраторам.',
+                ],
+            ]);
+            return;
+        }
+
+        $text = implode("\n", [
+            '📥 <b>Импорт вопросов из файла</b>',
+            '',
+            'Отправь боту документ <code>.txt</code>, <code>.json</code> или <code>.ndjson</code>.',
+            'После отправки бот сразу добавит вопросы в базу и пришлёт отчёт.',
+            '',
+            '<b>TXT формат (рекомендуется):</b>',
+            '<code>CATEGORY: География',
+            'Q: Столица Канады?',
+            '+ Оттава',
+            '- Торонто',
+            '- Монреаль',
+            '- Ванкувер',
+            '',
+            'Q: Самая длинная река в мире?',
+            '+ Нил',
+            '- Амазонка',
+            '- Янцзы',
+            '- Миссисипи</code>',
+            '',
+            'Правила:',
+            '• Пустая строка разделяет вопросы',
+            '• <code>+</code> — правильный ответ, <code>-</code> — неправильный',
+            '• Категория должна существовать в БД',
+            '• Если не указать <code>CATEGORY:</code> в блоке, будет использована последняя',
+            '',
+            'Можно указать категорию в подписи к файлу:',
+            '<code>category: География</code>',
+        ]);
+
+        $this->telegramClient->request('POST', 'sendMessage', [
+            'json' => [
+                'chat_id' => $chatId,
+                'text' => $text,
+                'parse_mode' => 'HTML',
             ],
         ]);
     }
@@ -1324,4 +1384,3 @@ final class CommandHandler
         }
     }
 }
-

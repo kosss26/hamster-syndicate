@@ -15,6 +15,7 @@ class Question extends BaseModel
      * @var array<int, string>
      */
     protected $fillable = [
+        'external_id',
         'category_id',
         'type',
         'question_text',
@@ -48,4 +49,3 @@ class Question extends BaseModel
         return $this->hasMany(Answer::class);
     }
 }
-
