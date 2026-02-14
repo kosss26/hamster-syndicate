@@ -138,6 +138,12 @@ final class MessageHandler
             }
 
             $caption = isset($message['caption']) && is_string($message['caption']) ? trim($message['caption']) : '';
+            if ($this->shouldImportFactsFromDocument($user, $caption)) {
+                $this->handleAdminFactsFileImport((int) $chatId, $user, $message['document']);
+                $this->disableFactsImportMode($user);
+                return;
+            }
+
             $this->handleAdminQuestionsFileImport((int) $chatId, $user, $message['document'], $caption);
             return;
         }
@@ -548,6 +554,45 @@ final class MessageHandler
         ]);
     }
 
+    private function shouldImportFactsFromDocument(User $user, string $caption): bool
+    {
+        if ($caption !== '' && $this->startsWith(mb_strtolower($caption), '/import_facts')) {
+            return true;
+        }
+
+        return $this->isFactsImportModeEnabled($user);
+    }
+
+    private function isFactsImportModeEnabled(User $user): bool
+    {
+        $cacheKey = sprintf('admin:import_facts_mode:%d', $user->getKey());
+        try {
+            $value = $this->cache->get($cacheKey, static function () {
+                return null;
+            });
+            return $value === true;
+        } catch (\Throwable $e) {
+            $this->logger->warning('Ошибка чтения режима импорта фактов', [
+                'user_id' => $user->getKey(),
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
+    }
+
+    private function disableFactsImportMode(User $user): void
+    {
+        $cacheKey = sprintf('admin:import_facts_mode:%d', $user->getKey());
+        try {
+            $this->cache->delete($cacheKey);
+        } catch (\Throwable $e) {
+            $this->logger->debug('Не удалось отключить режим импорта фактов', [
+                'user_id' => $user->getKey(),
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
     private function startsWith(string $haystack, string $needle): bool
     {
         return $needle === '' || strncmp($haystack, $needle, strlen($needle)) === 0;
@@ -740,6 +785,89 @@ final class MessageHandler
     /**
      * @param array<string, mixed> $document
      */
+    private function handleAdminFactsFileImport(int $chatId, User $admin, array $document): void
+    {
+        $fileName = isset($document['file_name']) ? (string) $document['file_name'] : 'facts.txt';
+        $mimeType = isset($document['mime_type']) ? mb_strtolower((string) $document['mime_type']) : '';
+        $ext = mb_strtolower((string) pathinfo($fileName, PATHINFO_EXTENSION));
+        $fileSize = isset($document['file_size']) ? (int) $document['file_size'] : 0;
+        $maxFileSize = 2 * 1024 * 1024; // 2MB
+
+        $allowedExtensions = ['txt', 'json', 'ndjson', 'jsonl'];
+        $allowedMimeTypes = ['text/plain', 'application/json', 'application/x-ndjson'];
+
+        if (!in_array($ext, $allowedExtensions, true) && !in_array($mimeType, $allowedMimeTypes, true)) {
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => '❌ Нужен текстовый файл фактов (.txt, .json, .ndjson).',
+                ],
+            ]);
+            return;
+        }
+
+        if ($fileSize > $maxFileSize) {
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => '❌ Файл слишком большой. Максимум: 2MB.',
+                ],
+            ]);
+            return;
+        }
+
+        try {
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => '⏳ Импортирую факты из файла...',
+                ],
+            ]);
+
+            $content = $this->downloadTelegramDocument($document);
+            $result = $this->importFactsFromFileContent($content, $fileName);
+
+            $summary = sprintf(
+                "✅ Импорт фактов завершен.\n\nФайл: %s\nДобавлено: %d\nОшибок: %d",
+                htmlspecialchars($fileName, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                $result['inserted'],
+                count($result['errors'])
+            );
+
+            if (!empty($result['errors'])) {
+                $preview = array_slice($result['errors'], 0, 5);
+                $summary .= "\n\nПервые ошибки:\n- " . implode("\n- ", array_map(static function (string $e): string {
+                    return htmlspecialchars($e, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+                }, $preview));
+            }
+
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => $summary,
+                    'parse_mode' => 'HTML',
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            $this->logger->error('Ошибка импорта фактов админом', [
+                'admin_id' => $admin->getKey(),
+                'telegram_id' => $admin->telegram_id,
+                'file_name' => $fileName,
+                'error' => $e->getMessage(),
+            ]);
+
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => "❌ Не удалось импортировать факты.\n\nФормат TXT:\nУтверждение\ntrue|false\nПояснение (опционально)",
+                ],
+            ]);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $document
+     */
     private function downloadTelegramDocument(array $document): string
     {
         $fileId = isset($document['file_id']) ? (string) $document['file_id'] : '';
@@ -804,6 +932,196 @@ final class MessageHandler
         }
 
         return $this->importQuestionsFromPlainText($content, $defaultCategory);
+    }
+
+    /**
+     * @return array{inserted:int,errors:array<int,string>}
+     */
+    private function importFactsFromFileContent(string $content, string $fileName): array
+    {
+        $lowerFileName = mb_strtolower($fileName);
+        $isNdjson = $this->endsWith($lowerFileName, '.ndjson') || $this->endsWith($lowerFileName, '.jsonl');
+        $isJson = $this->endsWith($lowerFileName, '.json');
+
+        if ($isNdjson || $isJson) {
+            return $this->importFactsFromJsonContent($content, $isNdjson);
+        }
+
+        return $this->importFactsFromPlainText($content);
+    }
+
+    /**
+     * @return array{inserted:int,errors:array<int,string>}
+     */
+    private function importFactsFromJsonContent(string $content, bool $isNdjson): array
+    {
+        $records = [];
+
+        if ($isNdjson) {
+            $lines = preg_split('/\\R/', $content) ?: [];
+            foreach ($lines as $index => $line) {
+                $line = trim($line);
+                if ($line === '') {
+                    continue;
+                }
+                $decoded = json_decode($line, true);
+                if (!is_array($decoded)) {
+                    throw new \RuntimeException(sprintf('Некорректный JSON в строке %d', $index + 1));
+                }
+                $records[] = $decoded;
+            }
+        } else {
+            $decoded = json_decode($content, true);
+            if (!is_array($decoded)) {
+                throw new \RuntimeException('JSON файл должен содержать массив фактов');
+            }
+            $records = isset($decoded['facts']) && is_array($decoded['facts']) ? $decoded['facts'] : $decoded;
+        }
+
+        $inserted = 0;
+        $errors = [];
+
+        Capsule::connection()->transaction(function () use ($records, &$inserted, &$errors): void {
+            $now = date('Y-m-d H:i:s');
+
+            foreach ($records as $idx => $record) {
+                try {
+                    if (!is_array($record)) {
+                        throw new \RuntimeException('Элемент факта не объект');
+                    }
+
+                    $statement = trim((string) ($record['statement'] ?? $record['fact'] ?? ''));
+                    if ($statement === '') {
+                        throw new \RuntimeException('Пустое утверждение');
+                    }
+
+                    $truthRaw = $record['is_true'] ?? $record['truth'] ?? $record['answer'] ?? null;
+                    $isTrue = $this->normalizeTruthValue($truthRaw);
+                    if ($isTrue === null) {
+                        throw new \RuntimeException('Поле is_true/answer не распознано');
+                    }
+
+                    $explanation = isset($record['explanation']) ? trim((string) $record['explanation']) : '';
+
+                    Capsule::table('true_false_facts')->insert([
+                        'statement' => $statement,
+                        'explanation' => $explanation !== '' ? $explanation : null,
+                        'is_true' => $isTrue,
+                        'is_active' => true,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+                    $inserted++;
+                } catch (\Throwable $e) {
+                    $errors[] = sprintf('JSON #%d: %s', $idx + 1, $e->getMessage());
+                }
+            }
+        });
+
+        return [
+            'inserted' => $inserted,
+            'errors' => $errors,
+        ];
+    }
+
+    /**
+     * @return array{inserted:int,errors:array<int,string>}
+     */
+    private function importFactsFromPlainText(string $content): array
+    {
+        $normalized = str_replace(["\r\n", "\r"], "\n", $content);
+        $blocks = preg_split('/\\n\\s*\\n/', $normalized) ?: [];
+
+        $inserted = 0;
+        $errors = [];
+
+        Capsule::connection()->transaction(function () use ($blocks, &$inserted, &$errors): void {
+            $now = date('Y-m-d H:i:s');
+
+            foreach ($blocks as $blockIndex => $blockRaw) {
+                $block = trim($blockRaw);
+                if ($block === '') {
+                    continue;
+                }
+
+                try {
+                    $lines = array_values(array_filter(array_map('trim', explode("\n", $block)), static function (string $line): bool {
+                        return $line !== '' && strpos($line, '#') !== 0;
+                    }));
+
+                    if (count($lines) < 2) {
+                        throw new \RuntimeException('Нужно минимум 2 строки: утверждение и true/false');
+                    }
+
+                    $statement = preg_replace('/^(fact|statement|s)\\s*:\\s*/i', '', $lines[0]) ?? $lines[0];
+                    $statement = trim($statement);
+                    if ($statement === '') {
+                        throw new \RuntimeException('Пустое утверждение');
+                    }
+
+                    $isTrue = $this->normalizeTruthValue($lines[1]);
+                    if ($isTrue === null) {
+                        throw new \RuntimeException('Вторая строка должна быть true/false (или правда/ложь, 1/0)');
+                    }
+
+                    $explanationLines = array_slice($lines, 2);
+                    $explanation = trim(implode("\n", $explanationLines));
+
+                    Capsule::table('true_false_facts')->insert([
+                        'statement' => $statement,
+                        'explanation' => $explanation !== '' ? $explanation : null,
+                        'is_true' => $isTrue,
+                        'is_active' => true,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+                    $inserted++;
+                } catch (\Throwable $e) {
+                    $errors[] = sprintf('Блок #%d: %s', $blockIndex + 1, $e->getMessage());
+                }
+            }
+        });
+
+        return [
+            'inserted' => $inserted,
+            'errors' => $errors,
+        ];
+    }
+
+    /**
+     * @param mixed $value
+     */
+    private function normalizeTruthValue($value): ?bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        if (is_int($value) || is_float($value)) {
+            if ((int) $value === 1) {
+                return true;
+            }
+            if ((int) $value === 0) {
+                return false;
+            }
+        }
+
+        if (!is_string($value)) {
+            return null;
+        }
+
+        $normalized = mb_strtolower(trim($value));
+        $trueValues = ['1', 'true', 't', 'yes', 'y', 'правда', '+'];
+        $falseValues = ['0', 'false', 'f', 'no', 'n', 'ложь', '-'];
+
+        if (in_array($normalized, $trueValues, true)) {
+            return true;
+        }
+        if (in_array($normalized, $falseValues, true)) {
+            return false;
+        }
+
+        return null;
     }
 
     /**

@@ -20,6 +20,7 @@ use QuizBot\Domain\Model\Duel;
 use QuizBot\Domain\Model\TrueFalseFact;
 use QuizBot\Presentation\Updates\Handlers\Concerns\SendsDuelMessages;
 use Symfony\Contracts\Cache\CacheInterface;
+use Symfony\Contracts\Cache\ItemInterface;
 
 final class CommandHandler
 {
@@ -183,6 +184,12 @@ final class CommandHandler
 
         if ($this->startsWith($normalized, '/import_help')) {
             $this->sendImportHelp($chatId, $user);
+
+            return;
+        }
+
+        if ($this->startsWith($normalized, '/import_facts')) {
+            $this->startFactsImportMode($chatId, $user);
 
             return;
         }
@@ -637,6 +644,66 @@ final class CommandHandler
             '',
             'Можно указать категорию в подписи к файлу:',
             '<code>category: География</code>',
+            '',
+            '<b>Импорт фактов для «Правда или ложь»:</b>',
+            '1) Отправь команду <code>/import_facts</code>',
+            '2) Затем отправь файл <code>.txt</code>, <code>.json</code> или <code>.ndjson</code>',
+        ]);
+
+        $this->telegramClient->request('POST', 'sendMessage', [
+            'json' => [
+                'chat_id' => $chatId,
+                'text' => $text,
+                'parse_mode' => 'HTML',
+            ],
+        ]);
+    }
+
+    /**
+     * @param int|string $chatId
+     */
+    private function startFactsImportMode($chatId, ?User $user): void
+    {
+        if (!$user instanceof User || !$this->adminService->isAdmin($user)) {
+            $this->telegramClient->request('POST', 'sendMessage', [
+                'json' => [
+                    'chat_id' => $chatId,
+                    'text' => '⛔️ Команда доступна только администраторам.',
+                ],
+            ]);
+            return;
+        }
+
+        $cacheKey = sprintf('admin:import_facts_mode:%d', $user->getKey());
+        try {
+            $this->cache->delete($cacheKey);
+            $this->cache->get($cacheKey, static function (ItemInterface $item) {
+                $item->expiresAfter(600);
+                return true;
+            });
+        } catch (\Throwable $e) {
+            $this->logger->warning('Не удалось включить режим импорта фактов', [
+                'user_id' => $user->getKey(),
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        $text = implode("\n", [
+            '📥 <b>Импорт фактов (Правда/Ложь)</b>',
+            '',
+            'Отправь следующим сообщением файл <code>.txt</code>, <code>.json</code> или <code>.ndjson</code>.',
+            '',
+            '<b>TXT формат:</b>',
+            '<code>Солнце - это звезда.',
+            'truth',
+            'Солнце относится к звездам спектрального класса G.',
+            '',
+            'Эверест находится в Альпах.',
+            'false',
+            'Эверест находится в Гималаях.</code>',
+            '',
+            'Второй строкой укажи: <code>true/false</code> (или <code>правда/ложь</code>, <code>1/0</code>).',
+            'Третья строка и далее - пояснение (опционально).',
         ]);
 
         $this->telegramClient->request('POST', 'sendMessage', [

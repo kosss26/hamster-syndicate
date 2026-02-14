@@ -32,7 +32,12 @@ class TrueFalseService
     public function startSession(User $user): ?TrueFalseFact
     {
         $user = $this->userService->ensureProfile($user);
-        $fact = $this->getRandomFact([]);
+        $desiredTruthiness = random_int(0, 1) === 1;
+        $fact = $this->getRandomFact([], $desiredTruthiness);
+
+        if (!$fact instanceof TrueFalseFact) {
+            $fact = $this->getRandomFact([]);
+        }
 
         if (!$fact instanceof TrueFalseFact) {
             $this->logger->warning('Нет фактов для режима Правда или ложь');
@@ -44,6 +49,8 @@ class TrueFalseService
             'streak' => 0,
             'asked' => [$fact->getKey()],
             'current_fact_id' => $fact->getKey(),
+            'asked_true' => $fact->is_true ? 1 : 0,
+            'asked_false' => $fact->is_true ? 0 : 1,
         ];
 
         $this->saveSession($user, $session);
@@ -103,22 +110,49 @@ class TrueFalseService
         $session['current_fact_id'] = null;
 
         $asked = $session['asked'] ?? [];
+        $factWasAddedToAsked = false;
         if (!\in_array($fact->getKey(), $asked, true)) {
             $asked[] = $fact->getKey();
+            $factWasAddedToAsked = true;
+        }
+        $session['asked'] = $asked;
+
+        if ($factWasAddedToAsked) {
+            if ($fact->is_true) {
+                $session['asked_true'] = (int) ($session['asked_true'] ?? 0) + 1;
+            } else {
+                $session['asked_false'] = (int) ($session['asked_false'] ?? 0) + 1;
+            }
         }
 
-        $nextFact = $this->getRandomFact($asked);
+        $preferredIsTrue = $this->resolvePreferredTruthiness($session);
+        $nextFact = $this->getRandomFact($asked, $preferredIsTrue);
+
+        if (!$nextFact instanceof TrueFalseFact) {
+            $nextFact = $this->getRandomFact($asked);
+        }
 
         if (!$nextFact instanceof TrueFalseFact) {
             // Если факты закончились, начинаем заново
             $session['asked'] = [];
-            $asked = [];
-            $nextFact = $this->getRandomFact($asked);
+            $session['asked_true'] = 0;
+            $session['asked_false'] = 0;
+            $preferredIsTrue = random_int(0, 1) === 1;
+            $nextFact = $this->getRandomFact([], $preferredIsTrue);
+
+            if (!$nextFact instanceof TrueFalseFact) {
+                $nextFact = $this->getRandomFact([]);
+            }
         }
 
         if ($nextFact instanceof TrueFalseFact) {
             $session['current_fact_id'] = $nextFact->getKey();
             $session['asked'][] = $nextFact->getKey();
+            if ($nextFact->is_true) {
+                $session['asked_true'] = (int) ($session['asked_true'] ?? 0) + 1;
+            } else {
+                $session['asked_false'] = (int) ($session['asked_false'] ?? 0) + 1;
+            }
         }
 
         $this->saveSession($user, $session);
@@ -151,23 +185,44 @@ class TrueFalseService
             'streak' => 0,
             'asked' => [],
             'current_fact_id' => null,
+            'asked_true' => 0,
+            'asked_false' => 0,
         ];
 
         $session['streak'] = 0;
 
         $asked = $session['asked'] ?? [];
-        $fact = $this->getRandomFact($asked);
+        $preferredIsTrue = $this->resolvePreferredTruthiness($session);
+        $fact = $this->getRandomFact($asked, $preferredIsTrue);
+
+        if (!$fact instanceof TrueFalseFact) {
+            $fact = $this->getRandomFact($asked);
+        }
 
         if (!$fact instanceof TrueFalseFact) {
             $session['asked'] = [];
-            $fact = $this->getRandomFact([]);
+            $session['asked_true'] = 0;
+            $session['asked_false'] = 0;
+            $fact = $this->getRandomFact([], random_int(0, 1) === 1);
+            if (!$fact instanceof TrueFalseFact) {
+                $fact = $this->getRandomFact([]);
+            }
         }
 
         if ($fact instanceof TrueFalseFact) {
+            $factWasAddedToAsked = false;
             if (!\in_array($fact->getKey(), $session['asked'], true)) {
                 $session['asked'][] = $fact->getKey();
+                $factWasAddedToAsked = true;
             }
             $session['current_fact_id'] = $fact->getKey();
+            if ($factWasAddedToAsked) {
+                if ($fact->is_true) {
+                    $session['asked_true'] = (int) ($session['asked_true'] ?? 0) + 1;
+                } else {
+                    $session['asked_false'] = (int) ($session['asked_false'] ?? 0) + 1;
+                }
+            }
             $this->saveSession($user, $session);
         }
 
@@ -191,7 +246,7 @@ class TrueFalseService
     /**
      * @param array<int> $excludeIds
      */
-    private function getRandomFact(array $excludeIds): ?TrueFalseFact
+    private function getRandomFact(array $excludeIds, ?bool $isTrue = null): ?TrueFalseFact
     {
         $query = TrueFalseFact::query()
             ->where('is_active', true);
@@ -200,7 +255,26 @@ class TrueFalseService
             $query->whereNotIn('id', $excludeIds);
         }
 
+        if ($isTrue !== null) {
+            $query->where('is_true', $isTrue);
+        }
+
         return $query->inRandomOrder()->first();
+    }
+
+    /**
+     * @param array<string, mixed> $session
+     */
+    private function resolvePreferredTruthiness(array $session): bool
+    {
+        $askedTrue = (int) ($session['asked_true'] ?? 0);
+        $askedFalse = (int) ($session['asked_false'] ?? 0);
+
+        if ($askedTrue === $askedFalse) {
+            return random_int(0, 1) === 1;
+        }
+
+        return $askedTrue < $askedFalse;
     }
 
     private function updateRecord(User $user, int $streak): void
@@ -259,5 +333,3 @@ class TrueFalseService
         }
     }
 }
-
-
