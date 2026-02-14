@@ -2,8 +2,15 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTelegram, showBackButton, hapticFeedback } from '../hooks/useTelegram'
-import api from '../api/client'
+import api, { getWsBaseUrl } from '../api/client'
 import AvatarWithFrame from '../components/AvatarWithFrame'
+
+const WS_STATUS = {
+  OFFLINE: 'offline',
+  CONNECTING: 'connecting',
+  CONNECTED: 'connected',
+  DISABLED: 'disabled'
+}
 
 // Состояния дуэли
 const STATES = {
@@ -24,6 +31,7 @@ function DuelPage() {
   const [searchParams] = useSearchParams()
   const { id: duelIdParam } = useParams()
   const { user } = useTelegram()
+  const wsConfigured = Boolean(getWsBaseUrl())
   
   const [state, setState] = useState(STATES.MENU)
   const [loading, setLoading] = useState(false)
@@ -46,14 +54,256 @@ function DuelPage() {
   const [inviteCode, setInviteCode] = useState('') // Код для присоединения к дуэли
   const [opponent, setOpponent] = useState(null) // Данные оппонента {name, rating}
   const [myRating, setMyRating] = useState(0) // Мой рейтинг
+  const [wsConnected, setWsConnected] = useState(false)
+  const [wsConnectionState, setWsConnectionState] = useState(WS_STATUS.OFFLINE)
+  const [wsRetrying, setWsRetrying] = useState(false)
   
   const currentQuestionId = useRef(null)
   const timerRef = useRef(null)
   const answeredRoundId = useRef(null)
   const searchTimerRef = useRef(null)
   const hasAnsweredRef = useRef(false) // Для проверки в таймере
+  const wsRef = useRef(null)
+  const wsReconnectRef = useRef(null)
+  const wsReconnectAttemptsRef = useRef(0)
+  const wsPingIntervalRef = useRef(null)
+  const wsStopReconnectRef = useRef(false)
+  const duelStateRef = useRef(STATES.MENU)
+
+  useEffect(() => {
+    duelStateRef.current = state
+  }, [state])
+
+  const closeDuelSocket = useCallback((preventReconnect = true, resetAttempts = preventReconnect) => {
+    if (wsReconnectRef.current) {
+      clearTimeout(wsReconnectRef.current)
+      wsReconnectRef.current = null
+    }
+
+    wsStopReconnectRef.current = preventReconnect
+    if (resetAttempts) {
+      wsReconnectAttemptsRef.current = 0
+    }
+    setWsConnected(false)
+    setWsConnectionState(WS_STATUS.OFFLINE)
+    setWsRetrying(false)
+
+    if (wsPingIntervalRef.current) {
+      clearInterval(wsPingIntervalRef.current)
+      wsPingIntervalRef.current = null
+    }
+
+    if (wsRef.current) {
+      wsRef.current.onopen = null
+      wsRef.current.onclose = null
+      wsRef.current.onmessage = null
+      wsRef.current.onerror = null
+      wsRef.current.close()
+      wsRef.current = null
+    }
+  }, [])
+
+  const scheduleSocketReconnect = useCallback((duelId) => {
+    if (duelStateRef.current === STATES.FINISHED || !duelId || wsStopReconnectRef.current || !wsConfigured) return
+
+    if (wsReconnectRef.current) {
+      clearTimeout(wsReconnectRef.current)
+      wsReconnectRef.current = null
+    }
+
+    const maxAttempts = 8
+    const attempt = wsReconnectAttemptsRef.current + 1
+
+    if (attempt > maxAttempts) {
+      console.warn('WS reconnect limit reached; falling back to polling')
+      wsStopReconnectRef.current = true
+      return
+    }
+
+    wsReconnectAttemptsRef.current = attempt
+    const baseDelayMs = Math.min(1500 * (2 ** (attempt - 1)), 15000)
+    const jitterMs = Math.floor(Math.random() * 500)
+    const delayMs = baseDelayMs + jitterMs
+
+    setWsConnectionState(WS_STATUS.CONNECTING)
+    wsReconnectRef.current = setTimeout(() => {
+      connectDuelSocket(duelId)
+    }, delayMs)
+  }, [wsConfigured])
+
+  const connectDuelSocket = useCallback(async (duelId) => {
+    const wsBase = getWsBaseUrl()
+    if (!duelId) return
+
+    if (!wsBase) {
+      setWsConnected(false)
+      setWsConnectionState(WS_STATUS.DISABLED)
+      setWsRetrying(false)
+      return
+    }
+
+    try {
+      wsStopReconnectRef.current = false
+      setWsConnectionState(WS_STATUS.CONNECTING)
+
+      const ticketResponse = await api.getDuelWsTicket(duelId)
+      if (!ticketResponse.success || !ticketResponse.data?.ticket) {
+        scheduleSocketReconnect(duelId)
+        return
+      }
+
+      closeDuelSocket(false, false)
+
+      const ws = new WebSocket(`${wsBase}?ticket=${encodeURIComponent(ticketResponse.data.ticket)}`)
+      wsRef.current = ws
+
+      ws.onopen = () => {
+        wsReconnectAttemptsRef.current = 0
+        setWsConnected(true)
+        setWsConnectionState(WS_STATUS.CONNECTED)
+        setWsRetrying(false)
+        ws.send(JSON.stringify({ type: 'ping' }))
+
+        if (wsPingIntervalRef.current) {
+          clearInterval(wsPingIntervalRef.current)
+        }
+
+        wsPingIntervalRef.current = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'ping' }))
+          }
+        }, 20000)
+      }
+
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data)
+          if (message.type === 'duel_update' && message.payload?.duel_id) {
+            checkDuelStatus(message.payload.duel_id)
+          }
+
+          if (message.type === 'duel_closed' && message.duel_id) {
+            closeDuelSocket()
+            checkDuelStatus(message.duel_id)
+          }
+
+          if (message.type === 'error') {
+            const wsErrorMessage = message.message || 'unknown_error'
+
+            if (wsErrorMessage === 'duel_closed' || wsErrorMessage === 'duel_access_denied') {
+              wsStopReconnectRef.current = true
+              closeDuelSocket()
+              checkDuelStatus(duelId)
+              return
+            }
+
+            if (wsErrorMessage === 'invalid_ticket') {
+              wsStopReconnectRef.current = true
+              closeDuelSocket()
+              return
+            }
+          }
+        } catch (e) {
+          console.error('Failed to parse ws message', e)
+        }
+      }
+
+      ws.onclose = () => {
+        setWsConnected(false)
+        setWsConnectionState(WS_STATUS.OFFLINE)
+
+        if (wsPingIntervalRef.current) {
+          clearInterval(wsPingIntervalRef.current)
+          wsPingIntervalRef.current = null
+        }
+
+        scheduleSocketReconnect(duelId)
+      }
+
+      ws.onerror = () => {
+        setWsConnected(false)
+        setWsConnectionState(WS_STATUS.OFFLINE)
+
+        if (wsPingIntervalRef.current) {
+          clearInterval(wsPingIntervalRef.current)
+          wsPingIntervalRef.current = null
+        }
+
+        ws.close()
+      }
+    } catch (e) {
+      console.error('Failed to establish duel websocket', e)
+      setWsConnected(false)
+      setWsConnectionState(WS_STATUS.OFFLINE)
+
+      const message = String(e?.message || '')
+      if (message.includes('Дуэль уже завершена') || message.includes('Доступ запрещён') || message.includes('Не авторизован')) {
+        wsStopReconnectRef.current = true
+        return
+      }
+
+      scheduleSocketReconnect(duelId)
+    }
+  }, [closeDuelSocket, scheduleSocketReconnect])
 
   // Загрузка профиля для получения монет
+
+  const handleRealtimeRetry = () => {
+    if (!wsConfigured || !duel?.duel_id || wsConnectionState === WS_STATUS.CONNECTING || wsRetrying) return
+
+    setWsRetrying(true)
+    setWsConnectionState(WS_STATUS.CONNECTING)
+    connectDuelSocket(duel.duel_id)
+  }
+
+  const renderRealtimeBadge = (compact = false) => {
+    const isOnline = wsConnected
+    const isConnecting = wsConnectionState === WS_STATUS.CONNECTING
+    const isDisabled = wsConnectionState === WS_STATUS.DISABLED || !wsConfigured
+    const attemptLabel = isConnecting && wsReconnectAttemptsRef.current > 0 ? ` · #${wsReconnectAttemptsRef.current}` : ''
+    const label = isDisabled ? 'Realtime · DISABLED' : isOnline ? 'Realtime · ON' : isConnecting ? `Realtime · CONNECTING${attemptLabel}` : 'Realtime · OFF'
+    const subtitle = isDisabled ? 'Set VITE_WS_URL to enable realtime' : isOnline ? 'WebSocket active' : isConnecting ? 'Attempting reconnect...' : 'Polling fallback'
+    const dotClass = isDisabled
+      ? 'bg-slate-400 shadow-[0_0_8px_rgba(148,163,184,0.55)]'
+      : isOnline
+      ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]'
+      : isConnecting
+        ? 'bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.75)]'
+        : 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.65)]'
+
+    if (compact) {
+      return (
+        <div className={`inline-flex items-center gap-2 rounded-full border backdrop-blur-md px-2.5 py-1 text-[10px] ${isDisabled ? 'border-slate-400/30 bg-slate-500/10 text-slate-200' : isOnline ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-200' : isConnecting ? 'border-sky-400/40 bg-sky-500/10 text-sky-200' : 'border-amber-300/35 bg-amber-500/10 text-amber-100'}`}>
+          <span className={`h-2 w-2 rounded-full ${dotClass} ${isOnline || isConnecting || isDisabled ? 'animate-pulse' : ''}`} />
+          <span className="font-semibold tracking-wide">{label}</span>
+        </div>
+      )
+    }
+
+    return (
+      <div
+        className={`inline-flex items-center gap-3 rounded-2xl border backdrop-blur-md px-3 py-2 text-xs ${isDisabled ? 'border-slate-400/30 bg-slate-500/10 text-slate-200' : isOnline ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-200' : isConnecting ? 'border-sky-400/40 bg-sky-500/10 text-sky-200' : 'border-amber-300/35 bg-amber-500/10 text-amber-100'}`}
+        role="status"
+        aria-live="polite"
+      >
+        <span className={`h-2.5 w-2.5 rounded-full ${dotClass} ${isOnline || isConnecting || isDisabled ? 'animate-pulse' : ''}`} />
+        <div className="flex flex-col leading-tight">
+          <span className="font-semibold tracking-wide">{label}</span>
+          <span className="text-[10px] opacity-75">{subtitle}</span>
+        </div>
+        {!isDisabled && !isOnline && !isConnecting && duel?.duel_id && (
+          <button
+            onClick={handleRealtimeRetry}
+            disabled={wsRetrying}
+            className="ml-1 rounded-full border border-white/20 px-2 py-0.5 text-[10px] font-semibold text-white/90 hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Retry
+          </button>
+        )}
+      </div>
+    )
+  }
+
   const loadProfile = async () => {
     try {
       const response = await api.getProfile()
@@ -159,15 +409,36 @@ function DuelPage() {
 
   useEffect(() => {
     if (!duel || state === STATES.FINISHED || state === STATES.SHOWING_RESULT) return
-    
+
+    // При активном WS оставляем polling только как safety-net в критических состояниях.
+    if (wsConnected && state !== STATES.WAITING_OPPONENT_ANSWER) {
+      return
+    }
+
     const interval = state === STATES.WAITING_OPPONENT_ANSWER ? 1000 : 3000
-    
+
     const checkInterval = setInterval(() => {
       checkDuelStatus(duel.duel_id)
     }, interval)
 
     return () => clearInterval(checkInterval)
-  }, [duel?.duel_id, state])
+  }, [duel?.duel_id, state, wsConnected])
+
+
+  useEffect(() => {
+    if (!duel?.duel_id) return
+
+    if (!wsConfigured) {
+      setWsConnectionState(WS_STATUS.DISABLED)
+      return
+    }
+
+    connectDuelSocket(duel.duel_id)
+
+    return () => {
+      closeDuelSocket()
+    }
+  }, [duel?.duel_id, wsConfigured, connectDuelSocket, closeDuelSocket])
 
   // Таймер поиска соперника - 30 секунд максимум
   useEffect(() => {
@@ -598,6 +869,7 @@ function DuelPage() {
           </button>
           <h1 className="text-4xl font-black text-white italic tracking-tight mb-2 uppercase">Дуэли</h1>
           <p className="text-white/60 text-lg">Сразись за рейтинг и монеты</p>
+          <div className="mt-3">{renderRealtimeBadge()}</div>
         </motion.div>
 
         {error && (
@@ -813,7 +1085,7 @@ function DuelPage() {
                      <div className="w-24 h-24 rounded-full bg-gradient-to-br from-red-500 to-orange-600 p-1 shadow-[0_0_30px_rgba(239,68,68,0.4)]">
                         <div className="w-full h-full rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-4xl overflow-hidden">
                             {opponent?.photo_url ? (
-                                <img src={opponent.photo_url} alt="" className="w-full h-full object-cover" />
+                                <img src={opponent.photo_url} alt="Аватар соперника" className="w-full h-full object-cover" />
                             ) : (
                                 <span>{opponent?.name?.[0] || '?'}</span>
                             )}
@@ -877,6 +1149,7 @@ function DuelPage() {
                             </span>
                         </div>
                         <div className="mt-1 text-[10px] font-mono text-white/40 font-bold">R{round}/{totalRounds}</div>
+                        <div className="mt-2">{renderRealtimeBadge(true)}</div>
                     </div>
                     
                     {/* Opponent */}
@@ -885,7 +1158,7 @@ function DuelPage() {
                              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-500 to-orange-600 p-0.5 shadow-lg">
                                 <div className="w-full h-full rounded-full bg-black/40 backdrop-blur-sm overflow-hidden flex items-center justify-center text-lg">
                                     {opponent?.photo_url ? (
-                                        <img src={opponent.photo_url} alt="" className="w-full h-full object-cover" />
+                                        <img src={opponent.photo_url} alt="Аватар соперника" className="w-full h-full object-cover" />
                                     ) : (
                                         <span>{opponent?.name?.[0] || '?'}</span>
                                     )}

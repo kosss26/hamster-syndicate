@@ -25,13 +25,54 @@ use QuizBot\Application\Services\CollectionService;
 require dirname(__DIR__) . '/vendor/autoload.php';
 
 // CORS заголовки для Mini App
-header('Access-Control-Allow-Origin: *');
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+$allowedOrigin = '';
+$allowedOriginMatched = false;
+
+try {
+    $tmpConfig = Config::fromEnv(dirname(__DIR__) . '/config');
+    $configuredWebappUrl = (string) $tmpConfig->get('WEBAPP_URL', '');
+    $allowedOrigin = $configuredWebappUrl !== '' ? rtrim($configuredWebappUrl, '/') : '';
+} catch (Throwable $e) {
+    $allowedOrigin = '';
+    $allowedOriginMatched = false;
+}
+
+if ($allowedOrigin !== '' && $origin !== '') {
+    $allowedParts = parse_url($allowedOrigin);
+    $originParts = parse_url($origin);
+
+    $sameHost = isset($allowedParts['host'], $originParts['host'])
+        && strtolower((string) $allowedParts['host']) === strtolower((string) $originParts['host']);
+    $sameScheme = (($allowedParts['scheme'] ?? 'https') === ($originParts['scheme'] ?? 'https'));
+    $allowedPort = $allowedParts['port'] ?? (($allowedParts['scheme'] ?? 'https') === 'http' ? 80 : 443);
+    $originPort = $originParts['port'] ?? (($originParts['scheme'] ?? 'https') === 'http' ? 80 : 443);
+    $samePort = ($allowedPort === $originPort);
+
+    if ($sameHost && $sameScheme && $samePort) {
+        $allowedOriginMatched = true;
+        header('Access-Control-Allow-Origin: ' . $origin);
+        header('Vary: Origin');
+    }
+}
+
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, X-Telegram-Init-Data');
 header('Content-Type: application/json; charset=utf-8');
+header('X-Content-Type-Options: nosniff');
+header('Referrer-Policy: no-referrer');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+
+$requestId = bin2hex(random_bytes(8));
+header('X-Request-Id: ' . $requestId);
 
 // Обработка preflight запросов
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    if ($origin !== '' && !$allowedOriginMatched) {
+        http_response_code(403);
+        exit;
+    }
+
     http_response_code(200);
     exit;
 }
@@ -53,13 +94,31 @@ $path = preg_replace('#^/api#', '', $requestUri);
 $path = $path ?: '/';
 
 // Получение тела запроса
-$body = json_decode(file_get_contents('php://input'), true) ?? [];
+$rawBody = file_get_contents('php://input');
+$body = [];
+
+if ($rawBody !== false && trim($rawBody) !== '') {
+    $decodedBody = json_decode($rawBody, true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        jsonError('Некорректный JSON в теле запроса', 400);
+    }
+
+    if (is_array($decodedBody)) {
+        $body = $decodedBody;
+    }
+}
 
 // Верификация Telegram initData
 $initData = $_SERVER['HTTP_X_TELEGRAM_INIT_DATA'] ?? '';
 /** @var Config $config */
 $config = $container->get(Config::class);
-$telegramUser = verifyTelegramInitData($initData, $config->get('TELEGRAM_BOT_TOKEN', ''));
+$initDataTtlSeconds = max(60, (int) $config->get('INIT_DATA_TTL_SECONDS', 300));
+$telegramUser = verifyTelegramInitData($initData, $config->get('TELEGRAM_BOT_TOKEN', ''), $initDataTtlSeconds);
+$isDevEnv = in_array((string) $config->get('APP_ENV', 'production'), ['development', 'local'], true);
+
+if (!$telegramUser) {
+    $telegramUser = resolveDevTelegramUser($config, $isDevEnv);
+}
 
 if ($telegramUser) {
     // Обновляем время последней активности пользователя
@@ -76,7 +135,7 @@ if ($telegramUser) {
 try {
     switch (true) {
         // GET /debug - отладка авторизации
-        case $path === '/debug' && $requestMethod === 'GET':
+        case $path === '/debug' && $requestMethod === 'GET' && $isDevEnv:
             jsonResponse([
                 'initData_received' => !empty($initData),
                 'initData_length' => strlen($initData),
@@ -106,6 +165,11 @@ try {
         // GET /duel/current - получить текущую активную дуэль
         case $path === '/duel/current' && $requestMethod === 'GET':
             handleGetActiveDuel($container, $telegramUser);
+            break;
+
+        // GET /duel/ws-ticket - получить подписанный тикет для WebSocket
+        case $path === '/duel/ws-ticket' && $requestMethod === 'GET':
+            handleGetDuelWsTicket($container, $telegramUser, isset($_GET['duel_id']) ? (int) $_GET['duel_id'] : null);
             break;
 
         // GET /duel/{id} - получить информацию о дуэли
@@ -305,43 +369,93 @@ try {
 /**
  * Верификация initData из Telegram
  */
-function verifyTelegramInitData(string $initData, string $botToken): ?array
+function verifyTelegramInitData(string $initData, string $botToken, int $ttlSeconds = 300): ?array
 {
-    if (empty($initData)) {
+    if (empty($initData) || $botToken === '') {
         return null;
     }
 
     // Парсим initData
     parse_str($initData, $data);
-    
-    if (!isset($data['user'])) {
+
+    if (!isset($data['user'], $data['auth_date'], $data['hash'])) {
         return null;
     }
 
-    // Если есть hash - проверяем подпись
-    if (isset($data['hash'])) {
-        $checkHash = $data['hash'];
-        $dataForCheck = $data;
-        unset($dataForCheck['hash']);
-
-        ksort($dataForCheck);
-        $dataCheckString = implode("\n", array_map(
-            fn($key, $value) => "$key=$value",
-            array_keys($dataForCheck),
-            array_values($dataForCheck)
-        ));
-
-        $secretKey = hash_hmac('sha256', $botToken, 'WebAppData', true);
-        $hash = hash_hmac('sha256', $dataCheckString, $secretKey);
-
-        if ($hash !== $checkHash) {
-            // Подпись не совпадает, но для отладки всё равно парсим user
-            // В продакшене здесь должен быть return null;
-            error_log("Warning: Telegram initData signature mismatch");
-        }
+    if (!is_numeric($data['auth_date'])) {
+        return null;
     }
 
-    return json_decode($data['user'], true);
+    $now = time();
+    $authDate = (int) $data['auth_date'];
+    $clockSkewAllowanceSeconds = 30;
+
+    if (($now - $authDate) > $ttlSeconds || $authDate > ($now + $clockSkewAllowanceSeconds)) {
+        return null;
+    }
+
+    // Проверяем подпись hash
+    $checkHash = (string) $data['hash'];
+    $dataForCheck = $data;
+    unset($dataForCheck['hash']);
+
+    ksort($dataForCheck);
+    $dataCheckString = implode("\n", array_map(
+        static fn($key, $value) => "$key=$value",
+        array_keys($dataForCheck),
+        array_values($dataForCheck)
+    ));
+
+    $secretKey = hash_hmac('sha256', $botToken, 'WebAppData', true);
+    $hash = hash_hmac('sha256', $dataCheckString, $secretKey);
+
+    if (!hash_equals($hash, $checkHash)) {
+        error_log('Warning: Telegram initData signature mismatch');
+        return null;
+    }
+
+    $decodedUser = json_decode((string) $data['user'], true);
+
+    if (!is_array($decodedUser) || !isset($decodedUser['id'])) {
+        return null;
+    }
+
+    return $decodedUser;
+}
+
+/**
+ * Development-only fallback auth for local WebApp launches outside Telegram.
+ *
+ * Enabled only when APP_ENV is local/development and DEV_AUTH_ENABLED=true.
+ * User id source priority:
+ *  1) X-Dev-Telegram-User-Id header
+ *  2) DEV_AUTH_USER_ID env
+ */
+function resolveDevTelegramUser(Config $config, bool $isDevEnv): ?array
+{
+    if (!$isDevEnv || !filter_var((string) $config->get('DEV_AUTH_ENABLED', false), FILTER_VALIDATE_BOOL)) {
+        return null;
+    }
+
+    $headerUserId = $_SERVER['HTTP_X_DEV_TELEGRAM_USER_ID'] ?? '';
+    $envUserId = (string) $config->get('DEV_AUTH_USER_ID', '');
+    $userIdRaw = trim($headerUserId !== '' ? $headerUserId : $envUserId);
+
+    if ($userIdRaw === '' || !ctype_digit($userIdRaw)) {
+        return null;
+    }
+
+    $userId = (int) $userIdRaw;
+    if ($userId <= 0) {
+        return null;
+    }
+
+    return [
+        'id' => $userId,
+        'username' => 'dev_user_' . $userId,
+        'first_name' => 'Dev',
+        'last_name' => 'User',
+    ];
 }
 
 /**
@@ -372,7 +486,7 @@ function handleGetUser($container, ?array $telegramUser): void
         'username' => $user->username,
         'first_name' => $user->first_name,
         'last_name' => $user->last_name,
-        'active_duel_id' => $activeDuel?->getKey(),
+        'active_duel_id' => $activeDuel ? $activeDuel->getKey() : null,
     ]);
 }
 
@@ -489,7 +603,7 @@ function handleCreateDuel($container, ?array $telegramUser, array $body): void
             'opponent_id' => $duel->opponent_user_id,
             'opponent' => $duel->initiator ? [
                 'name' => $duel->initiator->first_name,
-                'rating' => $duel->initiator->profile?->rating ?? 0,
+                'rating' => $duel->initiator->profile ? $duel->initiator->profile->rating : 0,
             ] : null,
             'matched' => true,
         ]);
@@ -592,7 +706,7 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
             'my_correct' => $lcMyPayload['is_correct'] ?? false,
             'opponent_correct' => $lcOpponentPayload['is_correct'] ?? false,
             'correct_answer_id' => $lcCorrectAnswerId,
-            'closed_at' => $lastClosedRound->closed_at?->toIso8601String(),
+            'closed_at' => $lastClosedRound->closed_at ? $lastClosedRound->closed_at->toIso8601String() : null,
         ];
     }
     
@@ -618,9 +732,9 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
         mt_srand(); // Сбрасываем seed
         
         $question = [
-            'id' => $q?->getKey(),
-            'text' => $q?->question_text,
-            'category' => $q?->category?->title ?? 'Общие знания',
+            'id' => $q ? $q->getKey() : null,
+            'text' => $q ? $q->question_text : null,
+            'category' => ($q && $q->category) ? $q->category->title : 'Общие знания',
             'answers' => $answers,
         ];
         
@@ -648,7 +762,7 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
             'correct_answer_id' => ($myAnswered || $opponentAnswered) ? $correctAnswerId : null,
             'round_closed' => $currentRound->closed_at !== null,
             'time_limit' => $currentRound->time_limit ?? 30,
-            'question_sent_at' => $currentRound->question_sent_at?->toIso8601String(),
+            'question_sent_at' => $currentRound->question_sent_at ? $currentRound->question_sent_at->toIso8601String() : null,
         ];
     }
 
@@ -681,13 +795,13 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
         'initiator' => $duel->initiator ? [
             'id' => $duel->initiator->getKey(),
             'name' => $duel->initiator->first_name,
-            'rating' => $duel->initiator->profile?->rating ?? 0,
+            'rating' => $duel->initiator->profile ? $duel->initiator->profile->rating : 0,
             'photo_url' => $duel->initiator->photo_url,
         ] : null,
         'opponent' => $duel->opponent ? [
             'id' => $duel->opponent->getKey(),
             'name' => $duel->opponent->first_name,
-            'rating' => $duel->opponent->profile?->rating ?? 0,
+            'rating' => $duel->opponent->profile ? $duel->opponent->profile->rating : 0,
             'photo_url' => $duel->opponent->photo_url,
         ] : null,
         'question' => $question,
@@ -750,8 +864,8 @@ function handleDuelAnswer($container, ?array $telegramUser, array $body): void
     $statisticsService = $container->get(StatisticsService::class);
     $statisticsService->recordAnswer(
         $user,
-        $round->question?->category_id,
-        $round->question?->getKey(),
+        $round->question ? $round->question->category_id : null,
+        $round->question ? $round->question->getKey() : null,
         $payload['is_correct'] ?? false,
         (int)(($payload['time_elapsed'] ?? 0) * 1000), // секунды в мс
         'duel'
@@ -1359,7 +1473,7 @@ function handleAdminStats($container, ?array $telegramUser): void
             'first_name' => $u->first_name,
             'last_name' => $u->last_name,
             'username' => $u->username,
-            'rating' => $u->profile?->rating ?? 1000,
+            'rating' => $u->profile ? $u->profile->rating : 1000,
         ]);
     
     // Последние дуэли
@@ -1372,10 +1486,10 @@ function handleAdminStats($container, ?array $telegramUser): void
             'id' => $d->getKey(),
             'code' => $d->code,
             'status' => $d->status,
-            'initiator_name' => $d->initiator?->first_name ?? '???',
-            'opponent_name' => $d->opponent?->first_name ?? null,
-            'initiator_score' => $d->result?->initiator_total_score ?? 0,
-            'opponent_score' => $d->result?->opponent_total_score ?? 0,
+            'initiator_name' => $d->initiator ? $d->initiator->first_name : '???',
+            'opponent_name' => $d->opponent ? $d->opponent->first_name : null,
+            'initiator_score' => $d->result ? $d->result->initiator_total_score : 0,
+            'opponent_score' => $d->result ? $d->result->opponent_total_score : 0,
         ]);
     
     // Категории с количеством вопросов
@@ -1986,6 +2100,76 @@ function handleGetCollectionItems($container, ?array $telegramUser, int $collect
     }
 }
 
+
+/**
+ * GET /duel/ws-ticket - вернуть короткоживущий тикет для WebSocket соединения
+ */
+function handleGetDuelWsTicket($container, ?array $telegramUser, ?int $duelId): void
+{
+    if (!$telegramUser) {
+        jsonError('Не авторизован', 401);
+    }
+
+    if (!$duelId || $duelId <= 0) {
+        jsonError('Не указан ID дуэли', 400);
+    }
+
+    /** @var UserService $userService */
+    $userService = $container->get(UserService::class);
+    $user = $userService->findByTelegramId((int) $telegramUser['id']);
+
+    if (!$user) {
+        jsonError('Пользователь не найден', 404);
+    }
+
+    /** @var DuelService $duelService */
+    $duelService = $container->get(DuelService::class);
+    $duel = $duelService->findById($duelId);
+
+    if (!$duel) {
+        jsonError('Дуэль не найдена', 404);
+    }
+
+    $isParticipant = (int) $duel->initiator_user_id === (int) $user->id
+        || (int) ($duel->opponent_user_id ?? 0) === (int) $user->id;
+
+    if (!$isParticipant) {
+        jsonError('Доступ запрещён', 403);
+    }
+
+    if (in_array((string) $duel->status, ['finished', 'cancelled'], true)) {
+        jsonError('Дуэль уже завершена', 409);
+    }
+
+    /** @var Config $config */
+    $config = $container->get(Config::class);
+    $secret = (string) $config->get('WEBSOCKET_TICKET_SECRET', $config->get('TELEGRAM_BOT_TOKEN', ''));
+
+    if ($secret === '') {
+        jsonError('Не настроен WEBSOCKET_TICKET_SECRET', 500);
+    }
+
+    $ticketTtlSeconds = max(30, (int) $config->get('WEBSOCKET_TICKET_TTL_SECONDS', 300));
+    $issuedAt = time();
+    $expiresAt = $issuedAt + $ticketTtlSeconds;
+    $payload = [
+        'duel_id' => $duelId,
+        'user_id' => (int) $user->id,
+        'iat' => $issuedAt,
+        'exp' => $expiresAt,
+        'jti' => bin2hex(random_bytes(8)),
+    ];
+
+    $payloadJson = json_encode($payload, JSON_UNESCAPED_UNICODE);
+    $signature = hash_hmac('sha256', $payloadJson, $secret);
+    $encodedPayload = rtrim(strtr(base64_encode($payloadJson), '+/', '-_'), '=');
+
+    jsonResponse([
+        'ticket' => $encodedPayload . '.' . $signature,
+        'expires_at' => $expiresAt,
+    ]);
+}
+
 /**
  * Получение текущей активной дуэли
  */
@@ -2030,8 +2214,10 @@ function handleGetActiveDuel($container, ?array $telegramUser): void
 function jsonResponse(array $data, int $status = 200): void
 {
     http_response_code($status);
+    global $requestId;
     echo json_encode([
         'success' => true,
+        'request_id' => $requestId ?? null,
         'data' => $data,
     ], JSON_UNESCAPED_UNICODE);
     exit;
@@ -2078,10 +2264,11 @@ function handleGetReferralStats($container, ?array $telegramUser): void
 function jsonError(string $message, int $status = 400): void
 {
     http_response_code($status);
+    global $requestId;
     echo json_encode([
         'success' => false,
+        'request_id' => $requestId ?? null,
         'error' => $message,
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
-

@@ -11,7 +11,8 @@
     "symfony/cache": "^5.4",
     "monolog/monolog": "^2.9",
     "illuminate/database": "^8.83",
-    "vlucas/phpdotenv": "^5.6"
+    "vlucas/phpdotenv": "^5.6",
+    "cboden/ratchet": "^0.4.4"
   },
   "require-dev": {
     "phpunit/phpunit": "^9.6",
@@ -43,6 +44,9 @@
     ],
     "seed": [
       "php bin/seed.php"
+    ],
+    "websocket": [
+      "php bin/websocket_server.php"
     ]
   },
   "config": {

@@ -111,22 +111,72 @@ server {
 }
 ```
 
-6. Установите webhook:
+
+6. Запустите WebSocket сервер для синхронных дуэлей (в отдельном процессе):
+```bash
+cd bot
+composer websocket
+```
+
+Дополнительно в `bot/config/app.env` можно настроить таймаут неактивного WebSocket-клиента: `WEBSOCKET_CLIENT_TIMEOUT_SECONDS=70`.
+
+7. Установите webhook:
 ```bash
 curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" \
   -H "Content-Type: application/json" \
   -d '{"url": "https://your-domain.com/webhook", "secret_token": "your-secret-token"}'
 ```
 
-7. Настройте права доступа:
+8. Настройте права доступа:
 ```bash
 chmod -R 755 /path/to/hamster-syndicate/bot
 chown -R www-data:www-data /path/to/hamster-syndicate/bot
 ```
 
+Для WebApp при локальной разработке создайте `webapp/.env.local` (можно скопировать из `webapp/.env.example`) и укажите:
+
+```bash
+VITE_API_URL=/api
+VITE_WS_URL=ws://localhost:8090
+```
+
+
+Для production с Nginx добавьте проксирование WebSocket (пример):
+
+```nginx
+location /ws/ {
+    proxy_pass http://127.0.0.1:8090/;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+}
+```
+
+И укажите в WebApp: `VITE_WS_URL=wss://your-domain.com/ws`
+
+
+### Troubleshooting сборки WebApp (Rollup optional deps)
+Если видите ошибку вида `Cannot find module @rollup/rollup-linux-x64-gnu`, выполните:
+
+```bash
+cd webapp
+npm run build
+```
+
+`npm run build` теперь автоматически делает попытку восстановления зависимостей (через `npm run reinstall`), если первоначальная сборка падает из-за missing Rollup optional binary.
+
+Для ручного восстановления можно выполнить:
+
+```bash
+npm run reinstall
+npm run build
+```
+
 ## Команды
 
 - `composer start` - запуск локального сервера
+- `composer websocket` - запуск WebSocket-сервера синхронных дуэлей
 - `composer migrate` - применение миграций БД
 - `composer seed` - заполнение базы тестовыми данными
 - `composer test` - запуск тестов
@@ -144,6 +194,8 @@ chown -R www-data:www-data /path/to/hamster-syndicate/bot
 - `duels` - дуэли между игроками
 - `duel_rounds` - раунды дуэлей
 - `duel_results` - результаты дуэлей
+
+Подробный production-гайд по realtime-дуэлям: `docs/WEBSOCKET_DEPLOYMENT.md`.
 
 ## Лицензия
 

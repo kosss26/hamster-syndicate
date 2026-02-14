@@ -1,15 +1,13 @@
 // Базовый URL API
 // В продакшене используем относительный путь /api, который nginx проксирует на PHP
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
+const WS_BASE_URL = import.meta.env.VITE_WS_URL || ''
 
 // Получаем initData из Telegram для авторизации
 function getInitData() {
   const initData = window.Telegram?.WebApp?.initData || ''
-  
-  // Для отладки: если нет initData, но есть user - создаём фейковый
-  if (!initData && window.Telegram?.WebApp?.initDataUnsafe?.user) {
-    const user = window.Telegram.WebApp.initDataUnsafe.user
-    return `user=${encodeURIComponent(JSON.stringify(user))}`
+  if (!initData) {
+    console.warn('Telegram WebApp initData is missing; protected endpoints may return 401')
   }
   
   return initData
@@ -33,7 +31,8 @@ async function request(endpoint, options = {}) {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: 'Ошибка сервера' }))
-      throw new Error(error.message || `HTTP ${response.status}`)
+      const requestId = error.request_id ? ` (request_id: ${error.request_id})` : ''
+      throw new Error((error.error || error.message || `HTTP ${response.status}`) + requestId)
     }
 
     return response.json()
@@ -57,6 +56,7 @@ export const api = {
   }),
   
   getDuel: (duelId) => request(`/duel/${duelId}`),
+  getDuelWsTicket: (duelId) => request(`/duel/ws-ticket?duel_id=${duelId}`),
   
   submitAnswer: (duelId, roundId, answerId) => request('/duel/answer', {
     method: 'POST',
@@ -155,6 +155,11 @@ export const api = {
   adminCancelDuel: (duelId) => request(`/admin/duel/${duelId}/cancel`, { method: 'POST' }),
   adminCancelAllDuels: () => request('/admin/duels/cancel-all', { method: 'POST' }),
   adminAddQuestion: (data) => request('/admin/question', { method: 'POST', body: JSON.stringify(data) }),
+}
+
+
+export function getWsBaseUrl() {
+  return WS_BASE_URL
 }
 
 export default api
