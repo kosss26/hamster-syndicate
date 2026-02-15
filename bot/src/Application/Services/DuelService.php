@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace QuizBot\Application\Services;
 
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Monolog\Logger;
@@ -42,18 +43,39 @@ class DuelService
      */
     public function createDuel(User $initiator, ?User $opponent = null, ?Category $category = null, array $settings = []): Duel
     {
-        $duel = new Duel([
-            'code' => $this->generateCode(),
-            'initiator_user_id' => $initiator->getKey(),
-            'opponent_user_id' => $opponent ? $opponent->getKey() : null,
-            'category_id' => $category ? $category->getKey() : null,
-            'rounds_to_win' => $settings['rounds_to_win'] ?? 5,
-            'status' => $opponent === null ? 'waiting' : 'matched',
-            'settings' => $settings,
-            'matched_at' => $opponent === null ? null : Carbon::now(),
-        ]);
+        $duel = null;
+        $maxAttempts = 5;
 
-        $duel->save();
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            $duel = new Duel([
+                'code' => $this->generateCode(),
+                'initiator_user_id' => $initiator->getKey(),
+                'opponent_user_id' => $opponent ? $opponent->getKey() : null,
+                'category_id' => $category ? $category->getKey() : null,
+                'rounds_to_win' => $settings['rounds_to_win'] ?? 5,
+                'status' => $opponent === null ? 'waiting' : 'matched',
+                'settings' => $settings,
+                'matched_at' => $opponent === null ? null : Carbon::now(),
+            ]);
+
+            try {
+                $duel->save();
+                break;
+            } catch (QueryException $e) {
+                if (!$this->isDuplicateDuelCodeError($e) || $attempt === $maxAttempts) {
+                    throw $e;
+                }
+
+                $this->logger->warning('Коллизия кода дуэли, повторная генерация', [
+                    'attempt' => $attempt,
+                    'initiator_user_id' => $initiator->getKey(),
+                ]);
+            }
+        }
+
+        if (!$duel instanceof Duel || !$duel->exists) {
+            throw new \RuntimeException('Не удалось создать дуэль после нескольких попыток.');
+        }
 
         if ($opponent !== null) {
             $this->logger->info(sprintf(
@@ -632,6 +654,21 @@ class DuelService
         }
 
         throw new \RuntimeException('Не удалось сгенерировать уникальный код дуэли.');
+    }
+
+    private function isDuplicateDuelCodeError(QueryException $e): bool
+    {
+        $message = strtolower((string) $e->getMessage());
+
+        if (strpos($message, 'duels.code') !== false && strpos($message, 'unique') !== false) {
+            return true;
+        }
+
+        if (strpos($message, 'duplicate entry') !== false && strpos($message, 'duels') !== false) {
+            return true;
+        }
+
+        return false;
     }
 
     private function countCorrectAnswers(Duel $duel, bool $isInitiator): int
