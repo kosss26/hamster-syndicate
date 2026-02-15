@@ -14,25 +14,28 @@ return new class implements Migration {
 
     public function up(Builder $schema): void
     {
-        $schema->create('achievements', function (Blueprint $table): void {
-            $table->id();
-            $table->string('code', 64)->unique();
-            $table->string('title', 191);
-            $table->text('description')->nullable();
-            $table->unsignedInteger('points')->default(0);
-            $table->json('conditions')->nullable();
-            $table->boolean('is_active')->default(true);
-            $table->timestamps();
-        });
+        if (!$schema->hasTable('achievements')) {
+            $schema->create('achievements', function (Blueprint $table): void {
+                $table->id();
+                $table->string('code', 64)->unique();
+                $table->string('title', 191);
+                $table->text('description')->nullable();
+                $table->unsignedInteger('points')->default(0);
+                $table->json('conditions')->nullable();
+                $table->boolean('is_active')->default(true);
+                $table->timestamps();
+            });
+        }
 
-        $schema->create('user_achievements', function (Blueprint $table): void {
-            $table->id();
-            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
-            $table->foreignId('achievement_id')->constrained('achievements')->cascadeOnDelete();
-            $table->timestamp('unlocked_at')->useCurrent();
-            $table->json('context')->nullable();
-            $table->unique(['user_id', 'achievement_id']);
-        });
+        if (!$schema->hasTable('user_achievements')) {
+            $schema->create('user_achievements', function (Blueprint $table): void {
+                $table->id();
+                $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+                $table->foreignId('achievement_id')->constrained('achievements')->cascadeOnDelete();
+                $table->timestamp('unlocked_at')->useCurrent();
+                $table->json('context')->nullable();
+                $table->unique(['user_id', 'achievement_id']);
+            });
+        }
     }
 };
-
