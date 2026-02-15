@@ -47,6 +47,8 @@ function DuelPage() {
   const [correctAnswer, setCorrectAnswer] = useState(null)
   const [lastResult, setLastResult] = useState(null)
   const [opponentAnswer, setOpponentAnswer] = useState(null)
+  const [roundHistory, setRoundHistory] = useState([])
+  const [nextRoundCountdown, setNextRoundCountdown] = useState(null)
   const [coins, setCoins] = useState(0) // Монеты игрока
   const [hiddenAnswers, setHiddenAnswers] = useState([]) // Скрытые ответы после 50/50
   const [hintUsed, setHintUsed] = useState(false) // Использована ли подсказка в раунде
@@ -69,10 +71,71 @@ function DuelPage() {
   const wsPingIntervalRef = useRef(null)
   const wsStopReconnectRef = useRef(false)
   const duelStateRef = useRef(STATES.MENU)
+  const nextRoundTimerRef = useRef(null)
+  const nextRoundIntervalRef = useRef(null)
+  const loadDuelRef = useRef(null)
 
   useEffect(() => {
     duelStateRef.current = state
   }, [state])
+
+  const clearNextRoundTimers = useCallback(() => {
+    if (nextRoundTimerRef.current) {
+      clearTimeout(nextRoundTimerRef.current)
+      nextRoundTimerRef.current = null
+    }
+    if (nextRoundIntervalRef.current) {
+      clearInterval(nextRoundIntervalRef.current)
+      nextRoundIntervalRef.current = null
+    }
+    setNextRoundCountdown(null)
+  }, [])
+
+  const addRoundToHistory = useCallback((roundData) => {
+    if (!roundData || !roundData.round_id) return
+    setRoundHistory((prev) => {
+      if (prev.some((entry) => entry.round_id === roundData.round_id)) {
+        return prev
+      }
+      const next = [
+        ...prev,
+        {
+          round_id: roundData.round_id,
+          round_number: roundData.round_number ?? prev.length + 1,
+          my_correct: Boolean(roundData.my_correct),
+          opponent_correct: Boolean(roundData.opponent_correct),
+        }
+      ]
+      return next.slice(-30)
+    })
+  }, [])
+
+  const scheduleNextRoundLoad = useCallback((duelId, delayMs = 3000) => {
+    if (!duelId) return
+    clearNextRoundTimers()
+
+    const initialSeconds = Math.max(1, Math.ceil(delayMs / 1000))
+    setNextRoundCountdown(initialSeconds)
+
+    nextRoundIntervalRef.current = setInterval(() => {
+      setNextRoundCountdown((prev) => {
+        if (prev === null) return null
+        if (prev <= 1) {
+          return 1
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    nextRoundTimerRef.current = setTimeout(() => {
+      currentQuestionId.current = null
+      answeredRoundId.current = null
+      clearNextRoundTimers()
+      if (typeof loadDuelRef.current === 'function') {
+        loadDuelRef.current(duelId)
+      }
+    }, delayMs)
+  }, [clearNextRoundTimers])
 
   const closeDuelSocket = useCallback((preventReconnect = true, resetAttempts = preventReconnect) => {
     if (wsReconnectRef.current) {
@@ -327,6 +390,12 @@ function DuelPage() {
   }, [searchParams])
 
   useEffect(() => {
+    return () => {
+      clearNextRoundTimers()
+    }
+  }, [clearNextRoundTimers])
+
+  useEffect(() => {
     if (duelIdParam) {
       loadDuel(parseInt(duelIdParam))
     }
@@ -359,19 +428,13 @@ function DuelPage() {
             setCorrectAnswer(response.data.correct_answer_id)
           }
           setState(STATES.SHOWING_RESULT)
-          
-          // Через 3 секунды переход к следующему раунду
-          setTimeout(() => {
-            currentQuestionId.current = null
-            answeredRoundId.current = null
-            loadDuel(duel.duel_id)
-          }, 3000)
+          scheduleNextRoundLoad(duel.duel_id)
         }
       }
     } catch (err) {
       console.error('Failed to submit timeout:', err)
     }
-  }, [duel, round])
+  }, [duel, round, scheduleNextRoundLoad])
 
   useEffect(() => {
     if (timerRef.current) {
@@ -494,6 +557,7 @@ function DuelPage() {
         })
         
         if (data.status === 'finished') {
+          clearNextRoundTimers()
           setState(STATES.FINISHED)
         } else if (state === STATES.WAITING_OPPONENT && (data.opponent || data.status === 'in_progress')) {
           // Соперник найден! Показываем экран FOUND
@@ -542,15 +606,14 @@ function DuelPage() {
             if (correctAnswerId && !correctAnswer) {
               setCorrectAnswer(correctAnswerId)
             }
+
+            if (lastClosedRound?.round_id === answeredRoundId.current) {
+              addRoundToHistory(lastClosedRound)
+            }
             
             setState(STATES.SHOWING_RESULT)
             hapticFeedback(opponentCorrect ? 'warning' : 'success')
-            
-            setTimeout(() => {
-              currentQuestionId.current = null
-              answeredRoundId.current = null
-              loadDuel(duelId)
-            }, 3000)
+            scheduleNextRoundLoad(duelId)
           }
         }
       }
@@ -568,6 +631,10 @@ function DuelPage() {
         setDuel(data)
         setRound(data.current_round)
         setTotalRounds(data.total_rounds)
+
+        if (data.last_closed_round) {
+          addRoundToHistory(data.last_closed_round)
+        }
         
         const isInitiator = data.is_initiator
         setScore({
@@ -576,10 +643,12 @@ function DuelPage() {
         })
         
         if (data.status === 'finished') {
+          clearNextRoundTimers()
           setState(STATES.FINISHED)
         } else if (data.question) {
           // Новый вопрос — сбрасываем состояние и запускаем таймер
           if (currentQuestionId.current !== data.question.id) {
+            clearNextRoundTimers()
             currentQuestionId.current = data.question.id
             answeredRoundId.current = null
             
@@ -617,6 +686,8 @@ function DuelPage() {
       console.error('Failed to load duel:', err)
     }
   }
+
+  loadDuelRef.current = loadDuel
 
   const startSearch = async () => {
     setState(STATES.SEARCHING)
@@ -794,12 +865,7 @@ function DuelPage() {
           })
         
         setState(STATES.SHOWING_RESULT)
-        
-        setTimeout(() => {
-            currentQuestionId.current = null
-            answeredRoundId.current = null
-          loadDuel(duel.duel_id)
-        }, 3000)
+        scheduleNextRoundLoad(duel.duel_id)
         } else {
           setOpponentAnswer({
             answered: false,
@@ -1103,8 +1169,26 @@ function DuelPage() {
   
   // ИГРОВОЙ ПРОЦЕСС
   if ((state === STATES.PLAYING || state === STATES.WAITING_OPPONENT_ANSWER || state === STATES.SHOWING_RESULT) && question) {
-      const isCorrect = lastResult?.is_correct
-      const isWrong = lastResult && !lastResult.is_correct
+      const isCorrect = lastResult?.is_correct === true
+      const isTimeout = Boolean(lastResult?.timeout)
+      const isAnswerLocked = selectedAnswer !== null
+      const isReveal = state === STATES.SHOWING_RESULT
+      const correctAnswerText = question.answers.find((answer) => answer.id === correctAnswer)?.text ?? null
+
+      const myResultLabel = isCorrect ? 'Верно' : isTimeout ? 'Таймаут' : 'Ошибка'
+      const myResultClass = isCorrect ? 'text-emerald-300' : 'text-red-300'
+      const opponentResultLabel = opponentAnswer?.answered
+        ? (opponentAnswer.correct ? 'Верно' : 'Ошибка')
+        : 'Ожидаем'
+      const opponentResultClass = opponentAnswer?.answered
+        ? (opponentAnswer.correct ? 'text-emerald-300' : 'text-red-300')
+        : 'text-amber-200'
+
+      const opponentLiveStatus = state === STATES.WAITING_OPPONENT_ANSWER
+        ? 'Соперник думает'
+        : opponentAnswer?.answered
+          ? (opponentAnswer.correct ? 'Ответил верно' : 'Ответил неверно')
+          : 'В раунде'
       
       return (
         <div className="min-h-dvh bg-aurora relative overflow-hidden flex flex-col">
@@ -1167,6 +1251,7 @@ function DuelPage() {
                          </div>
                          <div className="flex flex-col items-end">
                              <span className="text-2xl font-black text-white">{score.opponent}</span>
+                             <span className="text-[10px] text-white/60 uppercase tracking-wide">{opponentLiveStatus}</span>
                          </div>
                     </div>
                 </div>
@@ -1207,10 +1292,10 @@ function DuelPage() {
                             const isCorrectAnswer = correctAnswer === answer.id
                             
                             let statusClass = "bg-white/5 border-white/10 text-white"
-                            if (isSelected) statusClass = "bg-white/20 border-white/30 text-white"
-                            if (isCorrectAnswer) statusClass = "bg-green-500/20 border-green-500 text-green-400"
-                            if (isSelected && lastResult && !lastResult.is_correct) statusClass = "bg-red-500/20 border-red-500 text-red-400"
-                            if (selectedAnswer !== null && !isSelected && !isCorrectAnswer) statusClass = "opacity-30 bg-white/5 border-white/5"
+                            if (isSelected) statusClass = "bg-indigo-500/20 border-indigo-300/60 text-white shadow-[0_0_18px_rgba(99,102,241,0.3)]"
+                            if (isCorrectAnswer) statusClass = "bg-emerald-500/20 border-emerald-400 text-emerald-100"
+                            if (isSelected && lastResult && !lastResult.is_correct) statusClass = "bg-red-500/20 border-red-400 text-red-100"
+                            if (selectedAnswer !== null && !isSelected && !isCorrectAnswer) statusClass = "opacity-70 bg-white/5 border-white/10 text-white/70"
 
                             return (
                                 <motion.button
@@ -1220,20 +1305,31 @@ function DuelPage() {
                                     transition={{ delay: idx * 0.1 }}
                                     onClick={() => handleAnswerSelect(answer.id)}
                                     disabled={selectedAnswer !== null}
-                                    className={`relative min-h-[100px] rounded-2xl p-4 flex flex-col items-center justify-center text-center text-sm font-semibold border backdrop-blur-md transition-all active:scale-95 ${statusClass}`}
+                                    className={`relative min-h-[104px] rounded-2xl p-4 flex flex-col items-center justify-center text-center text-sm font-semibold border backdrop-blur-md transition-all active:scale-95 ${statusClass}`}
                                 >
                                     {answer.text}
                                     
                                     {isCorrectAnswer && (
-                                        <div className="absolute top-2 right-2 text-green-400">✓</div>
+                                        <div className="absolute top-2 right-2 text-emerald-300">✓</div>
                                     )}
                                     {isSelected && lastResult && !lastResult.is_correct && (
-                                        <div className="absolute top-2 right-2 text-red-400">✗</div>
+                                        <div className="absolute top-2 right-2 text-red-300">✗</div>
                                     )}
                                 </motion.button>
                             )
                         })}
                  </div>
+
+                 {isAnswerLocked && (
+                    <div className="max-w-md mx-auto mb-4 rounded-2xl border border-white/10 bg-black/30 backdrop-blur-md p-3">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-white/70 uppercase tracking-wide">Ответ зафиксирован</span>
+                          <span className={`font-semibold ${state === STATES.WAITING_OPPONENT_ANSWER ? 'text-amber-200' : 'text-emerald-200'}`}>
+                            {state === STATES.WAITING_OPPONENT_ANSWER ? 'Ждём соперника' : 'Раунд закрыт'}
+                          </span>
+                        </div>
+                    </div>
+                 )}
                  
                  {/* Hint Button */}
                  {state === STATES.PLAYING && !selectedAnswer && !hintUsed && (
@@ -1254,37 +1350,39 @@ function DuelPage() {
             
             {/* Round Result Overlay */}
             <AnimatePresence>
-                {state === STATES.SHOWING_RESULT && (
+                {isReveal && (
                    <motion.div 
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
-                      className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 backdrop-blur-sm pointer-events-none"
+                      className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 backdrop-blur-sm"
                    >
                        <motion.div 
                           initial={{ scale: 0.5, y: 50 }}
                           animate={{ scale: 1, y: 0 }}
-                          className="bg-[#0F172A] border border-white/10 rounded-3xl p-6 text-center shadow-2xl min-w-[200px]"
+                          className="bg-[#0F172A] border border-white/10 rounded-3xl p-6 text-left shadow-2xl w-[92%] max-w-sm"
                        >
-                           {isCorrect ? (
-                               <>
-                                 <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-[0_0_20px_rgba(34,197,94,0.4)]">
-                                    <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                    </svg>
-                                 </div>
-                                 <div className="text-xl font-bold text-green-400">Верно!</div>
-                               </>
-                           ) : (
-                               <>
-                                 <div className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-[0_0_20px_rgba(239,68,68,0.4)]">
-                                    <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                 </div>
-                                 <div className="text-xl font-bold text-red-400">Мимо</div>
-                               </>
-                           )}
+                           <div className="flex items-center justify-between mb-4">
+                             <div className="text-white font-bold text-lg">Итог раунда</div>
+                             <div className="text-xs text-white/50">R{round}/{totalRounds}</div>
+                           </div>
+                           <div className="grid grid-cols-2 gap-3 mb-4">
+                              <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                                <div className="text-[11px] text-white/60 uppercase tracking-wide mb-1">Вы</div>
+                                <div className={`text-sm font-semibold ${myResultClass}`}>{myResultLabel}</div>
+                              </div>
+                              <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                                <div className="text-[11px] text-white/60 uppercase tracking-wide mb-1">Соперник</div>
+                                <div className={`text-sm font-semibold ${opponentResultClass}`}>{opponentResultLabel}</div>
+                              </div>
+                           </div>
+                           <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 mb-4">
+                              <div className="text-[11px] text-emerald-100/80 uppercase tracking-wide mb-1">Правильный ответ</div>
+                              <div className="text-sm text-emerald-100 font-medium">{correctAnswerText ?? 'Загружаем...'}</div>
+                           </div>
+                           <div className="text-xs text-white/55">
+                             {nextRoundCountdown ? `Следующий раунд через ${nextRoundCountdown}с` : 'Переход к следующему раунду...'}
+                           </div>
                        </motion.div>
                    </motion.div>
                 )}
@@ -1315,6 +1413,24 @@ function DuelPage() {
       // Используем значение с сервера или фоллбэк
       const ratingChangeVal = duel?.rating_change ?? (isWin ? 10 : isDraw ? 0 : -10)
       const ratingChange = ratingChangeVal > 0 ? `+${ratingChangeVal}` : `${ratingChangeVal}`
+      const ratingClass = ratingChangeVal > 0 ? 'text-emerald-300' : ratingChangeVal < 0 ? 'text-red-300' : 'text-white'
+      const roundPills = Array.from({ length: totalRounds }, (_, index) => {
+        const roundNumber = index + 1
+        const historyItem = roundHistory.find((item) => item.round_number === roundNumber)
+
+        if (!historyItem) {
+          return { roundNumber, state: 'pending' }
+        }
+
+        if (historyItem.my_correct === historyItem.opponent_correct) {
+          return { roundNumber, state: 'draw' }
+        }
+
+        return {
+          roundNumber,
+          state: historyItem.my_correct ? 'win' : 'lose'
+        }
+      })
       
       return (
          <div className="min-h-dvh bg-aurora relative overflow-hidden flex flex-col items-center justify-center p-6 text-center">
@@ -1330,7 +1446,7 @@ function DuelPage() {
             <motion.div
                initial={{ scale: 0.8, opacity: 0 }}
                animate={{ scale: 1, opacity: 1 }}
-               className="relative z-10 bg-black/40 backdrop-blur-xl border border-white/10 rounded-[40px] p-8 w-full max-w-sm"
+               className="relative z-10 bg-black/40 backdrop-blur-xl border border-white/10 rounded-[40px] p-7 w-full max-w-sm"
             >
                 <div className="text-7xl mb-6">{isWin ? '🏆' : isDraw ? '🤝' : '💀'}</div>
                 
@@ -1354,20 +1470,56 @@ function DuelPage() {
                 
                 <div className="bg-white/5 rounded-2xl p-4 mb-6">
                     <div className="text-sm text-white/40 uppercase font-bold tracking-wider mb-1">Рейтинг</div>
-                    <div className="text-2xl font-bold text-white">
+                    <div className={`text-2xl font-bold ${ratingClass}`}>
                         {ratingChange} <span className="text-sm font-normal text-white/40">MMR</span>
                     </div>
+                </div>
+
+                <div className="bg-white/5 rounded-2xl p-4 mb-6 text-left">
+                  <div className="text-sm text-white/40 uppercase font-bold tracking-wider mb-3 text-center">Ход дуэли</div>
+                  <div className="grid grid-cols-5 gap-2">
+                    {roundPills.map((pill) => (
+                      <div
+                        key={`round-pill-${pill.roundNumber}`}
+                        className={`h-7 rounded-lg border flex items-center justify-center text-[11px] font-semibold ${
+                          pill.state === 'win'
+                            ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-200'
+                            : pill.state === 'lose'
+                              ? 'bg-red-500/20 border-red-400/50 text-red-200'
+                              : pill.state === 'draw'
+                                ? 'bg-amber-500/15 border-amber-300/40 text-amber-100'
+                                : 'bg-white/5 border-white/10 text-white/40'
+                        }`}
+                      >
+                        {pill.state === 'win' ? 'W' : pill.state === 'lose' ? 'L' : pill.state === 'draw' ? 'D' : '·'}
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 
                 <button
                     onClick={() => {
+                        setRoundHistory([])
+                        setState(STATES.MENU)
+                        setDuel(null)
+                        setScore({ player: 0, opponent: 0 })
+                        startSearch()
+                    }} 
+                    className="w-full py-4 bg-white rounded-2xl text-black font-bold text-lg mb-3 hover:bg-white/90 transition-colors"
+                >
+                    Реванш
+                </button>
+
+                <button
+                    onClick={() => {
+                        setRoundHistory([])
                         setState(STATES.MENU)
                         setDuel(null)
                         setScore({ player: 0, opponent: 0 })
                     }} 
-                    className="w-full py-4 bg-white rounded-2xl text-black font-bold text-lg mb-3 hover:bg-white/90 transition-colors"
+                    className="w-full py-3 border border-white/20 rounded-2xl text-white font-semibold text-base hover:bg-white/10 transition-colors"
                 >
-                    Продолжить
+                    В меню дуэлей
                 </button>
             </motion.div>
          </div>
