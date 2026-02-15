@@ -5,7 +5,7 @@ import { useTelegram, showBackButton, hapticFeedback } from '../hooks/useTelegra
 import api from '../api/client'
 
 const QUESTION_TIME_LIMIT = 15
-const BREAK_STATE_MS = 1500
+const BREAK_STATE_MS = 3000
 
 function TrueFalsePage() {
   const navigate = useNavigate()

@@ -186,7 +186,7 @@ function HomePage() {
           >
             <div className="text-2xl mb-2">🧠</div>
             <div className="text-white font-semibold text-sm mb-1">Правда или ложь</div>
-            <div className="text-white/55 text-xs">Проверь серию и прокачай рекорд П/Л</div>
+            <div className="text-white/55 text-xs">Проверь серию и прокачай рекорд</div>
           </motion.button>
 
           <motion.button
