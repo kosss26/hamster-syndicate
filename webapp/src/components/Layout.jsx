@@ -3,7 +3,7 @@ import BottomMenu from './BottomMenu'
 
 export default function Layout() {
   return (
-    <div className="pb-24"> {/* Padding bottom for menu */}
+    <div>
       <Outlet />
       <BottomMenu />
     </div>

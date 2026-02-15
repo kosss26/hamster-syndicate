@@ -34,7 +34,8 @@ body, html {
 
 #root {
   height: 100dvh;
-  overflow: hidden; /* Глобальный скролл отключен; страницы управляют скроллом локально */
+  overflow-y: auto;
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
 }
 
