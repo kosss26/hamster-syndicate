@@ -104,6 +104,10 @@ function DuelPage() {
           round_number: roundData.round_number ?? prev.length + 1,
           my_correct: Boolean(roundData.my_correct),
           opponent_correct: Boolean(roundData.opponent_correct),
+          my_timed_out: Boolean(roundData.my_timed_out),
+          opponent_timed_out: Boolean(roundData.opponent_timed_out),
+          my_time_taken: Number.isFinite(roundData.my_time_taken) ? Number(roundData.my_time_taken) : null,
+          opponent_time_taken: Number.isFinite(roundData.opponent_time_taken) ? Number(roundData.opponent_time_taken) : null,
         }
       ]
       return next.slice(-30)
@@ -407,8 +411,14 @@ function DuelPage() {
     
     hasAnsweredRef.current = true
     setSelectedAnswer(-1)
-    setLastResult({ is_correct: false, timeout: true })
-    setOpponentAnswer({ answered: false, correct: null })
+    setLastResult({
+      is_correct: false,
+      timeout: true,
+      my_timed_out: true,
+      my_reason: 'timeout',
+      my_time_taken: null
+    })
+    setOpponentAnswer({ answered: false, correct: null, timedOut: null, timeTaken: null, reason: null })
     setState(STATES.WAITING_OPPONENT_ANSWER)
     hapticFeedback('warning')
     
@@ -422,7 +432,10 @@ function DuelPage() {
         if (response.data.opponent_answered) {
           setOpponentAnswer({
             answered: true,
-            correct: response.data.opponent_correct
+            correct: response.data.opponent_correct,
+            timedOut: Boolean(response.data.opponent_timed_out),
+            timeTaken: Number.isFinite(response.data.opponent_time_taken) ? Number(response.data.opponent_time_taken) : null,
+            reason: response.data.opponent_reason ?? null
           })
           if (response.data.correct_answer_id) {
             setCorrectAnswer(response.data.correct_answer_id)
@@ -597,10 +610,41 @@ function DuelPage() {
             const correctAnswerId = lastClosedRound?.round_id === answeredRoundId.current
               ? lastClosedRound.correct_answer_id
               : data.round_status?.correct_answer_id
+            const myTimeTaken = lastClosedRound?.round_id === answeredRoundId.current
+              ? (Number.isFinite(lastClosedRound.my_time_taken) ? Number(lastClosedRound.my_time_taken) : null)
+              : (Number.isFinite(data.round_status?.my_time_taken) ? Number(data.round_status.my_time_taken) : null)
+            const opponentTimeTaken = lastClosedRound?.round_id === answeredRoundId.current
+              ? (Number.isFinite(lastClosedRound.opponent_time_taken) ? Number(lastClosedRound.opponent_time_taken) : null)
+              : (Number.isFinite(data.round_status?.opponent_time_taken) ? Number(data.round_status.opponent_time_taken) : null)
+            const myTimedOut = lastClosedRound?.round_id === answeredRoundId.current
+              ? Boolean(lastClosedRound.my_timed_out)
+              : Boolean(data.round_status?.my_timed_out)
+            const myReason = lastClosedRound?.round_id === answeredRoundId.current
+              ? (lastClosedRound.my_reason ?? null)
+              : (data.round_status?.my_reason ?? null)
+
+            setLastResult((prev) => ({
+              ...(prev || {}),
+              my_time_taken: myTimeTaken,
+              my_timed_out: myTimedOut,
+              my_reason: myReason,
+              speed_delta_seconds: myTimeTaken !== null && opponentTimeTaken !== null
+                ? (opponentTimeTaken - myTimeTaken)
+                : null
+            }))
             
             setOpponentAnswer({
               answered: true,
-              correct: opponentCorrect ?? false
+              correct: opponentCorrect ?? false,
+              timedOut: lastClosedRound?.round_id === answeredRoundId.current
+                ? Boolean(lastClosedRound.opponent_timed_out)
+                : Boolean(data.round_status?.opponent_timed_out),
+              timeTaken: lastClosedRound?.round_id === answeredRoundId.current
+                ? (Number.isFinite(lastClosedRound.opponent_time_taken) ? Number(lastClosedRound.opponent_time_taken) : null)
+                : (Number.isFinite(data.round_status?.opponent_time_taken) ? Number(data.round_status?.opponent_time_taken) : null),
+              reason: lastClosedRound?.round_id === answeredRoundId.current
+                ? (lastClosedRound.opponent_reason ?? null)
+                : (data.round_status?.opponent_reason ?? null)
             })
             
             if (correctAnswerId && !correctAnswer) {
@@ -861,7 +905,10 @@ function DuelPage() {
         if (data.opponent_answered) {
           setOpponentAnswer({
             answered: true,
-            correct: data.opponent_correct
+            correct: data.opponent_correct,
+            timedOut: Boolean(data.opponent_timed_out),
+            timeTaken: Number.isFinite(data.opponent_time_taken) ? Number(data.opponent_time_taken) : null,
+            reason: data.opponent_reason ?? null
           })
         
         setState(STATES.SHOWING_RESULT)
@@ -869,7 +916,10 @@ function DuelPage() {
         } else {
           setOpponentAnswer({
             answered: false,
-            correct: null
+            correct: null,
+            timedOut: null,
+            timeTaken: null,
+            reason: null
           })
           
           setState(STATES.WAITING_OPPONENT_ANSWER)
@@ -1170,24 +1220,36 @@ function DuelPage() {
   // ИГРОВОЙ ПРОЦЕСС
   if ((state === STATES.PLAYING || state === STATES.WAITING_OPPONENT_ANSWER || state === STATES.SHOWING_RESULT) && question) {
       const isCorrect = lastResult?.is_correct === true
-      const isTimeout = Boolean(lastResult?.timeout)
+      const isTimeout = Boolean(lastResult?.timeout || lastResult?.my_timed_out || lastResult?.my_reason === 'timeout')
       const isAnswerLocked = selectedAnswer !== null
       const isReveal = state === STATES.SHOWING_RESULT
       const correctAnswerText = question.answers.find((answer) => answer.id === correctAnswer)?.text ?? null
+      const myTimeTaken = Number.isFinite(lastResult?.my_time_taken) ? Number(lastResult?.my_time_taken) : null
+      const opponentTimeTaken = Number.isFinite(opponentAnswer?.timeTaken) ? Number(opponentAnswer?.timeTaken) : null
+      const speedDelta = Number.isFinite(lastResult?.speed_delta_seconds)
+        ? Number(lastResult.speed_delta_seconds)
+        : (myTimeTaken !== null && opponentTimeTaken !== null ? opponentTimeTaken - myTimeTaken : null)
 
       const myResultLabel = isCorrect ? 'Верно' : isTimeout ? 'Таймаут' : 'Ошибка'
       const myResultClass = isCorrect ? 'text-emerald-300' : 'text-red-300'
       const opponentResultLabel = opponentAnswer?.answered
-        ? (opponentAnswer.correct ? 'Верно' : 'Ошибка')
+        ? (opponentAnswer.timedOut ? 'Таймаут' : opponentAnswer.correct ? 'Верно' : 'Ошибка')
         : 'Ожидаем'
       const opponentResultClass = opponentAnswer?.answered
-        ? (opponentAnswer.correct ? 'text-emerald-300' : 'text-red-300')
+        ? (opponentAnswer.timedOut ? 'text-red-200' : opponentAnswer.correct ? 'text-emerald-300' : 'text-red-300')
         : 'text-amber-200'
+      const speedLabel = speedDelta === null
+        ? null
+        : speedDelta > 0
+          ? `Вы быстрее на ${speedDelta.toFixed(1)}с`
+          : speedDelta < 0
+            ? `Соперник быстрее на ${Math.abs(speedDelta).toFixed(1)}с`
+            : 'Одинаковая скорость ответа'
 
       const opponentLiveStatus = state === STATES.WAITING_OPPONENT_ANSWER
         ? 'Соперник думает'
         : opponentAnswer?.answered
-          ? (opponentAnswer.correct ? 'Ответил верно' : 'Ответил неверно')
+          ? (opponentAnswer.timedOut ? 'Таймаут соперника' : opponentAnswer.correct ? 'Ответил верно' : 'Ответил неверно')
           : 'В раунде'
       
       return (
@@ -1370,16 +1432,27 @@ function DuelPage() {
                               <div className="rounded-xl border border-white/10 bg-white/5 p-3">
                                 <div className="text-[11px] text-white/60 uppercase tracking-wide mb-1">Вы</div>
                                 <div className={`text-sm font-semibold ${myResultClass}`}>{myResultLabel}</div>
+                                <div className="text-[11px] text-white/50 mt-1">
+                                  {myTimeTaken !== null ? `${myTimeTaken.toFixed(1)}с` : '—'}
+                                </div>
                               </div>
                               <div className="rounded-xl border border-white/10 bg-white/5 p-3">
                                 <div className="text-[11px] text-white/60 uppercase tracking-wide mb-1">Соперник</div>
                                 <div className={`text-sm font-semibold ${opponentResultClass}`}>{opponentResultLabel}</div>
+                                <div className="text-[11px] text-white/50 mt-1">
+                                  {opponentTimeTaken !== null ? `${opponentTimeTaken.toFixed(1)}с` : '—'}
+                                </div>
                               </div>
                            </div>
                            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 mb-4">
                               <div className="text-[11px] text-emerald-100/80 uppercase tracking-wide mb-1">Правильный ответ</div>
                               <div className="text-sm text-emerald-100 font-medium">{correctAnswerText ?? 'Загружаем...'}</div>
                            </div>
+                           {speedLabel && (
+                             <div className="rounded-xl border border-indigo-400/30 bg-indigo-500/10 p-3 mb-4">
+                               <div className="text-xs text-indigo-100/90">{speedLabel}</div>
+                             </div>
+                           )}
                            <div className="text-xs text-white/55">
                              {nextRoundCountdown ? `Следующий раунд через ${nextRoundCountdown}с` : 'Переход к следующему раунду...'}
                            </div>

@@ -705,6 +705,14 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
             'round_number' => $lastClosedRound->round_number,
             'my_correct' => $lcMyPayload['is_correct'] ?? false,
             'opponent_correct' => $lcOpponentPayload['is_correct'] ?? false,
+            'my_time_taken' => isset($lcMyPayload['time_elapsed']) ? (int) $lcMyPayload['time_elapsed'] : null,
+            'opponent_time_taken' => isset($lcOpponentPayload['time_elapsed']) ? (int) $lcOpponentPayload['time_elapsed'] : null,
+            'my_answered_at' => isset($lcMyPayload['answered_at']) ? (string) $lcMyPayload['answered_at'] : null,
+            'opponent_answered_at' => isset($lcOpponentPayload['answered_at']) ? (string) $lcOpponentPayload['answered_at'] : null,
+            'my_reason' => isset($lcMyPayload['reason']) ? (string) $lcMyPayload['reason'] : null,
+            'opponent_reason' => isset($lcOpponentPayload['reason']) ? (string) $lcOpponentPayload['reason'] : null,
+            'my_timed_out' => isset($lcMyPayload['reason']) && $lcMyPayload['reason'] === 'timeout',
+            'opponent_timed_out' => isset($lcOpponentPayload['reason']) && $lcOpponentPayload['reason'] === 'timeout',
             'correct_answer_id' => $lcCorrectAnswerId,
             'closed_at' => $lastClosedRound->closed_at ? $lastClosedRound->closed_at->toIso8601String() : null,
         ];
@@ -757,8 +765,16 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
             'round_number' => $currentRound->round_number,
             'my_answered' => $myAnswered,
             'my_correct' => $myAnswered ? ($myPayload['is_correct'] ?? false) : null,
+            'my_time_taken' => $myAnswered && isset($myPayload['time_elapsed']) ? (int) $myPayload['time_elapsed'] : null,
+            'my_answered_at' => $myAnswered && isset($myPayload['answered_at']) ? (string) $myPayload['answered_at'] : null,
+            'my_reason' => $myAnswered && isset($myPayload['reason']) ? (string) $myPayload['reason'] : null,
+            'my_timed_out' => $myAnswered && isset($myPayload['reason']) && $myPayload['reason'] === 'timeout',
             'opponent_answered' => $opponentAnswered,
             'opponent_correct' => $opponentAnswered ? ($opponentPayload['is_correct'] ?? false) : null,
+            'opponent_time_taken' => $opponentAnswered && isset($opponentPayload['time_elapsed']) ? (int) $opponentPayload['time_elapsed'] : null,
+            'opponent_answered_at' => $opponentAnswered && isset($opponentPayload['answered_at']) ? (string) $opponentPayload['answered_at'] : null,
+            'opponent_reason' => $opponentAnswered && isset($opponentPayload['reason']) ? (string) $opponentPayload['reason'] : null,
+            'opponent_timed_out' => $opponentAnswered && isset($opponentPayload['reason']) && $opponentPayload['reason'] === 'timeout',
             'correct_answer_id' => ($myAnswered || $opponentAnswered) ? $correctAnswerId : null,
             'round_closed' => $currentRound->closed_at !== null,
             'time_limit' => $currentRound->time_limit ?? 30,
@@ -882,18 +898,34 @@ function handleDuelAnswer($container, ?array $telegramUser, array $body): void
     // Проверяем, ответил ли соперник
     $opponentAnswered = isset($opponentPayload['completed']) && $opponentPayload['completed'] === true;
     $opponentCorrect = $opponentAnswered ? ($opponentPayload['is_correct'] ?? false) : null;
+    $opponentTimeTaken = $opponentAnswered && isset($opponentPayload['time_elapsed']) ? (int) $opponentPayload['time_elapsed'] : null;
+    $opponentReason = $opponentAnswered && isset($opponentPayload['reason']) ? (string) $opponentPayload['reason'] : null;
     
     // Проверяем, закрыт ли раунд (оба ответили)
     $roundClosed = $round->closed_at !== null;
+
+    $myTimeTaken = isset($payload['time_elapsed']) ? (int) $payload['time_elapsed'] : null;
+    $myReason = isset($payload['reason']) ? (string) $payload['reason'] : null;
+    $speedDeltaSeconds = null;
+    if ($myTimeTaken !== null && $opponentTimeTaken !== null) {
+        $speedDeltaSeconds = $opponentTimeTaken - $myTimeTaken;
+    }
 
     jsonResponse([
         'round_id' => $round->getKey(),
         'is_correct' => $payload['is_correct'] ?? false,
         'points_earned' => $payload['score'] ?? 0,
-        'time_taken' => $payload['time_elapsed'] ?? 0,
+        'time_taken' => $myTimeTaken ?? 0,
+        'my_time_taken' => $myTimeTaken,
+        'my_reason' => $myReason,
+        'my_timed_out' => $myReason === 'timeout',
         'correct_answer_id' => $correctAnswerId,
         'opponent_answered' => $opponentAnswered,
         'opponent_correct' => $opponentCorrect,
+        'opponent_time_taken' => $opponentTimeTaken,
+        'opponent_reason' => $opponentReason,
+        'opponent_timed_out' => $opponentReason === 'timeout',
+        'speed_delta_seconds' => $speedDeltaSeconds,
         'round_closed' => $roundClosed,
     ]);
 }
