@@ -56,43 +56,51 @@ export default function BottomMenu() {
     }
   ]
 
+  const isTabActive = (path) => {
+    if (path === '/') {
+      return location.pathname === '/'
+    }
+    return location.pathname === path || location.pathname.startsWith(`${path}/`)
+  }
+
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 px-4 pb-4 pt-2">
-      <div className="absolute inset-0 bg-gradient-to-t from-dark-950 via-dark-950/90 to-transparent pointer-events-none" />
-      
-      <motion.div 
-        initial={{ y: 100 }}
-        animate={{ y: 0 }}
-        className="relative bg-white/10 backdrop-blur-xl border border-white/5 rounded-3xl p-2 flex justify-between items-center shadow-lg"
+      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/85 to-transparent pointer-events-none" />
+
+      <motion.div
+        initial={{ y: 90, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.35, ease: 'easeOut' }}
+        className="relative rounded-[28px] border border-white/10 bg-black/45 backdrop-blur-2xl p-1.5 shadow-[0_20px_40px_rgba(0,0,0,0.45)]"
       >
-        {tabs.map((tab) => {
-          const isActive = location.pathname === tab.path
-          
-          return (
-            <Link 
-              key={tab.id} 
-              to={tab.path}
-              className="relative flex-1 flex flex-col items-center justify-center py-2 group"
-            >
-              {isActive && (
-                <motion.div
-                  layoutId="activeTab"
-                  className="absolute inset-0 bg-white/10 rounded-2xl"
-                  initial={false}
-                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                />
-              )}
-              
-              <div className={`relative z-10 transition-colors duration-200 ${isActive ? 'text-game-primary' : 'text-white/40 group-hover:text-white/60'}`}>
-                {tab.icon(isActive)}
-              </div>
-              
-              <span className={`relative z-10 text-[10px] font-medium mt-1 transition-colors duration-200 ${isActive ? 'text-white' : 'text-white/40'}`}>
-                {tab.label}
-              </span>
-            </Link>
-          )
-        })}
+        <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/35 to-transparent" />
+        <div className="grid grid-cols-4 gap-1">
+          {tabs.map((tab) => {
+            const isActive = isTabActive(tab.path)
+
+            return (
+              <Link
+                key={tab.id}
+                to={tab.path}
+                className="relative h-14 rounded-2xl flex items-center justify-center group"
+              >
+                {isActive && (
+                  <motion.div
+                    layoutId="activeDockTab"
+                    className="absolute inset-0 rounded-2xl border border-cyan-300/35 bg-gradient-to-b from-cyan-300/20 to-blue-500/15"
+                    initial={false}
+                    transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                  />
+                )}
+
+                <div className={`relative z-10 flex flex-col items-center transition-colors ${isActive ? 'text-cyan-200' : 'text-white/45 group-hover:text-white/70'}`}>
+                  {tab.icon(isActive)}
+                  <span className={`text-[10px] mt-0.5 ${isActive ? 'text-white' : 'text-white/45'}`}>{tab.label}</span>
+                </div>
+              </Link>
+            )
+          })}
+        </div>
       </motion.div>
     </div>
   )

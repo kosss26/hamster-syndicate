@@ -6,19 +6,6 @@ import api from '../api/client'
 import AvatarWithFrame from '../components/AvatarWithFrame'
 import CoinIcon from '../components/CoinIcon'
 
-const RANK_STEPS = [
-  { min: 0, max: 399, name: 'Новичок', emoji: '🥉' },
-  { min: 400, max: 599, name: 'Ученик', emoji: '📚' },
-  { min: 600, max: 799, name: 'Знаток', emoji: '📖' },
-  { min: 800, max: 999, name: 'Студент', emoji: '🎓' },
-  { min: 1000, max: 1199, name: 'Эксперт', emoji: '⭐' },
-  { min: 1200, max: 1399, name: 'Мастер', emoji: '⭐⭐' },
-  { min: 1400, max: 1599, name: 'Гранд-мастер', emoji: '⭐⭐⭐' },
-  { min: 1600, max: 1799, name: 'Элита', emoji: '💎' },
-  { min: 1800, max: 1999, name: 'Легенда', emoji: '👑' },
-  { min: 2000, max: Infinity, name: 'Иммортал', emoji: '🌟' },
-]
-
 function HomePage() {
   const { user } = useTelegram()
   const navigate = useNavigate()
@@ -124,33 +111,6 @@ function HomePage() {
     navigate('/duel')
   }
 
-  const rankInfo = useMemo(() => {
-    const rating = Number(profile?.rating || 0)
-    const current = RANK_STEPS.find((step) => rating >= step.min && rating <= step.max) || RANK_STEPS[0]
-    const next = RANK_STEPS.find((step) => step.min > current.min) || null
-
-    if (!next || current.max === Infinity) {
-      return {
-        current,
-        progress: 100,
-        toNext: 0,
-        next,
-      }
-    }
-
-    const span = current.max - current.min + 1
-    const clamped = Math.max(0, rating - current.min)
-    const progress = Math.min(100, Math.round((clamped / span) * 100))
-    const toNext = Math.max(0, next.min - rating)
-
-    return {
-      current,
-      progress,
-      toNext,
-      next,
-    }
-  }, [profile?.rating])
-
   const wheelHint = useMemo(() => {
     if (!wheelStatus) return 'Загрузка статуса...'
     if (wheelStatus.can_spin_free) return 'Бесплатный спин доступен'
@@ -167,7 +127,7 @@ function HomePage() {
 
       <div className="relative z-10 px-5 pt-5 safe-top">
         <div className="rounded-3xl border border-white/10 bg-black/20 backdrop-blur-xl p-4 mb-4">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-3 min-w-0">
               <AvatarWithFrame
                 photoUrl={user?.photo_url}
@@ -176,7 +136,7 @@ function HomePage() {
                 frameKey={profile?.equipped_frame}
               />
               <div className="min-w-0">
-                <p className="text-white/50 text-[11px] uppercase tracking-wider">Профиль</p>
+                <p className="text-white/50 text-[11px] uppercase tracking-wider">Командный центр</p>
                 <h2 className="text-white font-bold text-base truncate">{user?.first_name || 'Игрок'}</h2>
               </div>
             </div>
@@ -199,24 +159,6 @@ function HomePage() {
               </div>
             </div>
           </div>
-
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-xs text-white/55 uppercase tracking-wide">Ранг</div>
-              <div className="text-xs text-white/70 font-semibold">{rankInfo.current.emoji} {rankInfo.current.name}</div>
-            </div>
-            <div className="h-2 rounded-full bg-white/10 overflow-hidden mb-2">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${rankInfo.progress}%` }}
-                transition={{ duration: 0.8, ease: 'easeOut' }}
-                className="h-full bg-gradient-to-r from-indigo-400 via-cyan-400 to-emerald-400"
-              />
-            </div>
-            <div className="text-[11px] text-white/55">
-              {rankInfo.toNext > 0 ? `До следующего ранга: ${rankInfo.toNext} MMR` : 'Максимальный ранг достигнут'}
-            </div>
-          </div>
         </div>
       </div>
 
@@ -224,29 +166,35 @@ function HomePage() {
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-[30px] border border-white/10 bg-gradient-to-br from-indigo-500/20 via-sky-500/10 to-transparent backdrop-blur-xl p-5 mb-4"
+          className="rounded-[34px] border border-cyan-300/20 bg-[radial-gradient(circle_at_15%_20%,rgba(56,189,248,0.22),transparent_45%),radial-gradient(circle_at_85%_10%,rgba(16,185,129,0.22),transparent_40%),linear-gradient(165deg,rgba(15,23,42,0.78),rgba(3,7,18,0.9))] backdrop-blur-xl p-5 mb-4 overflow-hidden"
         >
-          <div className="text-white/70 text-xs uppercase tracking-wide mb-1">Главный режим</div>
-          <h1 className="text-white text-2xl font-black leading-tight mb-2">Дуэли знаний</h1>
-          <p className="text-white/60 text-sm mb-4">Выбери формат боя и начни матч за рейтинг и награды.</p>
+          <div className="absolute -top-20 -right-20 w-52 h-52 rounded-full bg-cyan-400/25 blur-3xl" />
+          <div className="absolute -bottom-24 -left-16 w-56 h-56 rounded-full bg-emerald-400/20 blur-3xl" />
+          <div className="relative">
+            <div className="text-cyan-100/80 text-xs uppercase tracking-[0.2em] mb-1">Arcade Match Hub</div>
+            <h1 className="text-white text-3xl font-black leading-tight mb-2">Старт дуэли</h1>
+            <p className="text-white/70 text-sm mb-4">Собери бой за 1 тап: рейтинг, награды и live-синхрон в реальном времени.</p>
+          </div>
 
-          <button
-            onClick={handlePlay}
-            className="w-full rounded-2xl bg-white text-slate-900 font-bold py-3.5 mb-3 active:scale-[0.99] transition-transform"
-          >
-            ⚔️ Выбрать режим боя
-          </button>
+          <div className="grid grid-cols-1 gap-2.5 mb-3">
+            <button
+              onClick={handlePlay}
+              className="w-full rounded-2xl bg-white text-slate-900 font-black py-4 text-base active:scale-[0.99] transition-transform"
+            >
+              ⚔️ Выбрать режим
+            </button>
+          </div>
 
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-2 gap-2.5 relative">
             <button
               onClick={handleQuickRandom}
-              className="rounded-xl border border-indigo-300/40 bg-indigo-500/20 text-white py-2.5 text-sm font-semibold"
+              className="rounded-xl border border-indigo-300/45 bg-indigo-500/25 text-white py-3 text-sm font-semibold"
             >
               🎲 Случайный
             </button>
             <button
               onClick={handleQuickFriend}
-              className="rounded-xl border border-cyan-300/40 bg-cyan-500/20 text-white py-2.5 text-sm font-semibold"
+              className="rounded-xl border border-cyan-300/45 bg-cyan-500/25 text-white py-3 text-sm font-semibold"
             >
               👥 С другом
             </button>
