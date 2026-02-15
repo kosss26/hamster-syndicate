@@ -182,6 +182,13 @@ function HomePage() {
             </div>
 
             <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 rounded-full border border-emerald-300/30 bg-emerald-500/10 px-3 py-1.5">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
+                </span>
+                <span className="text-white font-semibold text-sm">{onlineCount !== null ? onlineCount : '...'}</span>
+              </div>
               <div className="flex items-center gap-1.5 rounded-full border border-amber-300/30 bg-amber-500/10 px-3 py-1.5">
                 <CoinIcon className="w-4 h-4" />
                 <span className="text-white font-semibold text-sm">{profile?.coins ?? '...'}</span>
@@ -246,29 +253,23 @@ function HomePage() {
           </div>
         </motion.div>
 
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-            <div className="text-[11px] text-white/55 uppercase tracking-wide mb-1">Онлайн</div>
-            <div className="text-white text-lg font-bold">{onlineCount !== null ? onlineCount : '...'}</div>
-            <div className="text-[11px] text-emerald-300">Игроков в сети</div>
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-            <div className="text-[11px] text-white/55 uppercase tracking-wide mb-1">Рекорд Т/Л</div>
-            <div className="text-white text-lg font-bold">{profile?.true_false_record ?? 0}</div>
-            <div className="text-[11px] text-cyan-200">Лучшая серия</div>
-          </div>
-        </div>
-
         <div className="grid grid-cols-2 gap-3">
           <motion.button
             whileTap={{ scale: 0.98 }}
             onClick={() => navigate('/truefalse')}
-            className="rounded-2xl border border-cyan-300/25 bg-cyan-500/10 p-4 text-left"
+            className="col-span-2 rounded-2xl border border-cyan-300/25 bg-cyan-500/10 p-4 text-left"
           >
             <div className="text-2xl mb-2">🧠</div>
             <div className="text-white font-semibold text-sm mb-1">Правда или ложь</div>
-            <div className="text-white/55 text-xs">Побей свой рекорд</div>
+            <div className="text-white/55 text-xs">Проверь серию и прокачай рекорд П/Л</div>
           </motion.button>
+
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-left">
+            <div className="text-2xl mb-2">🏁</div>
+            <div className="text-white font-semibold text-sm mb-1">Рекорд П/Л</div>
+            <div className="text-white text-xl font-bold leading-none">{profile?.true_false_record ?? 0}</div>
+            <div className="text-white/50 text-xs mt-1">Лучшая серия подряд</div>
+          </div>
 
           <motion.button
             whileTap={{ scale: 0.98 }}

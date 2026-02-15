@@ -123,6 +123,9 @@ function ProfilePage() {
   const totalGames = (profile.stats?.duel_wins || 0) + (profile.stats?.duel_losses || 0) + (profile.stats?.duel_draws || 0)
   const winRate = totalGames > 0 ? Math.round((profile.stats?.duel_wins / totalGames) * 100) : 0
   const rankName = typeof profile.rank === 'object' ? profile.rank.name : profile.rank
+  const level = Number(profile.level || 1)
+  const experience = Number(profile.experience || 0)
+  const experienceProgress = Math.max(0, Math.min(100, Math.round(Number(profile.experience_progress || 0))))
 
   return (
     <div className="min-h-dvh bg-aurora relative overflow-hidden flex flex-col pb-24">
@@ -265,6 +268,28 @@ function ProfilePage() {
                     </div>
                   </div>
                 </Link>
+              </div>
+
+              <div className="rounded-3xl border border-indigo-400/25 bg-gradient-to-br from-indigo-500/20 to-cyan-500/10 p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-white/50 text-xs uppercase tracking-wider">Прогресс профиля</p>
+                    <h3 className="text-white font-black text-xl">Уровень {level}</h3>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-cyan-200 text-sm font-semibold">{experience} XP</p>
+                    <p className="text-white/50 text-xs">Всего опыта</p>
+                  </div>
+                </div>
+                <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${experienceProgress}%` }}
+                    transition={{ duration: 0.8, ease: 'easeOut' }}
+                    className="h-full bg-gradient-to-r from-indigo-300 via-cyan-300 to-emerald-300"
+                  />
+                </div>
+                <p className="text-white/60 text-xs mt-2">До следующего уровня: {100 - experienceProgress}%</p>
               </div>
 
               {/* Collections Preview */}
