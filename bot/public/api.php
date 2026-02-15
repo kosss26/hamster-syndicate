@@ -577,6 +577,7 @@ function handleCreateDuel($container, ?array $telegramUser, array $body): void
     // Проверяем, есть ли у пользователя активная дуэль (с автоочисткой старых matchmaking)
     $existingDuel = $duelService->findActiveDuelForUser($user, true);
     if ($existingDuel) {
+        notifyDuelRealtime($existingDuel->getKey());
         jsonResponse([
             'duel_id' => $existingDuel->getKey(),
             'status' => $existingDuel->status,
@@ -594,6 +595,7 @@ function handleCreateDuel($container, ?array $telegramUser, array $body): void
             'awaiting_target' => true,
         ]);
 
+        notifyDuelRealtime($duel->getKey());
         jsonResponse([
             'duel_id' => $duel->getKey(),
             'status' => $duel->status,
@@ -615,6 +617,7 @@ function handleCreateDuel($container, ?array $telegramUser, array $body): void
         $duel = $duelService->startDuel($duel);
         $duel->loadMissing('initiator.profile');
 
+        notifyDuelRealtime($duel->getKey());
         jsonResponse([
             'duel_id' => $duel->getKey(),
             'status' => $duel->status,
@@ -634,6 +637,7 @@ function handleCreateDuel($container, ?array $telegramUser, array $body): void
     // Не нашли соперника - создаём matchmaking тикет
     $duel = $duelService->createMatchmakingTicket($user);
 
+    notifyDuelRealtime($duel->getKey());
     jsonResponse([
         'duel_id' => $duel->getKey(),
         'status' => $duel->status,
@@ -674,6 +678,7 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
     // Если дуэль matched но ещё не стартовала - стартуем
     if ($duel->status === 'matched' && $duel->started_at === null) {
         $duel = $duelService->startDuel($duel);
+        notifyDuelRealtime($duel->getKey());
     }
 
     $duel->loadMissing('rounds.question.answers', 'rounds.question.category', 'initiator.profile', 'opponent.profile');
@@ -940,6 +945,7 @@ function handleDuelAnswer($container, ?array $telegramUser, array $body): void
     }
     $xpResult = $userService->grantExperience($user, $xpGain);
 
+    notifyDuelRealtime($duel->getKey());
     jsonResponse([
         'round_id' => $round->getKey(),
         'is_correct' => $payload['is_correct'] ?? false,
@@ -998,6 +1004,7 @@ function handleCancelDuel($container, ?array $telegramUser, int $duelId): void
     $duel->finished_at = \Illuminate\Support\Carbon::now();
     $duel->save();
 
+    notifyDuelRealtime($duel->getKey());
     jsonResponse(['cancelled' => true, 'duel_id' => $duelId]);
 }
 
@@ -1049,6 +1056,7 @@ function handleJoinDuel($container, ?array $telegramUser, array $body): void
     $duel = $duelService->acceptDuel($duel, $user);
     $duel->loadMissing('initiator.profile');
 
+    notifyDuelRealtime($duel->getKey());
     jsonResponse([
         'duel_id' => $duel->getKey(),
         'code' => $duel->code,
@@ -1059,6 +1067,26 @@ function handleJoinDuel($container, ?array $telegramUser, array $body): void
             'photo_url' => $duel->initiator->photo_url,
         ] : null,
     ]);
+}
+
+/**
+ * Сигнализирует websocket-серверу о значимом изменении дуэли.
+ */
+function notifyDuelRealtime(int $duelId): void
+{
+    if ($duelId <= 0) {
+        return;
+    }
+
+    $basePath = dirname(__DIR__);
+    $eventsPath = $basePath . '/storage/runtime/duel_events';
+
+    if (!is_dir($eventsPath)) {
+        @mkdir($eventsPath, 0775, true);
+    }
+
+    $target = $eventsPath . '/duel_' . $duelId . '.signal';
+    @file_put_contents($target, sprintf('%.6f', microtime(true)), LOCK_EX);
 }
 
 /**

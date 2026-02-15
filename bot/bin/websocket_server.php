@@ -34,12 +34,23 @@ final class DuelWsServer implements MessageComponentInterface
     /** @var int */
     private int $maxMessageBytes;
 
-    public function __construct(string $secret, int $clientTimeoutSeconds, int $maxMessageBytes)
+    /** @var string */
+    private string $eventsPath;
+
+    /** @var array<int, string> */
+    private array $forcedEventVersion = [];
+
+    public function __construct(string $secret, int $clientTimeoutSeconds, int $maxMessageBytes, string $eventsPath)
     {
         $this->secret = $secret;
         $this->clientTimeoutSeconds = max(30, $clientTimeoutSeconds);
         $this->maxMessageBytes = max(256, $maxMessageBytes);
+        $this->eventsPath = $eventsPath;
         $this->clients = new SplObjectStorage();
+
+        if (!is_dir($this->eventsPath)) {
+            @mkdir($this->eventsPath, 0775, true);
+        }
     }
 
     public function onOpen(ConnectionInterface $conn): void
@@ -152,6 +163,7 @@ final class DuelWsServer implements MessageComponentInterface
     {
         $now = time();
         $this->pruneInactiveClients($now);
+        $this->consumeEventSignals();
 
         foreach ($this->consumedTicketJti as $jti => $expiresAt) {
             if ($expiresAt < $now) {
@@ -186,6 +198,7 @@ final class DuelWsServer implements MessageComponentInterface
                 'updated_at' => (string) $duel->updated_at,
                 'last_round_number' => $lastRound ? $lastRound->round_number : null,
                 'last_round_closed_at' => (string) ($lastRound ? $lastRound->closed_at : ''),
+                'event_version' => $this->forcedEventVersion[$duelId] ?? null,
             ];
 
             $hash = hash('sha256', json_encode($snapshot));
@@ -221,6 +234,39 @@ final class DuelWsServer implements MessageComponentInterface
                     $this->clients->detach($client);
                 }
             }
+
+            if (isset($this->forcedEventVersion[$duelId])) {
+                unset($this->forcedEventVersion[$duelId]);
+            }
+        }
+    }
+
+    private function consumeEventSignals(): void
+    {
+        if (!is_dir($this->eventsPath)) {
+            return;
+        }
+
+        $files = glob($this->eventsPath . '/duel_*.signal') ?: [];
+        foreach ($files as $file) {
+            $basename = basename($file);
+            if (!preg_match('/^duel_(\d+)\.signal$/', $basename, $m)) {
+                continue;
+            }
+
+            $duelId = (int) $m[1];
+            if ($duelId <= 0) {
+                @unlink($file);
+                continue;
+            }
+
+            $version = @file_get_contents($file);
+            if (!is_string($version) || $version === '') {
+                $version = (string) microtime(true);
+            }
+
+            $this->forcedEventVersion[$duelId] = trim($version);
+            @unlink($file);
         }
     }
 
@@ -329,13 +375,14 @@ $wsPort = (int) $config->get('WEBSOCKET_PORT', 8090);
 $syncInterval = max(0.5, (float) $config->get('WEBSOCKET_SYNC_INTERVAL', 1));
 $clientTimeoutSeconds = max(30, (int) $config->get('WEBSOCKET_CLIENT_TIMEOUT_SECONDS', 70));
 $maxMessageBytes = max(256, (int) $config->get('WEBSOCKET_MAX_MESSAGE_BYTES', 2048));
+$eventsPath = (string) $config->get('WEBSOCKET_EVENTS_PATH', dirname(__DIR__) . '/storage/runtime/duel_events');
 
 if ($secret === '') {
     fwrite(STDERR, "[ws] WEBSOCKET_TICKET_SECRET (or TELEGRAM_BOT_TOKEN fallback) is empty\n");
     exit(1);
 }
 
-$component = new DuelWsServer($secret, $clientTimeoutSeconds, $maxMessageBytes);
+$component = new DuelWsServer($secret, $clientTimeoutSeconds, $maxMessageBytes, $eventsPath);
 $loop = LoopFactory::create();
 $loop->addPeriodicTimer($syncInterval, static fn() => $component->pushDiffUpdates());
 
