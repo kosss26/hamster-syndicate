@@ -130,7 +130,12 @@ final class AppBootstrap
                 /** @var Config $config */
                 $config = $c->get(Config::class);
 
-                return new CacheFactory($config->get('CACHE_DRIVER', 'filesystem'), $this->basePath . '/storage/cache');
+                return new CacheFactory(
+                    (string) $config->get('CACHE_DRIVER', 'filesystem'),
+                    $this->basePath . '/storage/cache',
+                    (string) $config->get('REDIS_URL', ''),
+                    (string) $config->get('REDIS_NAMESPACE', 'quiz_bot')
+                );
             },
             TelegramClientFactory::class => function (Container $c) {
                 /** @var Config $config */
