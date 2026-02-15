@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useTelegram, showBackButton, hapticFeedback } from '../hooks/useTelegram'
 import api, { getWsBaseUrl } from '../api/client'
 import AvatarWithFrame from '../components/AvatarWithFrame'
+import { deriveDuelViewState } from './duelStateMachine'
 
 const WS_STATUS = {
   OFFLINE: 'offline',
@@ -242,6 +243,9 @@ function DuelPage() {
             ws.send(JSON.stringify({ type: 'ping' }))
           }
         }, 20000)
+
+        // Восстановление состояния сразу после reconnect без ожидания следующего события/поллинга.
+        checkDuelStatus(duelId)
       }
 
       ws.onmessage = (event) => {
@@ -587,6 +591,7 @@ function DuelPage() {
       
       if (response.success) {
         const data = response.data
+        const currentState = duelStateRef.current
         setRoundStatus(data.round_status || null)
         
         const isInitiator = data.is_initiator
@@ -595,10 +600,16 @@ function DuelPage() {
           opponent: isInitiator ? data.opponent_score : data.initiator_score
         })
         
-        if (data.status === 'finished') {
+        const derivedState = deriveDuelViewState(data, {
+          currentState,
+          selectedAnswer,
+          answeredRoundId: answeredRoundId.current,
+        })
+
+        if (derivedState === STATES.FINISHED) {
           clearNextRoundTimers()
           setState(STATES.FINISHED)
-        } else if (state === STATES.WAITING_OPPONENT && (data.opponent || data.status === 'in_progress')) {
+        } else if (currentState === STATES.WAITING_OPPONENT && (data.opponent || data.status === 'in_progress')) {
           // Соперник найден! Показываем экран FOUND
           if (data.opponent) {
             setOpponent({
@@ -612,7 +623,7 @@ function DuelPage() {
           setTimeout(() => {
             loadDuel(duelId)
           }, 3000)
-        } else if (state === STATES.WAITING_OPPONENT_ANSWER) {
+        } else if (currentState === STATES.WAITING_OPPONENT_ANSWER) {
           const currentRoundId = data.round_status?.round_id
           const lastClosedRound = data.last_closed_round
           
@@ -685,6 +696,8 @@ function DuelPage() {
             hapticFeedback(opponentCorrect ? 'warning' : 'success')
             scheduleNextRoundLoad(duelId)
           }
+        } else if (derivedState !== currentState && derivedState !== STATES.FOUND) {
+          setState(derivedState)
         }
       }
     } catch (err) {
@@ -712,8 +725,14 @@ function DuelPage() {
           player: isInitiator ? data.initiator_score : data.opponent_score,
           opponent: isInitiator ? data.opponent_score : data.initiator_score
         })
-        
-        if (data.status === 'finished') {
+
+        const derivedState = deriveDuelViewState(data, {
+          currentState: duelStateRef.current,
+          selectedAnswer,
+          answeredRoundId: answeredRoundId.current,
+        })
+
+        if (derivedState === STATES.FINISHED) {
           clearNextRoundTimers()
           setState(STATES.FINISHED)
         } else if (data.question) {
@@ -744,14 +763,14 @@ function DuelPage() {
               setTimeLeft(timeLimit)
             }
             
-            // При новом вопросе ВСЕГДА переходим в PLAYING
-            setState(STATES.PLAYING)
-          } else if (state !== STATES.PLAYING && state !== STATES.SHOWING_RESULT && state !== STATES.WAITING_OPPONENT_ANSWER) {
-            // Тот же вопрос, но ещё не играем
-            setState(STATES.PLAYING)
+            // При новом вопросе используем derive-логику, чтобы корректно восстановиться после reconnect.
+            setState(derivedState)
+          } else if (derivedState !== duelStateRef.current && derivedState !== STATES.FOUND) {
+            // Восстановление экрана без жесткого ресета UI при reconnect.
+            setState(derivedState)
           }
-        } else if (data.status === 'waiting') {
-          setState(STATES.WAITING_OPPONENT)
+        } else if (derivedState !== duelStateRef.current && derivedState !== STATES.FOUND) {
+          setState(derivedState)
         }
       }
     } catch (err) {
