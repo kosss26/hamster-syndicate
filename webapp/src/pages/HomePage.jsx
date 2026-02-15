@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useTelegram, hapticFeedback } from '../hooks/useTelegram'
@@ -11,7 +11,6 @@ function HomePage() {
   const navigate = useNavigate()
   const [profile, setProfile] = useState(null)
   const [onlineCount, setOnlineCount] = useState(null)
-  const [wheelStatus, setWheelStatus] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -21,7 +20,6 @@ function HomePage() {
 
     const interval = setInterval(() => {
       loadOnline()
-      loadWheelStatus()
     }, 30000)
 
     return () => clearInterval(interval)
@@ -44,7 +42,6 @@ function HomePage() {
       await Promise.all([
         loadProfile(),
         loadOnline(),
-        loadWheelStatus(),
         checkAdmin(),
       ])
     } finally {
@@ -74,17 +71,6 @@ function HomePage() {
     }
   }
 
-  const loadWheelStatus = async () => {
-    try {
-      const response = await api.getWheelStatus()
-      if (response.success) {
-        setWheelStatus(response.data)
-      }
-    } catch (err) {
-      console.error('Failed to load wheel status:', err)
-    }
-  }
-
   const checkAdmin = async () => {
     try {
       const response = await api.isAdmin()
@@ -110,14 +96,6 @@ function HomePage() {
     hapticFeedback('medium')
     navigate('/duel')
   }
-
-  const wheelHint = useMemo(() => {
-    if (!wheelStatus) return 'Загрузка статуса...'
-    if (wheelStatus.can_spin_free) return 'Бесплатный спин доступен'
-    const hours = Number(wheelStatus.hours_left || 0)
-    const minutes = Number(wheelStatus.minutes_left || 0)
-    return `Через ${hours}ч ${minutes}м`
-  }, [wheelStatus])
 
   return (
     <div className="min-h-dvh bg-aurora relative flex flex-col overflow-hidden">
@@ -171,9 +149,8 @@ function HomePage() {
           <div className="absolute -top-20 -right-20 w-52 h-52 rounded-full bg-cyan-400/25 blur-3xl" />
           <div className="absolute -bottom-24 -left-16 w-56 h-56 rounded-full bg-emerald-400/20 blur-3xl" />
           <div className="relative">
-            <div className="text-cyan-100/80 text-xs uppercase tracking-[0.2em] mb-1">Arcade Match Hub</div>
             <h1 className="text-white text-3xl font-black leading-tight mb-2">Старт дуэли</h1>
-            <p className="text-white/70 text-sm mb-4">Собери бой за 1 тап: рейтинг, награды и live-синхрон в реальном времени.</p>
+            <p className="text-white/70 text-sm mb-4">Выбери формат и начни игру.</p>
           </div>
 
           <div className="grid grid-cols-1 gap-2.5 mb-3">
@@ -210,23 +187,6 @@ function HomePage() {
             <div className="text-2xl mb-2">🧠</div>
             <div className="text-white font-semibold text-sm mb-1">Правда или ложь</div>
             <div className="text-white/55 text-xs">Проверь серию и прокачай рекорд П/Л</div>
-          </motion.button>
-
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-left">
-            <div className="text-2xl mb-2">🏁</div>
-            <div className="text-white font-semibold text-sm mb-1">Рекорд П/Л</div>
-            <div className="text-white text-xl font-bold leading-none">{profile?.true_false_record ?? 0}</div>
-            <div className="text-white/50 text-xs mt-1">Лучшая серия подряд</div>
-          </div>
-
-          <motion.button
-            whileTap={{ scale: 0.98 }}
-            onClick={() => navigate('/wheel')}
-            className="rounded-2xl border border-amber-300/25 bg-amber-500/10 p-4 text-left"
-          >
-            <div className="text-2xl mb-2">🎡</div>
-            <div className="text-white font-semibold text-sm mb-1">Колесо фортуны</div>
-            <div className="text-white/55 text-xs">{wheelHint}</div>
           </motion.button>
 
           <motion.button

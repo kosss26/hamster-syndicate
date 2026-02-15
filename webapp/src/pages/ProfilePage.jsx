@@ -276,6 +276,19 @@ function ProfilePage() {
                     </div>
                   </div>
                 </Link>
+
+                <Link to="/wheel" className="group col-span-2">
+                  <div className="bg-gradient-to-br from-cyan-900/35 to-cyan-900/10 border border-cyan-500/20 rounded-3xl p-5 relative overflow-hidden transition-transform active:scale-95">
+                    <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-40 transition-opacity text-cyan-300 text-4xl">
+                      🎡
+                    </div>
+                    <div className="relative z-10">
+                      <div className="w-10 h-10 rounded-2xl bg-cyan-500/20 flex items-center justify-center mb-3 text-cyan-300 text-xl">🎡</div>
+                      <h3 className="font-bold text-white text-lg">Колесо фортуны</h3>
+                      <p className="text-cyan-300/60 text-xs mt-1 font-medium">Ежедневные призы и бонусы</p>
+                    </div>
+                  </div>
+                </Link>
               </div>
 
               <div className="rounded-3xl border border-indigo-400/25 bg-gradient-to-br from-indigo-500/20 to-cyan-500/10 p-5">
