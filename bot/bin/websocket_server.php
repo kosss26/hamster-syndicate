@@ -73,6 +73,18 @@ final class DuelWsServer implements MessageComponentInterface
     /** @var int */
     private int $lastStatsLoggedAt = 0;
 
+    /** @var float */
+    private float $lastFullSyncAt = 0.0;
+
+    /** @var int */
+    private int $fullSyncIntervalSeconds;
+
+    /** @var int */
+    private int $fullSyncBatchSize;
+
+    /** @var int */
+    private int $fullSyncCursor = 0;
+
     public function __construct(
         string $secret,
         int $clientTimeoutSeconds,
@@ -80,7 +92,9 @@ final class DuelWsServer implements MessageComponentInterface
         string $eventsPath,
         int $forcedMinIntervalMs,
         int $eventsTtlSeconds,
-        int $statsIntervalSeconds
+        int $statsIntervalSeconds,
+        int $fullSyncIntervalSeconds,
+        int $fullSyncBatchSize
     )
     {
         $this->secret = $secret;
@@ -90,6 +104,8 @@ final class DuelWsServer implements MessageComponentInterface
         $this->forcedMinIntervalMs = max(0, $forcedMinIntervalMs);
         $this->eventsTtlSeconds = max(30, $eventsTtlSeconds);
         $this->statsIntervalSeconds = max(10, $statsIntervalSeconds);
+        $this->fullSyncIntervalSeconds = max(1, $fullSyncIntervalSeconds);
+        $this->fullSyncBatchSize = max(1, $fullSyncBatchSize);
         $this->lastStatsLoggedAt = time();
         $this->clients = new SplObjectStorage();
 
@@ -224,11 +240,22 @@ final class DuelWsServer implements MessageComponentInterface
             return;
         }
 
-        $duelIds = $this->getConnectedDuelIds();
-        if (count($duelIds) > 0) {
+        $nowTs = microtime(true);
+        if (($nowTs - $this->lastFullSyncAt) < $this->fullSyncIntervalSeconds) {
+            return;
+        }
+        $this->lastFullSyncAt = $nowTs;
+
+        $duelIds = array_keys($this->getConnectedDuelIds());
+        if (count($duelIds) === 0) {
+            return;
+        }
+
+        $selected = $this->selectFullSyncBatch($duelIds);
+        if (count($selected) > 0) {
             $this->diffPushBatches++;
         }
-        $this->pushUpdatesForDuels(array_keys($duelIds));
+        $this->pushUpdatesForDuels($selected);
     }
 
     /**
@@ -359,6 +386,29 @@ final class DuelWsServer implements MessageComponentInterface
         }
 
         return $duelIds;
+    }
+
+    /**
+     * @param array<int> $duelIds
+     * @return array<int>
+     */
+    private function selectFullSyncBatch(array $duelIds): array
+    {
+        $total = count($duelIds);
+        if ($total <= $this->fullSyncBatchSize) {
+            $this->fullSyncCursor = 0;
+            return $duelIds;
+        }
+
+        $batch = [];
+        $start = $this->fullSyncCursor % $total;
+        for ($i = 0; $i < $this->fullSyncBatchSize; $i++) {
+            $idx = ($start + $i) % $total;
+            $batch[] = $duelIds[$idx];
+        }
+
+        $this->fullSyncCursor = ($start + $this->fullSyncBatchSize) % $total;
+        return $batch;
     }
 
     private function consumeEventSignals(): void
@@ -544,6 +594,8 @@ $eventsPath = (string) $config->get('WEBSOCKET_EVENTS_PATH', dirname(__DIR__) . 
 $forcedMinIntervalMs = max(0, (int) $config->get('WEBSOCKET_FORCED_MIN_INTERVAL_MS', 120));
 $eventsTtlSeconds = max(30, (int) $config->get('WEBSOCKET_EVENTS_TTL_SECONDS', 120));
 $statsIntervalSeconds = max(10, (int) $config->get('WEBSOCKET_STATS_INTERVAL_SECONDS', 30));
+$fullSyncIntervalSeconds = max(1, (int) $config->get('WEBSOCKET_FULL_SYNC_INTERVAL_SECONDS', 4));
+$fullSyncBatchSize = max(1, (int) $config->get('WEBSOCKET_FULL_SYNC_BATCH_SIZE', 50));
 
 if ($secret === '') {
     fwrite(STDERR, "[ws] WEBSOCKET_TICKET_SECRET (or TELEGRAM_BOT_TOKEN fallback) is empty\n");
@@ -557,7 +609,9 @@ $component = new DuelWsServer(
     $eventsPath,
     $forcedMinIntervalMs,
     $eventsTtlSeconds,
-    $statsIntervalSeconds
+    $statsIntervalSeconds,
+    $fullSyncIntervalSeconds,
+    $fullSyncBatchSize
 );
 $loop = LoopFactory::create();
 $loop->addPeriodicTimer($syncInterval, static fn() => $component->pushDiffUpdates());
@@ -566,5 +620,5 @@ $loop->addPeriodicTimer($eventPollInterval, static fn() => $component->pushForce
 $socket = new SocketServer("{$wsHost}:{$wsPort}", [], $loop);
 $server = new IoServer(new HttpServer(new WsServer($component)), $socket, $loop);
 
-echo "[ws] Duel server started at {$wsHost}:{$wsPort}, sync={$syncInterval}s, event_poll={$eventPollInterval}s, forced_min_interval={$forcedMinIntervalMs}ms, events_ttl={$eventsTtlSeconds}s, stats_interval={$statsIntervalSeconds}s, timeout={$clientTimeoutSeconds}s, max_message={$maxMessageBytes}B\n";
+echo "[ws] Duel server started at {$wsHost}:{$wsPort}, sync_tick={$syncInterval}s, full_sync={$fullSyncIntervalSeconds}s, full_sync_batch={$fullSyncBatchSize}, event_poll={$eventPollInterval}s, forced_min_interval={$forcedMinIntervalMs}ms, events_ttl={$eventsTtlSeconds}s, stats_interval={$statsIntervalSeconds}s, timeout={$clientTimeoutSeconds}s, max_message={$maxMessageBytes}B\n";
 $server->run();
