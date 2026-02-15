@@ -525,8 +525,12 @@ function handleGetProfile($container, ?array $telegramUser): void
     }
 
     $rank = $profileFormatter->getRankByRating((int) $profile->rating);
+    $experienceProgress = $userService->getExperienceProgress($profile);
 
     jsonResponse([
+        'level' => (int) $profile->level,
+        'experience' => (int) $profile->experience,
+        'experience_progress' => $experienceProgress,
         'rating' => (int) $profile->rating,
         'rank' => $rank,
         'coins' => (int) $profile->coins,
@@ -911,6 +915,13 @@ function handleDuelAnswer($container, ?array $telegramUser, array $body): void
         $speedDeltaSeconds = $opponentTimeTaken - $myTimeTaken;
     }
 
+    $reason = isset($payload['reason']) ? (string) $payload['reason'] : null;
+    $xpGain = ($payload['is_correct'] ?? false) ? 12 : ($reason === 'timeout' ? 2 : 5);
+    if ($speedDeltaSeconds !== null && $speedDeltaSeconds > 0) {
+        $xpGain += 2;
+    }
+    $xpResult = $userService->grantExperience($user, $xpGain);
+
     jsonResponse([
         'round_id' => $round->getKey(),
         'is_correct' => $payload['is_correct'] ?? false,
@@ -927,6 +938,7 @@ function handleDuelAnswer($container, ?array $telegramUser, array $body): void
         'opponent_timed_out' => $opponentReason === 'timeout',
         'speed_delta_seconds' => $speedDeltaSeconds,
         'round_closed' => $roundClosed,
+        'experience' => $xpResult,
     ]);
 }
 
@@ -1224,6 +1236,8 @@ function handleTrueFalseAnswer($container, ?array $telegramUser, array $body): v
     $trueFalseService = $container->get(TrueFalseService::class);
     
     $result = $trueFalseService->handleAnswer($user, (int) $factId, (bool) $answer);
+    $xpGain = $result['is_correct'] ? (6 + min(10, (int) $result['streak'])) : 2;
+    $xpResult = $userService->grantExperience($user, $xpGain);
 
     jsonResponse([
         'is_correct' => $result['is_correct'],
@@ -1231,6 +1245,7 @@ function handleTrueFalseAnswer($container, ?array $telegramUser, array $body): v
         'explanation' => $result['explanation'],
         'streak' => $result['streak'],
         'record' => $result['record'],
+        'experience' => $xpResult,
         'next_fact' => $result['next_fact'] ? [
             'id' => $result['next_fact']->getKey(),
             'statement' => $result['next_fact']->statement,

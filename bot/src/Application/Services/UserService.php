@@ -54,7 +54,7 @@ class UserService
                 'level' => 1,
                 'experience' => 0,
                 'rating' => 0,
-                'coins' => 0,
+                'coins' => 300,
                 'lives' => 3,
                 'streak_days' => 0,
                 'duel_wins' => 0,
@@ -62,6 +62,8 @@ class UserService
                 'duel_draws' => 0,
                 'story_progress_score' => 0,
                 'true_false_record' => 0,
+                'gems' => 10,
+                'hints' => 1,
                 'settings' => [],
             ]);
 
@@ -111,7 +113,7 @@ class UserService
             'level' => 1,
             'experience' => 0,
             'rating' => 0,
-            'coins' => 0,
+            'coins' => 300,
             'lives' => 3,
             'streak_days' => 0,
             'duel_wins' => 0,
@@ -119,6 +121,8 @@ class UserService
             'duel_draws' => 0,
             'story_progress_score' => 0,
             'true_false_record' => 0,
+            'gems' => 10,
+            'hints' => 1,
             'settings' => [],
         ]);
 
@@ -126,6 +130,89 @@ class UserService
         $user->setRelation('profile', $profile);
 
         return $user;
+    }
+
+    /**
+     * Выдать опыт пользователю и пересчитать уровень.
+     *
+     * @return array{added:int,old_level:int,new_level:int,leveled_up:bool,total_experience:int,progress:array<string,int>}
+     */
+    public function grantExperience(User $user, int $amount): array
+    {
+        $user = $this->ensureProfile($user);
+        $profile = $user->profile;
+
+        if (!$profile instanceof UserProfile) {
+            throw new \RuntimeException('Профиль пользователя не найден.');
+        }
+
+        $gain = max(0, $amount);
+        $oldLevel = (int) $profile->level;
+        $profile->experience = (int) $profile->experience + $gain;
+        $newLevel = $this->calculateLevelByExperience((int) $profile->experience);
+        $profile->level = $newLevel;
+        $profile->save();
+
+        return [
+            'added' => $gain,
+            'old_level' => $oldLevel,
+            'new_level' => $newLevel,
+            'leveled_up' => $newLevel > $oldLevel,
+            'total_experience' => (int) $profile->experience,
+            'progress' => $this->getExperienceProgress($profile),
+        ];
+    }
+
+    /**
+     * @return array{level:int,current_experience:int,current_level_start:int,next_level_experience:int,exp_into_level:int,exp_to_next_level:int}
+     */
+    public function getExperienceProgress(UserProfile $profile): array
+    {
+        $level = max(1, (int) $profile->level);
+        $currentExp = (int) $profile->experience;
+        $currentLevelStart = $this->getTotalExperienceForLevel($level);
+        $nextLevelExp = $this->getTotalExperienceForLevel($level + 1);
+        $expIntoLevel = max(0, $currentExp - $currentLevelStart);
+        $expToNext = max(0, $nextLevelExp - $currentExp);
+
+        return [
+            'level' => $level,
+            'current_experience' => $currentExp,
+            'current_level_start' => $currentLevelStart,
+            'next_level_experience' => $nextLevelExp,
+            'exp_into_level' => $expIntoLevel,
+            'exp_to_next_level' => $expToNext,
+        ];
+    }
+
+    private function calculateLevelByExperience(int $experience): int
+    {
+        $exp = max(0, $experience);
+        $level = 1;
+
+        while ($level < 500 && $exp >= $this->getTotalExperienceForLevel($level + 1)) {
+            $level++;
+        }
+
+        return $level;
+    }
+
+    private function getTotalExperienceForLevel(int $level): int
+    {
+        $targetLevel = max(1, $level);
+        $total = 0;
+
+        for ($i = 1; $i < $targetLevel; $i++) {
+            $total += $this->getExperienceRequiredForNextLevel($i);
+        }
+
+        return $total;
+    }
+
+    private function getExperienceRequiredForNextLevel(int $level): int
+    {
+        $currentLevel = max(1, $level);
+        return 100 + (($currentLevel - 1) * 25);
     }
 
     /**
@@ -290,4 +377,3 @@ class UserService
         }
     }
 }
-

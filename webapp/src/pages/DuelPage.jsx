@@ -39,6 +39,7 @@ function DuelPage() {
   
   const [duel, setDuel] = useState(null)
   const [question, setQuestion] = useState(null)
+  const [roundStatus, setRoundStatus] = useState(null)
   const [timeLeft, setTimeLeft] = useState(30)
   const [round, setRound] = useState(1)
   const [totalRounds, setTotalRounds] = useState(10)
@@ -562,6 +563,7 @@ function DuelPage() {
       
       if (response.success) {
         const data = response.data
+        setRoundStatus(data.round_status || null)
         
         const isInitiator = data.is_initiator
         setScore({
@@ -673,6 +675,7 @@ function DuelPage() {
       if (response.success) {
         const data = response.data
         setDuel(data)
+        setRoundStatus(data.round_status || null)
         setRound(data.current_round)
         setTotalRounds(data.total_rounds)
 
@@ -698,6 +701,7 @@ function DuelPage() {
             
             // Ответы уже перемешаны на сервере (одинаково для обоих игроков)
             setQuestion(data.question)
+            setRoundStatus(data.round_status || null)
             setSelectedAnswer(null)
             hasAnsweredRef.current = false
             setCorrectAnswer(null)
@@ -1250,7 +1254,9 @@ function DuelPage() {
         ? 'Соперник думает'
         : opponentAnswer?.answered
           ? (opponentAnswer.timedOut ? 'Таймаут соперника' : opponentAnswer.correct ? 'Ответил верно' : 'Ответил неверно')
-          : 'В раунде'
+          : roundStatus?.opponent_answered
+            ? (roundStatus?.opponent_timed_out ? 'Таймаут соперника' : roundStatus?.opponent_correct ? 'Ответил верно' : 'Ответил неверно')
+            : 'Соперник думает'
       
       return (
         <div className="min-h-dvh bg-aurora relative overflow-hidden flex flex-col">

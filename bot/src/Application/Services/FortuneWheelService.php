@@ -18,18 +18,19 @@ class FortuneWheelService
 
     // Конфигурация секторов колеса (вероятности в процентах)
     private const WHEEL_SECTORS = [
-        ['type' => 'coins', 'amount' => 50, 'weight' => 30, 'icon' => '🪙', 'custom_icon_url' => '/api/images/shop/coins.png'],
-        ['type' => 'coins', 'amount' => 100, 'weight' => 20, 'icon' => '🪙', 'custom_icon_url' => '/api/images/shop/coins.png'],
-        ['type' => 'coins', 'amount' => 200, 'weight' => 10, 'icon' => '🪙', 'custom_icon_url' => '/api/images/shop/coins.png'],
-        ['type' => 'exp', 'amount' => 25, 'weight' => 15, 'icon' => '⭐'],
-        ['type' => 'life', 'amount' => 1, 'weight' => 10, 'icon' => '❤️'],
-        ['type' => 'hint', 'amount' => 1, 'weight' => 10, 'icon' => '💡'],
-        ['type' => 'lootbox', 'amount' => 1, 'weight' => 4, 'icon' => '🎁'],
-        ['type' => 'gems', 'amount' => 10, 'weight' => 1, 'icon' => '💎'],
+        ['type' => 'coins', 'amount' => 80, 'weight' => 40, 'icon' => '🪙', 'custom_icon_url' => '/api/images/shop/coins.png'],
+        ['type' => 'coins', 'amount' => 150, 'weight' => 20, 'icon' => '🪙', 'custom_icon_url' => '/api/images/shop/coins.png'],
+        ['type' => 'coins', 'amount' => 300, 'weight' => 10, 'icon' => '🪙', 'custom_icon_url' => '/api/images/shop/coins.png'],
+        ['type' => 'exp', 'amount' => 40, 'weight' => 12, 'icon' => '⭐'],
+        ['type' => 'exp', 'amount' => 80, 'weight' => 8, 'icon' => '⭐'],
+        ['type' => 'hint', 'amount' => 1, 'weight' => 4, 'icon' => '💡'],
+        ['type' => 'life', 'amount' => 1, 'weight' => 3, 'icon' => '❤️'],
+        ['type' => 'gems', 'amount' => 10, 'weight' => 2, 'icon' => '💎'],
+        ['type' => 'lootbox', 'amount' => 1, 'weight' => 1, 'icon' => '🎁'],
     ];
 
-    private const COOLDOWN_HOURS = 3;
-    private const PAID_SPIN_COST = 50; // кристаллов
+    private const COOLDOWN_HOURS = 24;
+    private const PAID_SPIN_COST = 40; // кристаллов
 
     public function __construct(Logger $logger, UserService $userService, ?AchievementTrackerService $achievementTracker = null)
     {
@@ -313,4 +314,3 @@ class FortuneWheelService
         return self::WHEEL_SECTORS;
     }
 }
-
