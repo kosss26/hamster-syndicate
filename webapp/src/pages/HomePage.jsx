@@ -114,7 +114,7 @@ function HomePage() {
                 frameKey={profile?.equipped_frame}
               />
               <div className="min-w-0">
-                <p className="text-white/50 text-[11px] uppercase tracking-wider">Командный центр</p>
+                <p className="text-white/50 text-[11px] uppercase tracking-wider">Привет</p>
                 <h2 className="text-white font-bold text-base truncate">{user?.first_name || 'Игрок'}</h2>
               </div>
             </div>
@@ -148,8 +148,8 @@ function HomePage() {
         >
           <div className="absolute -top-20 -right-20 w-52 h-52 rounded-full bg-cyan-400/25 blur-3xl" />
           <div className="absolute -bottom-24 -left-16 w-56 h-56 rounded-full bg-emerald-400/20 blur-3xl" />
-          <div className="relative">
-            <h1 className="text-white text-3xl font-black leading-tight mb-2">Старт дуэли</h1>
+          <div className="relative text-center">
+            <h1 className="text-white text-3xl font-black leading-tight mb-2">Дуэль</h1>
             <p className="text-white/70 text-sm mb-4">Выбери формат и начни игру.</p>
           </div>
 
@@ -184,9 +184,19 @@ function HomePage() {
             onClick={() => navigate('/truefalse')}
             className="col-span-2 rounded-2xl border border-cyan-300/25 bg-cyan-500/10 p-4 text-left"
           >
-            <div className="text-2xl mb-2">🧠</div>
-            <div className="text-white font-semibold text-sm mb-1">Правда или ложь</div>
-            <div className="text-white/55 text-xs">Проверь серию и прокачай рекорд</div>
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-2xl">🧠</span>
+                  <div className="text-white font-semibold text-sm">Правда или ложь</div>
+                </div>
+                <div className="text-white/70 text-xs leading-relaxed">Быстрые факты, мгновенная проверка и серия без пауз</div>
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="text-[10px] uppercase tracking-wider text-white/45 mb-1">Рекорд</div>
+                <div className="text-xl font-black text-cyan-200 leading-none">{profile?.true_false_record ?? 0}</div>
+              </div>
+            </div>
           </motion.button>
 
           <motion.button
