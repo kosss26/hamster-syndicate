@@ -1086,6 +1086,13 @@ function notifyDuelRealtime(int $duelId): void
     }
 
     $target = $eventsPath . '/duel_' . $duelId . '.signal';
+
+    // Coalescing: если сигнал уже есть и еще не обработан websocket-сервером,
+    // не перезаписываем его повторно.
+    if (is_file($target)) {
+        return;
+    }
+
     @file_put_contents($target, sprintf('%.6f', microtime(true)), LOCK_EX);
 }
 

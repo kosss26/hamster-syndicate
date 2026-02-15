@@ -40,12 +40,25 @@ final class DuelWsServer implements MessageComponentInterface
     /** @var array<int, string> */
     private array $forcedEventVersion = [];
 
-    public function __construct(string $secret, int $clientTimeoutSeconds, int $maxMessageBytes, string $eventsPath)
+    /** @var array<int, float> */
+    private array $lastForcedPushAt = [];
+
+    /** @var int */
+    private int $forcedMinIntervalMs;
+
+    public function __construct(
+        string $secret,
+        int $clientTimeoutSeconds,
+        int $maxMessageBytes,
+        string $eventsPath,
+        int $forcedMinIntervalMs
+    )
     {
         $this->secret = $secret;
         $this->clientTimeoutSeconds = max(30, $clientTimeoutSeconds);
         $this->maxMessageBytes = max(256, $maxMessageBytes);
         $this->eventsPath = $eventsPath;
+        $this->forcedMinIntervalMs = max(0, $forcedMinIntervalMs);
         $this->clients = new SplObjectStorage();
 
         if (!is_dir($this->eventsPath)) {
@@ -194,7 +207,36 @@ final class DuelWsServer implements MessageComponentInterface
             return;
         }
 
-        $duelIds = array_keys($this->forcedEventVersion);
+        $connected = $this->getConnectedDuelIds();
+        if (count($connected) === 0) {
+            return;
+        }
+
+        $now = microtime(true);
+        $duelIds = [];
+        foreach (array_keys($this->forcedEventVersion) as $duelId) {
+            if (!isset($connected[$duelId])) {
+                // Нет подключенных клиентов к этой дуэли: сигнал нам не нужен.
+                unset($this->forcedEventVersion[$duelId]);
+                continue;
+            }
+
+            if ($this->forcedMinIntervalMs > 0) {
+                $lastPushAt = $this->lastForcedPushAt[$duelId] ?? 0.0;
+                $deltaMs = (int) (($now - $lastPushAt) * 1000);
+                if ($deltaMs < $this->forcedMinIntervalMs) {
+                    continue;
+                }
+            }
+
+            $duelIds[] = $duelId;
+            $this->lastForcedPushAt[$duelId] = $now;
+        }
+
+        if (count($duelIds) === 0) {
+            return;
+        }
+
         $this->pushUpdatesForDuels($duelIds);
     }
 
@@ -206,7 +248,7 @@ final class DuelWsServer implements MessageComponentInterface
         foreach ($duelIds as $duelId) {
             $duel = \QuizBot\Domain\Model\Duel::query()->find($duelId);
             if (!$duel) {
-                unset($this->forcedEventVersion[$duelId], $this->stateHashes[$duelId]);
+                unset($this->forcedEventVersion[$duelId], $this->stateHashes[$duelId], $this->lastForcedPushAt[$duelId]);
                 continue;
             }
 
@@ -415,13 +457,14 @@ $eventPollInterval = max(0.1, (float) $config->get('WEBSOCKET_EVENT_POLL_INTERVA
 $clientTimeoutSeconds = max(30, (int) $config->get('WEBSOCKET_CLIENT_TIMEOUT_SECONDS', 70));
 $maxMessageBytes = max(256, (int) $config->get('WEBSOCKET_MAX_MESSAGE_BYTES', 2048));
 $eventsPath = (string) $config->get('WEBSOCKET_EVENTS_PATH', dirname(__DIR__) . '/storage/runtime/duel_events');
+$forcedMinIntervalMs = max(0, (int) $config->get('WEBSOCKET_FORCED_MIN_INTERVAL_MS', 120));
 
 if ($secret === '') {
     fwrite(STDERR, "[ws] WEBSOCKET_TICKET_SECRET (or TELEGRAM_BOT_TOKEN fallback) is empty\n");
     exit(1);
 }
 
-$component = new DuelWsServer($secret, $clientTimeoutSeconds, $maxMessageBytes, $eventsPath);
+$component = new DuelWsServer($secret, $clientTimeoutSeconds, $maxMessageBytes, $eventsPath, $forcedMinIntervalMs);
 $loop = LoopFactory::create();
 $loop->addPeriodicTimer($syncInterval, static fn() => $component->pushDiffUpdates());
 $loop->addPeriodicTimer($eventPollInterval, static fn() => $component->pushForcedUpdates());
@@ -429,5 +472,5 @@ $loop->addPeriodicTimer($eventPollInterval, static fn() => $component->pushForce
 $socket = new SocketServer("{$wsHost}:{$wsPort}", [], $loop);
 $server = new IoServer(new HttpServer(new WsServer($component)), $socket, $loop);
 
-echo "[ws] Duel server started at {$wsHost}:{$wsPort}, sync={$syncInterval}s, event_poll={$eventPollInterval}s, timeout={$clientTimeoutSeconds}s, max_message={$maxMessageBytes}B\n";
+echo "[ws] Duel server started at {$wsHost}:{$wsPort}, sync={$syncInterval}s, event_poll={$eventPollInterval}s, forced_min_interval={$forcedMinIntervalMs}ms, timeout={$clientTimeoutSeconds}s, max_message={$maxMessageBytes}B\n";
 $server->run();
