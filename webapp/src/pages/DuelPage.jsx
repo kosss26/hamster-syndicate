@@ -487,11 +487,11 @@ function DuelPage() {
     if (!duel || state === STATES.FINISHED || state === STATES.SHOWING_RESULT) return
 
     // При активном WS оставляем polling только как safety-net в критических состояниях.
-    if (wsConnected && state !== STATES.WAITING_OPPONENT_ANSWER) {
+    if (wsConnected && state !== STATES.WAITING_OPPONENT_ANSWER && state !== STATES.WAITING_OPPONENT) {
       return
     }
 
-    const interval = state === STATES.WAITING_OPPONENT_ANSWER ? 1000 : 3000
+    const interval = (state === STATES.WAITING_OPPONENT_ANSWER || state === STATES.WAITING_OPPONENT) ? 1000 : 3000
 
     const checkInterval = setInterval(() => {
       checkDuelStatus(duel.duel_id)
@@ -1296,6 +1296,15 @@ function DuelPage() {
                         </div>
                         <div className="mt-1 text-[10px] font-mono text-white/40 font-bold">R{round}/{totalRounds}</div>
                         <div className="mt-2">{renderRealtimeBadge(true)}</div>
+                        {isAnswerLocked && (
+                          <div className={`mt-2 px-2 py-1 rounded-full border text-[10px] font-semibold ${
+                            state === STATES.WAITING_OPPONENT_ANSWER
+                              ? 'border-amber-300/40 bg-amber-500/10 text-amber-100'
+                              : 'border-emerald-300/40 bg-emerald-500/10 text-emerald-100'
+                          }`}>
+                            {state === STATES.WAITING_OPPONENT_ANSWER ? 'Ответ зафиксирован' : 'Раунд закрыт'}
+                          </div>
+                        )}
                     </div>
                     
                     {/* Opponent */}
@@ -1382,17 +1391,6 @@ function DuelPage() {
                         })}
                  </div>
 
-                 {isAnswerLocked && (
-                    <div className="max-w-md mx-auto mb-4 rounded-2xl border border-white/10 bg-black/30 backdrop-blur-md p-3">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-white/70 uppercase tracking-wide">Ответ зафиксирован</span>
-                          <span className={`font-semibold ${state === STATES.WAITING_OPPONENT_ANSWER ? 'text-amber-200' : 'text-emerald-200'}`}>
-                            {state === STATES.WAITING_OPPONENT_ANSWER ? 'Ждём соперника' : 'Раунд закрыт'}
-                          </span>
-                        </div>
-                    </div>
-                 )}
-                 
                  {/* Hint Button */}
                  {state === STATES.PLAYING && !selectedAnswer && !hintUsed && (
                      <div className="flex justify-center">
