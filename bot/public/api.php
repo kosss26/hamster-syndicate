@@ -237,6 +237,16 @@ try {
             handleAdminStats($container, $telegramUser);
             break;
 
+        // GET /admin/users - список пользователей с фильтрами
+        case $path === '/admin/users' && $requestMethod === 'GET':
+            handleAdminUsers($container, $telegramUser, $_GET);
+            break;
+
+        // GET /admin/duels - список дуэлей с фильтрами
+        case $path === '/admin/duels' && $requestMethod === 'GET':
+            handleAdminDuels($container, $telegramUser, $_GET);
+            break;
+
         // GET /online - получить онлайн
         case $path === '/online' && $requestMethod === 'GET':
             handleGetOnline($container, $telegramUser);
@@ -252,9 +262,29 @@ try {
             handleAdminCancelAllDuels($container, $telegramUser);
             break;
 
+        // POST /admin/duel/by-code/cancel - отменить дуэль по коду
+        case $path === '/admin/duel/by-code/cancel' && $requestMethod === 'POST':
+            handleAdminCancelDuelByCode($container, $telegramUser, $body);
+            break;
+
         // POST /admin/question - добавить вопрос
         case $path === '/admin/question' && $requestMethod === 'POST':
             handleAdminAddQuestion($container, $telegramUser, $body);
+            break;
+
+        // GET /admin/facts - список фактов "Правда или ложь"
+        case $path === '/admin/facts' && $requestMethod === 'GET':
+            handleAdminFacts($container, $telegramUser, $_GET);
+            break;
+
+        // POST /admin/fact - добавить факт "Правда или ложь"
+        case $path === '/admin/fact' && $requestMethod === 'POST':
+            handleAdminAddFact($container, $telegramUser, $body);
+            break;
+
+        // POST /admin/fact/{id}/toggle - включить/выключить факт
+        case preg_match('#^/admin/fact/(\d+)/toggle$#', $path, $matches) && $requestMethod === 'POST':
+            handleAdminToggleFact($container, $telegramUser, (int) $matches[1], $body);
             break;
 
         // === SHOP SYSTEM ===
@@ -1618,6 +1648,287 @@ function handleAdminStats($container, ?array $telegramUser): void
         'recent_users' => $recentUsers,
         'recent_duels' => $recentDuels,
         'categories' => $categories,
+    ]);
+}
+
+/**
+ * Получение пользователей для админки с фильтрами
+ */
+function handleAdminUsers($container, ?array $telegramUser, array $query): void
+{
+    if (!isAdmin($telegramUser, $container)) {
+        jsonError('Доступ запрещён', 403);
+    }
+
+    $limit = max(1, min(100, (int) ($query['limit'] ?? 50)));
+    $search = trim((string) ($query['q'] ?? ''));
+    $sort = (string) ($query['sort'] ?? 'updated_at');
+    $order = strtolower((string) ($query['order'] ?? 'desc')) === 'asc' ? 'asc' : 'desc';
+
+    $allowedSort = ['updated_at', 'created_at', 'rating', 'experience', 'level'];
+    if (!in_array($sort, $allowedSort, true)) {
+        $sort = 'updated_at';
+    }
+
+    $usersQuery = \QuizBot\Domain\Model\User::query()->with('profile');
+
+    if ($search !== '') {
+        $usersQuery->where(function ($q) use ($search): void {
+            $q->where('first_name', 'like', '%' . $search . '%')
+                ->orWhere('last_name', 'like', '%' . $search . '%')
+                ->orWhere('username', 'like', '%' . $search . '%')
+                ->orWhere('telegram_id', 'like', '%' . $search . '%');
+        });
+    }
+
+    if (in_array($sort, ['rating', 'experience', 'level'], true)) {
+        $usersQuery
+            ->leftJoin('user_profiles', 'user_profiles.user_id', '=', 'users.id')
+            ->select('users.*')
+            ->orderBy('user_profiles.' . $sort, $order);
+    } else {
+        $usersQuery->orderBy('users.' . $sort, $order);
+    }
+
+    $users = $usersQuery
+        ->limit($limit)
+        ->get()
+        ->map(function ($u) {
+            return [
+                'id' => $u->getKey(),
+                'telegram_id' => $u->telegram_id,
+                'first_name' => $u->first_name,
+                'last_name' => $u->last_name,
+                'username' => $u->username,
+                'created_at' => $u->created_at ? $u->created_at->toIso8601String() : null,
+                'updated_at' => $u->updated_at ? $u->updated_at->toIso8601String() : null,
+                'rating' => $u->profile ? (int) $u->profile->rating : 1000,
+                'level' => $u->profile ? (int) $u->profile->level : 1,
+                'experience' => $u->profile ? (int) $u->profile->experience : 0,
+                'coins' => $u->profile ? (int) $u->profile->coins : 0,
+                'gems' => $u->profile ? (int) $u->profile->gems : 0,
+            ];
+        })
+        ->values();
+
+    jsonResponse([
+        'items' => $users,
+        'count' => $users->count(),
+    ]);
+}
+
+/**
+ * Получение дуэлей для админки с фильтрами
+ */
+function handleAdminDuels($container, ?array $telegramUser, array $query): void
+{
+    if (!isAdmin($telegramUser, $container)) {
+        jsonError('Доступ запрещён', 403);
+    }
+
+    $limit = max(1, min(100, (int) ($query['limit'] ?? 50)));
+    $status = trim((string) ($query['status'] ?? ''));
+    $search = strtoupper(trim((string) ($query['q'] ?? '')));
+
+    $duelsQuery = \QuizBot\Domain\Model\Duel::query()
+        ->with(['initiator.profile', 'opponent.profile', 'result'])
+        ->orderByDesc('created_at');
+
+    if ($status !== '' && $status !== 'all') {
+        $duelsQuery->where('status', $status);
+    }
+
+    if ($search !== '') {
+        $duelsQuery->where(function ($q) use ($search): void {
+            $q->where('code', 'like', '%' . $search . '%')
+                ->orWhere('initiator_user_id', $search)
+                ->orWhere('opponent_user_id', $search);
+        });
+    }
+
+    $duels = $duelsQuery
+        ->limit($limit)
+        ->get()
+        ->map(function ($d) {
+            return [
+                'id' => $d->getKey(),
+                'code' => $d->code,
+                'status' => $d->status,
+                'created_at' => $d->created_at ? $d->created_at->toIso8601String() : null,
+                'updated_at' => $d->updated_at ? $d->updated_at->toIso8601String() : null,
+                'initiator' => $d->initiator ? [
+                    'id' => $d->initiator->getKey(),
+                    'name' => $d->initiator->first_name,
+                    'rating' => $d->initiator->profile ? (int) $d->initiator->profile->rating : 0,
+                ] : null,
+                'opponent' => $d->opponent ? [
+                    'id' => $d->opponent->getKey(),
+                    'name' => $d->opponent->first_name,
+                    'rating' => $d->opponent->profile ? (int) $d->opponent->profile->rating : 0,
+                ] : null,
+                'result' => $d->result ? [
+                    'initiator_score' => (int) $d->result->initiator_total_score,
+                    'opponent_score' => (int) $d->result->opponent_total_score,
+                ] : null,
+            ];
+        })
+        ->values();
+
+    $activeCount = \QuizBot\Domain\Model\Duel::query()
+        ->whereIn('status', ['waiting', 'matched', 'in_progress'])
+        ->count();
+
+    jsonResponse([
+        'items' => $duels,
+        'count' => $duels->count(),
+        'active_duels' => $activeCount,
+    ]);
+}
+
+/**
+ * Админ: отменить дуэль по коду
+ */
+function handleAdminCancelDuelByCode($container, ?array $telegramUser, array $body): void
+{
+    if (!isAdmin($telegramUser, $container)) {
+        jsonError('Доступ запрещён', 403);
+    }
+
+    $code = strtoupper(trim((string) ($body['code'] ?? '')));
+    if ($code === '') {
+        jsonError('Не указан код дуэли', 400);
+    }
+
+    $duel = \QuizBot\Domain\Model\Duel::query()
+        ->where('code', $code)
+        ->whereIn('status', ['waiting', 'matched', 'in_progress'])
+        ->first();
+
+    if (!$duel) {
+        jsonError('Активная дуэль с таким кодом не найдена', 404);
+    }
+
+    $duel->status = 'cancelled';
+    $duel->finished_at = \Illuminate\Support\Carbon::now();
+    $duel->save();
+
+    notifyDuelRealtime($duel->getKey());
+    jsonResponse([
+        'cancelled' => true,
+        'duel_id' => $duel->getKey(),
+        'code' => $duel->code,
+    ]);
+}
+
+/**
+ * Получение фактов "Правда или ложь" для админки
+ */
+function handleAdminFacts($container, ?array $telegramUser, array $query): void
+{
+    if (!isAdmin($telegramUser, $container)) {
+        jsonError('Доступ запрещён', 403);
+    }
+
+    $limit = max(1, min(200, (int) ($query['limit'] ?? 100)));
+    $search = trim((string) ($query['q'] ?? ''));
+    $truth = trim((string) ($query['truth'] ?? 'all'));
+    $active = trim((string) ($query['active'] ?? 'all'));
+
+    $factsQuery = \QuizBot\Domain\Model\TrueFalseFact::query()
+        ->orderByDesc('id');
+
+    if ($search !== '') {
+        $factsQuery->where('statement', 'like', '%' . $search . '%');
+    }
+
+    if ($truth === 'true') {
+        $factsQuery->where('is_true', true);
+    } elseif ($truth === 'false') {
+        $factsQuery->where('is_true', false);
+    }
+
+    if ($active === '1' || $active === 'true') {
+        $factsQuery->where('is_active', true);
+    } elseif ($active === '0' || $active === 'false') {
+        $factsQuery->where('is_active', false);
+    }
+
+    $facts = $factsQuery
+        ->limit($limit)
+        ->get()
+        ->map(function ($f) {
+            return [
+                'id' => $f->getKey(),
+                'statement' => $f->statement,
+                'explanation' => $f->explanation,
+                'is_true' => (bool) $f->is_true,
+                'is_active' => (bool) $f->is_active,
+            ];
+        })
+        ->values();
+
+    jsonResponse([
+        'items' => $facts,
+        'count' => $facts->count(),
+    ]);
+}
+
+/**
+ * Добавление факта "Правда или ложь"
+ */
+function handleAdminAddFact($container, ?array $telegramUser, array $body): void
+{
+    if (!isAdmin($telegramUser, $container)) {
+        jsonError('Доступ запрещён', 403);
+    }
+
+    $statement = trim((string) ($body['statement'] ?? ''));
+    $explanation = trim((string) ($body['explanation'] ?? ''));
+    $isTrueRaw = $body['is_true'] ?? null;
+    $isActive = array_key_exists('is_active', $body) ? (bool) $body['is_active'] : true;
+
+    if ($statement === '' || $isTrueRaw === null) {
+        jsonError('Укажите текст факта и значение правда/ложь', 400);
+    }
+
+    $fact = new \QuizBot\Domain\Model\TrueFalseFact([
+        'statement' => $statement,
+        'explanation' => $explanation !== '' ? $explanation : null,
+        'is_true' => (bool) $isTrueRaw,
+        'is_active' => $isActive,
+    ]);
+    $fact->save();
+
+    jsonResponse([
+        'id' => $fact->getKey(),
+        'message' => 'Факт добавлен',
+    ]);
+}
+
+/**
+ * Переключение активности факта "Правда или ложь"
+ */
+function handleAdminToggleFact($container, ?array $telegramUser, int $factId, array $body): void
+{
+    if (!isAdmin($telegramUser, $container)) {
+        jsonError('Доступ запрещён', 403);
+    }
+
+    $fact = \QuizBot\Domain\Model\TrueFalseFact::query()->find($factId);
+    if (!$fact) {
+        jsonError('Факт не найден', 404);
+    }
+
+    if (array_key_exists('is_active', $body)) {
+        $fact->is_active = (bool) $body['is_active'];
+    } else {
+        $fact->is_active = !$fact->is_active;
+    }
+    $fact->save();
+
+    jsonResponse([
+        'id' => $fact->getKey(),
+        'is_active' => (bool) $fact->is_active,
     ]);
 }
 

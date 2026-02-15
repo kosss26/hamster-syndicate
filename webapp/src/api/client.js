@@ -151,10 +151,31 @@ export const api = {
 
   // Админ
   getAdminStats: () => request('/admin/stats'),
+  getAdminUsers: (params = {}) => {
+    const query = new URLSearchParams(params).toString()
+    return request(`/admin/users${query ? `?${query}` : ''}`)
+  },
+  getAdminDuels: (params = {}) => {
+    const query = new URLSearchParams(params).toString()
+    return request(`/admin/duels${query ? `?${query}` : ''}`)
+  },
+  getAdminFacts: (params = {}) => {
+    const query = new URLSearchParams(params).toString()
+    return request(`/admin/facts${query ? `?${query}` : ''}`)
+  },
   isAdmin: () => request('/admin/check'),
   adminCancelDuel: (duelId) => request(`/admin/duel/${duelId}/cancel`, { method: 'POST' }),
+  adminCancelDuelByCode: (code) => request('/admin/duel/by-code/cancel', {
+    method: 'POST',
+    body: JSON.stringify({ code })
+  }),
   adminCancelAllDuels: () => request('/admin/duels/cancel-all', { method: 'POST' }),
   adminAddQuestion: (data) => request('/admin/question', { method: 'POST', body: JSON.stringify(data) }),
+  adminAddFact: (data) => request('/admin/fact', { method: 'POST', body: JSON.stringify(data) }),
+  adminToggleFact: (factId, isActive = null) => request(`/admin/fact/${factId}/toggle`, {
+    method: 'POST',
+    body: JSON.stringify(isActive === null ? {} : { is_active: isActive })
+  }),
 }
 
 
@@ -163,4 +184,3 @@ export function getWsBaseUrl() {
 }
 
 export default api
-
