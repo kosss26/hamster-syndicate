@@ -569,12 +569,12 @@ function handleCreateDuel($container, ?array $telegramUser, array $body): void
     /** @var DuelService $duelService */
     $duelService = $container->get(DuelService::class);
     
-    $mode = $body['mode'] ?? 'random';
+    $mode = strtolower((string) ($body['mode'] ?? 'random'));
     
     // Очищаем зависшие matchmaking-дуэли (старше 60 секунд)
     $duelService->cleanupStaleMatchmakingDuels(60);
-    
-    // Проверяем, есть ли у пользователя активная дуэль (с автоочисткой старых)
+
+    // Проверяем, есть ли у пользователя активная дуэль (с автоочисткой старых matchmaking)
     $existingDuel = $duelService->findActiveDuelForUser($user, true);
     if ($existingDuel) {
         jsonResponse([
@@ -587,18 +587,34 @@ function handleCreateDuel($container, ?array $telegramUser, array $body): void
         ]);
         return;
     }
-    
-    // Ищем доступный тикет от другого игрока (TTL 60 секунд)
+
+    // Режим дуэли с другом (приватная дуэль по коду)
+    if (\in_array($mode, ['invite', 'friend'], true)) {
+        $duel = $duelService->createDuel($user, null, null, [
+            'awaiting_target' => true,
+        ]);
+
+        jsonResponse([
+            'duel_id' => $duel->getKey(),
+            'status' => $duel->status,
+            'code' => $duel->code,
+            'initiator_id' => $duel->initiator_user_id,
+            'opponent_id' => $duel->opponent_user_id,
+            'mode' => 'invite',
+            'waiting' => true,
+        ]);
+        return;
+    }
+
+    // Поиск доступного matchmaking тикета от другого игрока (TTL 60 секунд)
     $availableTicket = $duelService->findAvailableMatchmakingTicket($user, 60);
-    
+
     if ($availableTicket) {
-        // Нашли соперника - присоединяемся!
+        // Нашли соперника - присоединяемся и сразу стартуем дуэль
         $duel = $duelService->acceptDuel($availableTicket, $user);
-        
-        // Сразу стартуем дуэль
         $duel = $duelService->startDuel($duel);
         $duel->loadMissing('initiator.profile');
-        
+
         jsonResponse([
             'duel_id' => $duel->getKey(),
             'status' => $duel->status,
@@ -610,19 +626,21 @@ function handleCreateDuel($container, ?array $telegramUser, array $body): void
                 'rating' => $duel->initiator->profile ? $duel->initiator->profile->rating : 0,
             ] : null,
             'matched' => true,
+            'mode' => 'random',
         ]);
         return;
     }
-    
-    // Не нашли соперника - создаём свой тикет
+
+    // Не нашли соперника - создаём matchmaking тикет
     $duel = $duelService->createMatchmakingTicket($user);
-    
+
     jsonResponse([
         'duel_id' => $duel->getKey(),
         'status' => $duel->status,
         'code' => $duel->code,
         'initiator_id' => $duel->initiator_user_id,
         'opponent_id' => $duel->opponent_user_id,
+        'mode' => 'random',
         'waiting' => true,
     ]);
 }
@@ -1027,7 +1045,8 @@ function handleJoinDuel($container, ?array $telegramUser, array $body): void
     }
 
     // Присоединяемся к дуэли
-    $duel = $duelService->joinDuel($duel, $user);
+    $duel = $duelService->acceptDuel($duel, $user);
+    $duel->loadMissing('initiator.profile');
 
     jsonResponse([
         'duel_id' => $duel->getKey(),

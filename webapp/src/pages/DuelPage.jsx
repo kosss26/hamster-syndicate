@@ -75,6 +75,7 @@ function DuelPage() {
   const nextRoundTimerRef = useRef(null)
   const nextRoundIntervalRef = useRef(null)
   const loadDuelRef = useRef(null)
+  const autoJoinAttemptedRef = useRef(false)
 
   useEffect(() => {
     duelStateRef.current = state
@@ -393,6 +394,29 @@ function DuelPage() {
       startSearch()
     }
   }, [searchParams])
+
+  useEffect(() => {
+    if (autoJoinAttemptedRef.current) return
+    if (state !== STATES.MENU && state !== STATES.ENTER_CODE) return
+
+    const queryCode = (searchParams.get('code') || '').trim().toUpperCase()
+    const startapp = (searchParams.get('startapp') || '').trim()
+    const startParam = (window.Telegram?.WebApp?.initDataUnsafe?.start_param || '').trim()
+
+    let codeFromDeepLink = ''
+    if (startapp.toLowerCase().startsWith('duel_')) {
+      codeFromDeepLink = startapp.slice(5).toUpperCase()
+    } else if (startParam.toLowerCase().startsWith('duel_')) {
+      codeFromDeepLink = startParam.slice(5).toUpperCase()
+    }
+
+    const inviteCodeFromLink = queryCode || codeFromDeepLink
+    if (!inviteCodeFromLink || inviteCodeFromLink.length < 4) return
+
+    autoJoinAttemptedRef.current = true
+    setInviteCode(inviteCodeFromLink)
+    setState(STATES.ENTER_CODE)
+  }, [searchParams, state])
 
   useEffect(() => {
     return () => {
@@ -827,16 +851,16 @@ function DuelPage() {
     }
   }
 
-  // Присоединиться по коду
-  const joinByCode = async () => {
-    if (!inviteCode.trim()) return
-    
+  const joinByCodeValue = async (value) => {
+    const normalizedCode = value.trim().toUpperCase()
+    if (!normalizedCode) return
+
     setLoading(true)
     setError(null)
     hapticFeedback('medium')
     
     try {
-      const response = await api.joinDuel(inviteCode.trim().toUpperCase())
+      const response = await api.joinDuel(normalizedCode)
       
       if (response.success) {
         const data = response.data
@@ -868,6 +892,21 @@ function DuelPage() {
       setLoading(false)
     }
   }
+
+  // Присоединиться по коду
+  const joinByCode = async () => {
+    await joinByCodeValue(inviteCode)
+  }
+
+  useEffect(() => {
+    if (state !== STATES.ENTER_CODE) return
+    if (!autoJoinAttemptedRef.current) return
+    if (!inviteCode || inviteCode.length < 4) return
+    if (loading) return
+
+    joinByCodeValue(inviteCode)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, inviteCode])
 
   const handleAnswerSelect = async (answerId) => {
     if (selectedAnswer !== null || !duel || !question) return
