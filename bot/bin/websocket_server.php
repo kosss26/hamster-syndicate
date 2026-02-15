@@ -175,15 +175,38 @@ final class DuelWsServer implements MessageComponentInterface
             return;
         }
 
-        $duelIds = [];
-        foreach ($this->clients as $client) {
-            $ctx = $this->clients[$client];
-            $duelIds[$ctx['duel_id']] = true;
+        $duelIds = $this->getConnectedDuelIds();
+        $this->pushUpdatesForDuels(array_keys($duelIds));
+    }
+
+    /**
+     * Быстрый проход: обрабатывает только форс-сигналы дуэлей.
+     * Используется отдельным таймером с малым интервалом.
+     */
+    public function pushForcedUpdates(): void
+    {
+        if (count($this->clients) === 0) {
+            return;
         }
 
-        foreach (array_keys($duelIds) as $duelId) {
+        $this->consumeEventSignals();
+        if (count($this->forcedEventVersion) === 0) {
+            return;
+        }
+
+        $duelIds = array_keys($this->forcedEventVersion);
+        $this->pushUpdatesForDuels($duelIds);
+    }
+
+    /**
+     * @param array<int> $duelIds
+     */
+    private function pushUpdatesForDuels(array $duelIds): void
+    {
+        foreach ($duelIds as $duelId) {
             $duel = \QuizBot\Domain\Model\Duel::query()->find($duelId);
             if (!$duel) {
+                unset($this->forcedEventVersion[$duelId], $this->stateHashes[$duelId]);
                 continue;
             }
 
@@ -203,6 +226,7 @@ final class DuelWsServer implements MessageComponentInterface
 
             $hash = hash('sha256', json_encode($snapshot));
             if (($this->stateHashes[$duelId] ?? null) === $hash) {
+                unset($this->forcedEventVersion[$duelId]);
                 continue;
             }
             $this->stateHashes[$duelId] = $hash;
@@ -239,6 +263,20 @@ final class DuelWsServer implements MessageComponentInterface
                 unset($this->forcedEventVersion[$duelId]);
             }
         }
+    }
+
+    /**
+     * @return array<int, bool>
+     */
+    private function getConnectedDuelIds(): array
+    {
+        $duelIds = [];
+        foreach ($this->clients as $client) {
+            $ctx = $this->clients[$client];
+            $duelIds[$ctx['duel_id']] = true;
+        }
+
+        return $duelIds;
     }
 
     private function consumeEventSignals(): void
@@ -373,6 +411,7 @@ $secret = (string) $config->get('WEBSOCKET_TICKET_SECRET', $config->get('TELEGRA
 $wsHost = (string) $config->get('WEBSOCKET_HOST', '0.0.0.0');
 $wsPort = (int) $config->get('WEBSOCKET_PORT', 8090);
 $syncInterval = max(0.5, (float) $config->get('WEBSOCKET_SYNC_INTERVAL', 1));
+$eventPollInterval = max(0.1, (float) $config->get('WEBSOCKET_EVENT_POLL_INTERVAL', 0.2));
 $clientTimeoutSeconds = max(30, (int) $config->get('WEBSOCKET_CLIENT_TIMEOUT_SECONDS', 70));
 $maxMessageBytes = max(256, (int) $config->get('WEBSOCKET_MAX_MESSAGE_BYTES', 2048));
 $eventsPath = (string) $config->get('WEBSOCKET_EVENTS_PATH', dirname(__DIR__) . '/storage/runtime/duel_events');
@@ -385,9 +424,10 @@ if ($secret === '') {
 $component = new DuelWsServer($secret, $clientTimeoutSeconds, $maxMessageBytes, $eventsPath);
 $loop = LoopFactory::create();
 $loop->addPeriodicTimer($syncInterval, static fn() => $component->pushDiffUpdates());
+$loop->addPeriodicTimer($eventPollInterval, static fn() => $component->pushForcedUpdates());
 
 $socket = new SocketServer("{$wsHost}:{$wsPort}", [], $loop);
 $server = new IoServer(new HttpServer(new WsServer($component)), $socket, $loop);
 
-echo "[ws] Duel server started at {$wsHost}:{$wsPort}, sync={$syncInterval}s, timeout={$clientTimeoutSeconds}s, max_message={$maxMessageBytes}B\n";
+echo "[ws] Duel server started at {$wsHost}:{$wsPort}, sync={$syncInterval}s, event_poll={$eventPollInterval}s, timeout={$clientTimeoutSeconds}s, max_message={$maxMessageBytes}B\n";
 $server->run();
