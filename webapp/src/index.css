@@ -33,8 +33,8 @@ body, html {
 }
 
 #root {
-  height: 100%;
-  overflow-y: auto; /* Скролл только внутри рута */
+  height: 100dvh;
+  overflow: hidden; /* Глобальный скролл отключен; страницы управляют скроллом локально */
   -webkit-overflow-scrolling: touch;
 }
 
