@@ -46,12 +46,41 @@ final class DuelWsServer implements MessageComponentInterface
     /** @var int */
     private int $forcedMinIntervalMs;
 
+    /** @var int */
+    private int $eventsTtlSeconds;
+
+    /** @var int */
+    private int $statsIntervalSeconds;
+
+    /** @var int */
+    private int $signalsConsumed = 0;
+
+    /** @var int */
+    private int $forcedPushBatches = 0;
+
+    /** @var int */
+    private int $diffPushBatches = 0;
+
+    /** @var int */
+    private int $sendFailures = 0;
+
+    /** @var int */
+    private int $connectionsOpened = 0;
+
+    /** @var int */
+    private int $connectionsClosed = 0;
+
+    /** @var int */
+    private int $lastStatsLoggedAt = 0;
+
     public function __construct(
         string $secret,
         int $clientTimeoutSeconds,
         int $maxMessageBytes,
         string $eventsPath,
-        int $forcedMinIntervalMs
+        int $forcedMinIntervalMs,
+        int $eventsTtlSeconds,
+        int $statsIntervalSeconds
     )
     {
         $this->secret = $secret;
@@ -59,6 +88,9 @@ final class DuelWsServer implements MessageComponentInterface
         $this->maxMessageBytes = max(256, $maxMessageBytes);
         $this->eventsPath = $eventsPath;
         $this->forcedMinIntervalMs = max(0, $forcedMinIntervalMs);
+        $this->eventsTtlSeconds = max(30, $eventsTtlSeconds);
+        $this->statsIntervalSeconds = max(10, $statsIntervalSeconds);
+        $this->lastStatsLoggedAt = time();
         $this->clients = new SplObjectStorage();
 
         if (!is_dir($this->eventsPath)) {
@@ -123,6 +155,7 @@ final class DuelWsServer implements MessageComponentInterface
             'duel_id' => (int) $payload['duel_id'],
             'last_seen' => $now,
         ]);
+        $this->connectionsOpened++;
 
         $conn->send(json_encode([
             'type' => 'connected',
@@ -163,6 +196,7 @@ final class DuelWsServer implements MessageComponentInterface
     {
         if ($this->clients->contains($conn)) {
             $this->clients->detach($conn);
+            $this->connectionsClosed++;
         }
     }
 
@@ -177,6 +211,8 @@ final class DuelWsServer implements MessageComponentInterface
         $now = time();
         $this->pruneInactiveClients($now);
         $this->consumeEventSignals();
+        $this->cleanupStaleSignalFiles($now);
+        $this->logStatsIfNeeded($now);
 
         foreach ($this->consumedTicketJti as $jti => $expiresAt) {
             if ($expiresAt < $now) {
@@ -189,6 +225,9 @@ final class DuelWsServer implements MessageComponentInterface
         }
 
         $duelIds = $this->getConnectedDuelIds();
+        if (count($duelIds) > 0) {
+            $this->diffPushBatches++;
+        }
         $this->pushUpdatesForDuels(array_keys($duelIds));
     }
 
@@ -237,6 +276,7 @@ final class DuelWsServer implements MessageComponentInterface
             return;
         }
 
+        $this->forcedPushBatches++;
         $this->pushUpdatesForDuels($duelIds);
     }
 
@@ -346,8 +386,51 @@ final class DuelWsServer implements MessageComponentInterface
             }
 
             $this->forcedEventVersion[$duelId] = trim($version);
+            $this->signalsConsumed++;
             @unlink($file);
         }
+    }
+
+    private function cleanupStaleSignalFiles(int $now): void
+    {
+        if (!is_dir($this->eventsPath)) {
+            return;
+        }
+
+        $files = glob($this->eventsPath . '/duel_*.signal') ?: [];
+        foreach ($files as $file) {
+            $mtime = @filemtime($file);
+            if ($mtime === false) {
+                continue;
+            }
+
+            if (($now - $mtime) > $this->eventsTtlSeconds) {
+                @unlink($file);
+            }
+        }
+    }
+
+    private function logStatsIfNeeded(int $now): void
+    {
+        if (($now - $this->lastStatsLoggedAt) < $this->statsIntervalSeconds) {
+            return;
+        }
+
+        $this->lastStatsLoggedAt = $now;
+        $connectedClients = count($this->clients);
+        $duelCount = count($this->getConnectedDuelIds());
+
+        echo sprintf(
+            "[ws] stats clients=%d duels=%d opened=%d closed=%d signals=%d forced_batches=%d diff_batches=%d send_failures=%d\n",
+            $connectedClients,
+            $duelCount,
+            $this->connectionsOpened,
+            $this->connectionsClosed,
+            $this->signalsConsumed,
+            $this->forcedPushBatches,
+            $this->diffPushBatches,
+            $this->sendFailures
+        );
     }
 
     private function touchConnection(ConnectionInterface $conn): void
@@ -388,6 +471,7 @@ final class DuelWsServer implements MessageComponentInterface
             return true;
         } catch (Throwable $e) {
             error_log('[ws] send failed: ' . $e->getMessage());
+            $this->sendFailures++;
             return false;
         }
     }
@@ -458,13 +542,23 @@ $clientTimeoutSeconds = max(30, (int) $config->get('WEBSOCKET_CLIENT_TIMEOUT_SEC
 $maxMessageBytes = max(256, (int) $config->get('WEBSOCKET_MAX_MESSAGE_BYTES', 2048));
 $eventsPath = (string) $config->get('WEBSOCKET_EVENTS_PATH', dirname(__DIR__) . '/storage/runtime/duel_events');
 $forcedMinIntervalMs = max(0, (int) $config->get('WEBSOCKET_FORCED_MIN_INTERVAL_MS', 120));
+$eventsTtlSeconds = max(30, (int) $config->get('WEBSOCKET_EVENTS_TTL_SECONDS', 120));
+$statsIntervalSeconds = max(10, (int) $config->get('WEBSOCKET_STATS_INTERVAL_SECONDS', 30));
 
 if ($secret === '') {
     fwrite(STDERR, "[ws] WEBSOCKET_TICKET_SECRET (or TELEGRAM_BOT_TOKEN fallback) is empty\n");
     exit(1);
 }
 
-$component = new DuelWsServer($secret, $clientTimeoutSeconds, $maxMessageBytes, $eventsPath, $forcedMinIntervalMs);
+$component = new DuelWsServer(
+    $secret,
+    $clientTimeoutSeconds,
+    $maxMessageBytes,
+    $eventsPath,
+    $forcedMinIntervalMs,
+    $eventsTtlSeconds,
+    $statsIntervalSeconds
+);
 $loop = LoopFactory::create();
 $loop->addPeriodicTimer($syncInterval, static fn() => $component->pushDiffUpdates());
 $loop->addPeriodicTimer($eventPollInterval, static fn() => $component->pushForcedUpdates());
@@ -472,5 +566,5 @@ $loop->addPeriodicTimer($eventPollInterval, static fn() => $component->pushForce
 $socket = new SocketServer("{$wsHost}:{$wsPort}", [], $loop);
 $server = new IoServer(new HttpServer(new WsServer($component)), $socket, $loop);
 
-echo "[ws] Duel server started at {$wsHost}:{$wsPort}, sync={$syncInterval}s, event_poll={$eventPollInterval}s, forced_min_interval={$forcedMinIntervalMs}ms, timeout={$clientTimeoutSeconds}s, max_message={$maxMessageBytes}B\n";
+echo "[ws] Duel server started at {$wsHost}:{$wsPort}, sync={$syncInterval}s, event_poll={$eventPollInterval}s, forced_min_interval={$forcedMinIntervalMs}ms, events_ttl={$eventsTtlSeconds}s, stats_interval={$statsIntervalSeconds}s, timeout={$clientTimeoutSeconds}s, max_message={$maxMessageBytes}B\n";
 $server->run();
