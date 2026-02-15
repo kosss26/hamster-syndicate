@@ -125,7 +125,15 @@ function ProfilePage() {
   const rankName = typeof profile.rank === 'object' ? profile.rank.name : profile.rank
   const level = Number(profile.level || 1)
   const experience = Number(profile.experience || 0)
-  const experienceProgress = Math.max(0, Math.min(100, Math.round(Number(profile.experience_progress || 0))))
+  const progressData = profile.experience_progress && typeof profile.experience_progress === 'object'
+    ? profile.experience_progress
+    : null
+  const expIntoLevel = Number(progressData?.exp_into_level || 0)
+  const levelStart = Number(progressData?.current_level_start || 0)
+  const nextLevelExp = Number(progressData?.next_level_experience || 0)
+  const levelSpan = Math.max(1, nextLevelExp - levelStart)
+  const experienceProgress = Math.max(0, Math.min(100, Math.round((expIntoLevel / levelSpan) * 100)))
+  const expToNext = Number(progressData?.exp_to_next_level ?? 0)
 
   return (
     <div className="min-h-dvh bg-aurora relative overflow-hidden flex flex-col pb-24">
@@ -289,7 +297,7 @@ function ProfilePage() {
                     className="h-full bg-gradient-to-r from-indigo-300 via-cyan-300 to-emerald-300"
                   />
                 </div>
-                <p className="text-white/60 text-xs mt-2">До следующего уровня: {100 - experienceProgress}%</p>
+                <p className="text-white/60 text-xs mt-2">До следующего уровня: {expToNext} XP</p>
               </div>
 
               {/* Collections Preview */}

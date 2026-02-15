@@ -130,7 +130,7 @@ final class AppBootstrap
                 /** @var Config $config */
                 $config = $c->get(Config::class);
 
-                return new CacheFactory($config->get('CACHE_DRIVER', 'array'), $this->basePath . '/storage/cache');
+                return new CacheFactory($config->get('CACHE_DRIVER', 'filesystem'), $this->basePath . '/storage/cache');
             },
             TelegramClientFactory::class => function (Container $c) {
                 /** @var Config $config */
@@ -292,4 +292,3 @@ final class AppBootstrap
         $this->container->get(Capsule::class);
     }
 }
-

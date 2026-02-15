@@ -201,7 +201,9 @@ class FortuneWheelService
                 break;
 
             case 'exp':
-                $profile->experience += $reward['amount'];
+                // XP должен сразу конвертироваться в уровень и прогресс профиля
+                $this->userService->grantExperience($user, (int) $reward['amount']);
+                $profile->refresh();
                 break;
 
             case 'life':
