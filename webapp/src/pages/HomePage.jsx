@@ -94,7 +94,7 @@ function HomePage() {
 
   const handlePlay = () => {
     hapticFeedback('heavy')
-    navigate('/duel?mode=random')
+    navigate('/duel')
   }
 
   const handleInvite = () => {
