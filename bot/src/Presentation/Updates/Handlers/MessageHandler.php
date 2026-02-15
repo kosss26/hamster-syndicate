@@ -875,10 +875,15 @@ final class MessageHandler
             throw new \RuntimeException('В документе отсутствует file_id');
         }
 
-        $botToken = (string) (getenv('TELEGRAM_BOT_TOKEN') ?: ($_ENV['TELEGRAM_BOT_TOKEN'] ?? ''));
-        if ($botToken === '') {
-            throw new \RuntimeException('TELEGRAM_BOT_TOKEN не найден в окружении');
+        $baseUri = (string) $this->telegramClient->getConfig('base_uri');
+        if ($baseUri === '') {
+            throw new \RuntimeException('Не удалось определить base_uri Telegram клиента');
         }
+
+        if (preg_match('#/bot([^/]+)/?$#', $baseUri, $matches) !== 1) {
+            throw new \RuntimeException('Не удалось извлечь токен бота из base_uri');
+        }
+        $botToken = $matches[1];
 
         $response = $this->telegramClient->request('POST', 'getFile', [
             'json' => ['file_id' => $fileId],
