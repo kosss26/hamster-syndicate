@@ -1,13 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTelegram, showBackButton, hapticFeedback } from '../hooks/useTelegram'
 import api from '../api/client'
 
+const QUESTION_TIME_LIMIT = 15
+const BREAK_STATE_MS = 1500
+
 function TrueFalsePage() {
   const navigate = useNavigate()
   const { user } = useTelegram()
-  
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [fact, setFact] = useState(null)
@@ -15,15 +18,25 @@ function TrueFalsePage() {
   const [record, setRecord] = useState(0)
   const [result, setResult] = useState(null)
   const [answered, setAnswered] = useState(false)
-  const [timeLeft, setTimeLeft] = useState(15)
+  const [timeLeft, setTimeLeft] = useState(QUESTION_TIME_LIMIT)
+  const [phase, setPhase] = useState('playing')
+  const [selectedChoice, setSelectedChoice] = useState(null)
+  const breakTimerRef = useRef(null)
 
   useEffect(() => {
     showBackButton(true)
     loadQuestion()
+
+    return () => {
+      if (breakTimerRef.current) {
+        clearTimeout(breakTimerRef.current)
+        breakTimerRef.current = null
+      }
+    }
   }, [])
 
   useEffect(() => {
-    if (loading || answered || timeLeft <= 0) return
+    if (loading || answered || phase === 'break' || timeLeft <= 0) return
 
     const timer = setInterval(() => {
       setTimeLeft(prev => {
@@ -36,47 +49,86 @@ function TrueFalsePage() {
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [loading, answered, timeLeft])
+  }, [loading, answered, timeLeft, phase])
+
+  const applyNextQuestion = (nextFact) => {
+    if (nextFact) {
+      setFact(nextFact)
+      setAnswered(false)
+      setResult(null)
+      setSelectedChoice(null)
+      setTimeLeft(QUESTION_TIME_LIMIT)
+      setPhase('playing')
+      return
+    }
+
+    loadQuestion({ soft: true })
+  }
+
+  const scheduleNextQuestion = (nextFact = null) => {
+    if (breakTimerRef.current) {
+      clearTimeout(breakTimerRef.current)
+      breakTimerRef.current = null
+    }
+
+    setPhase('break')
+    breakTimerRef.current = setTimeout(() => {
+      applyNextQuestion(nextFact)
+    }, BREAK_STATE_MS)
+  }
 
   const handleTimeout = async () => {
     if (answered || !fact) return
     setAnswered(true)
+    setSelectedChoice(null)
     hapticFeedback('warning')
-    
+
     try {
       const response = await api.submitTrueFalseAnswer(fact.id, null)
-      
+
       if (response.success) {
         const data = response.data
+        const previousStreak = streak
         setResult({
           isCorrect: false,
           explanation: data.explanation || 'Время вышло!',
-          correctAnswer: data.correct_answer
+          correctAnswer: data.correct_answer,
+          timedOut: true,
+          brokenStreak: previousStreak
         })
-        setStreak(0)
+        setStreak(data.streak ?? 0)
         setRecord(data.record)
         hapticFeedback('error')
+        scheduleNextQuestion(data.next_fact || null)
       }
     } catch (err) {
       console.error('Timeout error:', err)
       setResult({
         isCorrect: false,
         explanation: 'Время вышло!',
-        correctAnswer: null
+        correctAnswer: null,
+        timedOut: true,
+        brokenStreak: streak
       })
+      setStreak(0)
+      scheduleNextQuestion()
     }
   }
 
-  const loadQuestion = async () => {
+  const loadQuestion = async ({ soft = false } = {}) => {
     try {
-      setLoading(true)
+      if (!soft) {
+        setLoading(true)
+      }
       setError(null)
       setAnswered(false)
       setResult(null)
-      setTimeLeft(15)
-      
+      setSelectedChoice(null)
+      setTimeLeft(QUESTION_TIME_LIMIT)
+      setPhase('playing')
+
       const response = await api.getTrueFalseQuestion()
-      
+
       if (response.success) {
         setFact(response.data)
       } else {
@@ -92,37 +144,33 @@ function TrueFalsePage() {
 
   const handleAnswer = async (answer) => {
     if (answered || !fact) return
-    
+    const previousStreak = streak
     setAnswered(true)
+    setSelectedChoice(answer)
     hapticFeedback('light')
-    
+
     try {
       const response = await api.submitTrueFalseAnswer(fact.id, answer)
-      
+
       if (response.success) {
         const data = response.data
         setResult({
           isCorrect: data.is_correct,
           explanation: data.explanation,
-          correctAnswer: data.correct_answer
+          correctAnswer: data.correct_answer,
+          timedOut: false,
+          brokenStreak: data.is_correct ? 0 : previousStreak
         })
         setStreak(data.streak)
         setRecord(data.record)
-        
+
         if (data.is_correct) {
           hapticFeedback('success')
         } else {
           hapticFeedback('error')
         }
-        
-        if (data.is_correct && data.next_fact) {
-          setTimeout(() => {
-            setFact(data.next_fact)
-            setAnswered(false)
-            setResult(null)
-            setTimeLeft(15)
-          }, 2500)
-        }
+
+        scheduleNextQuestion(data.next_fact || null)
       }
     } catch (err) {
       console.error('Failed to submit answer:', err)
@@ -171,97 +219,10 @@ function TrueFalsePage() {
     )
   }
 
-  // Game Over Screen
-  if (result && !result.isCorrect) {
-    return (
-      <div className="min-h-dvh bg-aurora relative overflow-hidden flex items-center justify-center p-4">
-        <div className="aurora-blob aurora-blob-1" />
-        <div className="aurora-blob aurora-blob-2" />
-        <div className="noise-overlay" />
-
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="relative z-10 w-full max-w-sm"
-        >
-          <div className="text-center mb-8">
-            <motion.div
-              initial={{ scale: 0, rotate: -180 }}
-              animate={{ scale: 1, rotate: 0 }}
-              transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
-              className="text-8xl mb-4 inline-block"
-            >
-              💔
-            </motion.div>
-            <h2 className="text-3xl font-bold text-white mb-2">Неверно!</h2>
-            <p className="text-white/60">Серия прервана</p>
-          </div>
-          
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="bento-card p-6 mb-6"
-          >
-            <div className="bento-glow bg-gradient-to-br from-red-500/20 to-transparent blur-2xl" />
-            
-            <p className="text-white/50 text-xs uppercase tracking-wider mb-2">Правильный ответ</p>
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-2xl">{result.correctAnswer ? '✅' : '❌'}</span>
-              <span className={`text-xl font-bold ${result.correctAnswer ? 'text-game-success' : 'text-game-danger'}`}>
-                {result.correctAnswer ? 'Правда' : 'Ложь'}
-              </span>
-            </div>
-            
-            {result.explanation && (
-              <div className="bg-white/5 rounded-xl p-3 border border-white/5">
-                <p className="text-sm text-white/80 leading-relaxed">{result.explanation}</p>
-              </div>
-            )}
-          </motion.div>
-          
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="grid grid-cols-2 gap-4 mb-8"
-          >
-            <div className="glass rounded-2xl p-4 text-center">
-              <div className="text-3xl font-bold text-white mb-1">{streak}</div>
-              <div className="text-xs text-white/40 uppercase tracking-wider">Серия</div>
-            </div>
-            <div className="glass rounded-2xl p-4 text-center">
-              <div className="text-3xl font-bold text-gradient-gold mb-1">{record}</div>
-              <div className="text-xs text-white/40 uppercase tracking-wider">Рекорд</div>
-            </div>
-          </motion.div>
-
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="flex gap-3"
-          >
-            <button
-              onClick={() => navigate('/')}
-              className="flex-1 py-4 glass rounded-2xl font-semibold text-white/60 hover:text-white transition-colors active:scale-95"
-            >
-              Выход
-            </button>
-            <button
-              onClick={loadQuestion}
-              className="flex-[2] py-4 bg-gradient-to-r from-game-primary to-purple-600 rounded-2xl font-semibold text-white shadow-glow active:scale-95 transition-transform"
-            >
-              Играть снова
-            </button>
-          </motion.div>
-        </motion.div>
-      </div>
-    )
-  }
-
-  const timerProgress = timeLeft / 15
+  const timerProgress = timeLeft / QUESTION_TIME_LIMIT
   const timerColor = timeLeft <= 5 ? '#ef4444' : timeLeft <= 10 ? '#f59e0b' : '#a855f7'
+  const nextMilestone = Math.max(5, Math.ceil(Math.max(streak, 1) / 5) * 5)
+  const streakMilestoneProgress = Math.min(1, streak / nextMilestone)
 
   return (
     <div className="min-h-dvh bg-aurora relative overflow-hidden flex flex-col">
@@ -321,9 +282,29 @@ function TrueFalsePage() {
             </div>
           </div>
           
-          <div className="glass rounded-full px-4 py-2 flex items-center gap-2">
-            <span className="text-xl">🔥</span>
-            <span className="font-bold text-white">{streak}</span>
+          <div className="flex items-center gap-2">
+            <div className="glass rounded-full px-4 py-2 flex items-center gap-2">
+              <span className="text-xl">🔥</span>
+              <span className="font-bold text-white">{streak}</span>
+            </div>
+            <div className="glass rounded-full px-3 py-2">
+              <span className="text-xs text-white/80">Рекорд: <span className="font-bold text-gradient-gold">{record}</span></span>
+            </div>
+          </div>
+        </div>
+
+        <div className="mb-6">
+          <div className="flex items-center justify-between text-xs text-white/50 mb-2">
+            <span>Прогресс серии</span>
+            <span>{streak}/{nextMilestone}</span>
+          </div>
+          <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
+            <motion.div
+              className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-lime-300 to-yellow-300"
+              initial={{ width: 0 }}
+              animate={{ width: `${streakMilestoneProgress * 100}%` }}
+              transition={{ duration: 0.35 }}
+            />
           </div>
         </div>
 
@@ -335,8 +316,20 @@ function TrueFalsePage() {
             animate={{ opacity: 1, scale: 1, rotateX: 0 }}
             className="perspective-1000"
           >
-            <div className="bento-card card-shine p-8 min-h-[240px] flex flex-col items-center justify-center text-center">
-              <div className="bento-glow bg-gradient-to-br from-purple-500/20 via-pink-500/10 to-transparent blur-2xl" />
+            <div className={`bento-card card-shine p-8 min-h-[240px] flex flex-col items-center justify-center text-center transition-all ${
+              phase === 'break'
+                ? result?.isCorrect
+                  ? 'border border-game-success/35'
+                  : 'border border-game-danger/35'
+                : ''
+            }`}>
+              <div className={`bento-glow blur-2xl ${
+                phase === 'break'
+                  ? result?.isCorrect
+                    ? 'bg-gradient-to-br from-emerald-500/20 via-green-400/10 to-transparent'
+                    : 'bg-gradient-to-br from-red-500/20 via-rose-400/10 to-transparent'
+                  : 'bg-gradient-to-br from-purple-500/20 via-pink-500/10 to-transparent'
+              }`} />
               
               <div className="text-4xl mb-6">🤔</div>
               <p className="relative text-xl md:text-2xl font-medium leading-relaxed text-white">
@@ -347,19 +340,35 @@ function TrueFalsePage() {
 
           {/* Success Overlay inside layout */}
           <AnimatePresence>
-            {result && result.isCorrect && (
+            {result && phase === 'break' && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
-                className="mt-4 glass rounded-2xl p-4 border border-game-success/30 flex items-start gap-3"
+                className={`mt-4 glass rounded-2xl p-4 flex items-start gap-3 ${
+                  result.isCorrect ? 'border border-game-success/30' : 'border border-game-danger/35'
+                }`}
               >
-                <div className="bg-game-success/20 p-2 rounded-full text-game-success">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                <div className={`p-2 rounded-full ${result.isCorrect ? 'bg-game-success/20 text-game-success' : 'bg-game-danger/20 text-game-danger'}`}>
+                  {result.isCorrect ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  )}
                 </div>
                 <div>
-                  <p className="font-bold text-game-success mb-1">Верно!</p>
-                  <p className="text-sm text-white/60">{result.explanation}</p>
+                  <p className={`font-bold mb-1 ${result.isCorrect ? 'text-game-success' : 'text-game-danger'}`}>
+                    {result.isCorrect ? 'Верно!' : (result.timedOut ? 'Время вышло' : 'Неверно')}
+                  </p>
+                  <p className="text-sm text-white/65 mb-1">
+                    Правильный ответ: <span className={result.correctAnswer ? 'text-game-success' : 'text-game-danger'}>
+                      {result.correctAnswer ? 'Правда' : 'Ложь'}
+                    </span>
+                  </p>
+                  {result.explanation && <p className="text-sm text-white/60">{result.explanation}</p>}
+                  {!result.isCorrect && (
+                    <p className="text-xs text-white/45 mt-1">Серия прервана: {result.brokenStreak || 0} → 0</p>
+                  )}
                 </div>
               </motion.div>
             )}
@@ -371,12 +380,14 @@ function TrueFalsePage() {
           <motion.button
             whileTap={{ scale: 0.95 }}
             onClick={() => handleAnswer(true)}
-            disabled={answered}
+            disabled={answered || phase === 'break'}
             className={`group relative h-20 rounded-3xl font-bold text-xl overflow-hidden transition-all ${
-              answered 
+              answered || phase === 'break'
                 ? result?.correctAnswer === true
                   ? 'bg-game-success ring-4 ring-game-success/30'
-                  : 'bg-white/5 opacity-30 grayscale'
+                  : selectedChoice === true
+                    ? 'bg-red-500/70 ring-2 ring-red-400/40'
+                    : 'bg-white/5 opacity-30 grayscale'
                 : 'bg-gradient-to-br from-green-500 to-emerald-600 shadow-glow-success'
             }`}
           >
@@ -390,12 +401,14 @@ function TrueFalsePage() {
           <motion.button
             whileTap={{ scale: 0.95 }}
             onClick={() => handleAnswer(false)}
-            disabled={answered}
+            disabled={answered || phase === 'break'}
             className={`group relative h-20 rounded-3xl font-bold text-xl overflow-hidden transition-all ${
-              answered 
+              answered || phase === 'break'
                 ? result?.correctAnswer === false
                   ? 'bg-game-danger ring-4 ring-game-danger/30'
-                  : 'bg-white/5 opacity-30 grayscale'
+                  : selectedChoice === false
+                    ? 'bg-red-500/70 ring-2 ring-red-400/40'
+                    : 'bg-white/5 opacity-30 grayscale'
                 : 'bg-gradient-to-br from-red-500 to-rose-600 shadow-glow-danger'
             }`}
           >
