@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace QuizBot\Application\Services;
 
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Monolog\Logger;
 use QuizBot\Domain\Model\Category;
@@ -622,7 +621,17 @@ class DuelService
 
     private function generateCode(): string
     {
-        return strtoupper(Str::random(8));
+        // 5-значный цифровой код (00000-99999) с проверкой уникальности.
+        // Несколько попыток защищают от редких коллизий при высокой нагрузке.
+        for ($attempt = 0; $attempt < 20; $attempt++) {
+            $code = str_pad((string) random_int(0, 99999), 5, '0', STR_PAD_LEFT);
+            $exists = Duel::query()->where('code', $code)->exists();
+            if (!$exists) {
+                return $code;
+            }
+        }
+
+        throw new \RuntimeException('Не удалось сгенерировать уникальный код дуэли.');
     }
 
     private function countCorrectAnswers(Duel $duel, bool $isInitiator): int
@@ -751,7 +760,7 @@ class DuelService
         $initiator = $initiator->fresh(['profile']);
         $opponent = $opponent->fresh(['profile']);
 
-        if (!$initiator?->profile instanceof UserProfile || !$opponent?->profile instanceof UserProfile) {
+        if (!($initiator->profile instanceof UserProfile) || !($opponent->profile instanceof UserProfile)) {
             return ['initiator_rating_change' => 0, 'opponent_rating_change' => 0];
         }
 
@@ -832,4 +841,3 @@ class DuelService
         return $baseChange;
     }
 }
-

@@ -1010,10 +1010,11 @@ function handleJoinDuel($container, ?array $telegramUser, array $body): void
         jsonError('Не авторизован', 401);
     }
 
-    $code = strtoupper(trim($body['code'] ?? ''));
+    $code = trim((string) ($body['code'] ?? ''));
+    $code = preg_replace('/\D+/', '', $code) ?? '';
 
-    if (empty($code)) {
-        jsonError('Не указан код дуэли', 400);
+    if (!preg_match('/^\d{5}$/', $code)) {
+        jsonError('Код дуэли должен содержать ровно 5 цифр', 400);
     }
 
     /** @var UserService $userService */

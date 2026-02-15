@@ -399,19 +399,19 @@ function DuelPage() {
     if (autoJoinAttemptedRef.current) return
     if (state !== STATES.MENU && state !== STATES.ENTER_CODE) return
 
-    const queryCode = (searchParams.get('code') || '').trim().toUpperCase()
+    const queryCodeRaw = (searchParams.get('code') || '').trim()
     const startapp = (searchParams.get('startapp') || '').trim()
     const startParam = (window.Telegram?.WebApp?.initDataUnsafe?.start_param || '').trim()
 
-    let codeFromDeepLink = ''
+    let codeFromDeepLinkRaw = ''
     if (startapp.toLowerCase().startsWith('duel_')) {
-      codeFromDeepLink = startapp.slice(5).toUpperCase()
+      codeFromDeepLinkRaw = startapp.slice(5)
     } else if (startParam.toLowerCase().startsWith('duel_')) {
-      codeFromDeepLink = startParam.slice(5).toUpperCase()
+      codeFromDeepLinkRaw = startParam.slice(5)
     }
 
-    const inviteCodeFromLink = queryCode || codeFromDeepLink
-    if (!inviteCodeFromLink || inviteCodeFromLink.length < 4) return
+    const inviteCodeFromLink = (queryCodeRaw || codeFromDeepLinkRaw).replace(/\D+/g, '').slice(0, 5)
+    if (!/^\d{5}$/.test(inviteCodeFromLink)) return
 
     autoJoinAttemptedRef.current = true
     setInviteCode(inviteCodeFromLink)
@@ -852,8 +852,12 @@ function DuelPage() {
   }
 
   const joinByCodeValue = async (value) => {
-    const normalizedCode = value.trim().toUpperCase()
-    if (!normalizedCode) return
+    const normalizedCode = value.replace(/\D+/g, '').slice(0, 5)
+    if (!/^\d{5}$/.test(normalizedCode)) {
+      setError('Код должен содержать 5 цифр')
+      hapticFeedback('error')
+      return
+    }
 
     setLoading(true)
     setError(null)
@@ -901,7 +905,7 @@ function DuelPage() {
   useEffect(() => {
     if (state !== STATES.ENTER_CODE) return
     if (!autoJoinAttemptedRef.current) return
-    if (!inviteCode || inviteCode.length < 4) return
+    if (!/^\d{5}$/.test(inviteCode)) return
     if (loading) return
 
     joinByCodeValue(inviteCode)
@@ -1109,18 +1113,19 @@ function DuelPage() {
             <h2 className="text-3xl font-bold text-white text-center mb-8">Ввод кода</h2>
             
             <input
-              type="text"
+              type="tel"
               value={inviteCode}
-              onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-              placeholder="CODE"
-              maxLength={8}
-              className="w-full bg-white/5 border border-white/10 rounded-2xl py-6 text-center text-4xl font-mono font-bold text-white placeholder-white/20 outline-none focus:border-game-primary transition-colors mb-6 tracking-widest uppercase"
+              onChange={(e) => setInviteCode(e.target.value.replace(/\D+/g, '').slice(0, 5))}
+              placeholder="12345"
+              maxLength={5}
+              inputMode="numeric"
+              className="w-full bg-white/5 border border-white/10 rounded-2xl py-6 text-center text-4xl font-mono font-bold text-white placeholder-white/20 outline-none focus:border-game-primary transition-colors mb-6 tracking-widest"
               autoFocus
             />
             
             <button
               onClick={joinByCode}
-              disabled={loading || inviteCode.length < 4}
+              disabled={loading || !/^\d{5}$/.test(inviteCode)}
               className="w-full py-4 bg-game-primary rounded-xl font-bold text-white shadow-lg shadow-game-primary/30 disabled:opacity-50 disabled:shadow-none transition-all active:scale-95 mb-4"
             >
               {loading ? 'Поиск...' : 'Присоединиться'}
