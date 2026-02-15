@@ -32,6 +32,7 @@ function App() {
     if (telegram) {
       telegram.ready()
       telegram.expand()
+      telegram.disableVerticalSwipes?.()
       
       // Настройка темы
       telegram.setHeaderColor('#0a0a0f')
