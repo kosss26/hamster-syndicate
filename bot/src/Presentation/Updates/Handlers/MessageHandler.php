@@ -745,9 +745,10 @@ final class MessageHandler
             $result = $this->importQuestionsFromFileContent($content, $fileName, $defaultCategory);
 
             $summary = sprintf(
-                "✅ Импорт завершен.\n\nФайл: %s\nДобавлено: %d\nОшибок: %d",
+                "✅ Импорт завершен.\n\nФайл: %s\nДобавлено: %d\nДублей пропущено: %d\nОшибок: %d",
                 htmlspecialchars($fileName, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
                 $result['inserted'],
+                $result['skipped_duplicates'] ?? 0,
                 count($result['errors'])
             );
 
@@ -828,9 +829,10 @@ final class MessageHandler
             $result = $this->importFactsFromFileContent($content, $fileName);
 
             $summary = sprintf(
-                "✅ Импорт фактов завершен.\n\nФайл: %s\nДобавлено: %d\nОшибок: %d",
+                "✅ Импорт фактов завершен.\n\nФайл: %s\nДобавлено: %d\nДублей пропущено: %d\nОшибок: %d",
                 htmlspecialchars($fileName, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
                 $result['inserted'],
+                $result['skipped_duplicates'] ?? 0,
                 count($result['errors'])
             );
 
@@ -924,7 +926,7 @@ final class MessageHandler
     }
 
     /**
-     * @return array{inserted:int,errors:array<int,string>}
+     * @return array{inserted:int,skipped_duplicates:int,errors:array<int,string>}
      */
     private function importQuestionsFromFileContent(string $content, string $fileName, ?string $defaultCategory): array
     {
@@ -940,7 +942,7 @@ final class MessageHandler
     }
 
     /**
-     * @return array{inserted:int,errors:array<int,string>}
+     * @return array{inserted:int,skipped_duplicates:int,errors:array<int,string>}
      */
     private function importFactsFromFileContent(string $content, string $fileName): array
     {
@@ -956,7 +958,7 @@ final class MessageHandler
     }
 
     /**
-     * @return array{inserted:int,errors:array<int,string>}
+     * @return array{inserted:int,skipped_duplicates:int,errors:array<int,string>}
      */
     private function importFactsFromJsonContent(string $content, bool $isNdjson): array
     {
@@ -984,9 +986,12 @@ final class MessageHandler
         }
 
         $inserted = 0;
+        $skippedDuplicates = 0;
         $errors = [];
+        $hasContentHash = Capsule::schema()->hasColumn('true_false_facts', 'content_hash');
+        $seenHashes = [];
 
-        Capsule::connection()->transaction(function () use ($records, &$inserted, &$errors): void {
+        Capsule::connection()->transaction(function () use ($records, &$inserted, &$skippedDuplicates, &$errors, $hasContentHash, &$seenHashes): void {
             $now = date('Y-m-d H:i:s');
 
             foreach ($records as $idx => $record) {
@@ -999,6 +1004,13 @@ final class MessageHandler
                     if ($statement === '') {
                         throw new \RuntimeException('Пустое утверждение');
                     }
+                    $contentHash = $this->buildFactContentHash($statement);
+                    if ($hasContentHash) {
+                        if (isset($seenHashes[$contentHash]) || Capsule::table('true_false_facts')->where('content_hash', $contentHash)->exists()) {
+                            $skippedDuplicates++;
+                            continue;
+                        }
+                    }
 
                     $truthRaw = $record['is_true'] ?? $record['truth'] ?? $record['answer'] ?? null;
                     $isTrue = $this->normalizeTruthValue($truthRaw);
@@ -1008,14 +1020,22 @@ final class MessageHandler
 
                     $explanation = isset($record['explanation']) ? trim((string) $record['explanation']) : '';
 
-                    Capsule::table('true_false_facts')->insert([
+                    $row = [
                         'statement' => $statement,
                         'explanation' => $explanation !== '' ? $explanation : null,
                         'is_true' => $isTrue,
                         'is_active' => true,
                         'created_at' => $now,
                         'updated_at' => $now,
-                    ]);
+                    ];
+                    if ($hasContentHash) {
+                        $row['content_hash'] = $contentHash;
+                    }
+
+                    Capsule::table('true_false_facts')->insert($row);
+                    if ($hasContentHash) {
+                        $seenHashes[$contentHash] = true;
+                    }
                     $inserted++;
                 } catch (\Throwable $e) {
                     $errors[] = sprintf('JSON #%d: %s', $idx + 1, $e->getMessage());
@@ -1025,12 +1045,13 @@ final class MessageHandler
 
         return [
             'inserted' => $inserted,
+            'skipped_duplicates' => $skippedDuplicates,
             'errors' => $errors,
         ];
     }
 
     /**
-     * @return array{inserted:int,errors:array<int,string>}
+     * @return array{inserted:int,skipped_duplicates:int,errors:array<int,string>}
      */
     private function importFactsFromPlainText(string $content): array
     {
@@ -1038,9 +1059,12 @@ final class MessageHandler
         $blocks = preg_split('/\\n\\s*\\n/', $normalized) ?: [];
 
         $inserted = 0;
+        $skippedDuplicates = 0;
         $errors = [];
+        $hasContentHash = Capsule::schema()->hasColumn('true_false_facts', 'content_hash');
+        $seenHashes = [];
 
-        Capsule::connection()->transaction(function () use ($blocks, &$inserted, &$errors): void {
+        Capsule::connection()->transaction(function () use ($blocks, &$inserted, &$skippedDuplicates, &$errors, $hasContentHash, &$seenHashes): void {
             $now = date('Y-m-d H:i:s');
 
             foreach ($blocks as $blockIndex => $blockRaw) {
@@ -1063,6 +1087,13 @@ final class MessageHandler
                     if ($statement === '') {
                         throw new \RuntimeException('Пустое утверждение');
                     }
+                    $contentHash = $this->buildFactContentHash($statement);
+                    if ($hasContentHash) {
+                        if (isset($seenHashes[$contentHash]) || Capsule::table('true_false_facts')->where('content_hash', $contentHash)->exists()) {
+                            $skippedDuplicates++;
+                            continue;
+                        }
+                    }
 
                     $isTrue = $this->normalizeTruthValue($lines[1]);
                     if ($isTrue === null) {
@@ -1072,14 +1103,22 @@ final class MessageHandler
                     $explanationLines = array_slice($lines, 2);
                     $explanation = trim(implode("\n", $explanationLines));
 
-                    Capsule::table('true_false_facts')->insert([
+                    $row = [
                         'statement' => $statement,
                         'explanation' => $explanation !== '' ? $explanation : null,
                         'is_true' => $isTrue,
                         'is_active' => true,
                         'created_at' => $now,
                         'updated_at' => $now,
-                    ]);
+                    ];
+                    if ($hasContentHash) {
+                        $row['content_hash'] = $contentHash;
+                    }
+
+                    Capsule::table('true_false_facts')->insert($row);
+                    if ($hasContentHash) {
+                        $seenHashes[$contentHash] = true;
+                    }
                     $inserted++;
                 } catch (\Throwable $e) {
                     $errors[] = sprintf('Блок #%d: %s', $blockIndex + 1, $e->getMessage());
@@ -1089,6 +1128,7 @@ final class MessageHandler
 
         return [
             'inserted' => $inserted,
+            'skipped_duplicates' => $skippedDuplicates,
             'errors' => $errors,
         ];
     }
@@ -1129,8 +1169,31 @@ final class MessageHandler
         return null;
     }
 
+    private function normalizeImportText(string $value): string
+    {
+        $value = str_replace('ё', 'е', mb_strtolower(trim($value)));
+        $value = preg_replace('/\s+/u', ' ', $value) ?? $value;
+        $value = preg_replace('/[!?.,;:…]+$/u', '', $value) ?? $value;
+
+        return trim($value);
+    }
+
+    private function buildFactContentHash(string $statement): string
+    {
+        return sha1($this->normalizeImportText($statement));
+    }
+
+    private function buildQuestionContentHash(string $questionText, string $correctAnswerText): string
+    {
+        return sha1(
+            $this->normalizeImportText($questionText)
+            . '|'
+            . $this->normalizeImportText($correctAnswerText)
+        );
+    }
+
     /**
-     * @return array{inserted:int,errors:array<int,string>}
+     * @return array{inserted:int,skipped_duplicates:int,errors:array<int,string>}
      */
     private function importQuestionsFromJsonContent(string $content, bool $isNdjson): array
     {
@@ -1158,9 +1221,12 @@ final class MessageHandler
         }
 
         $inserted = 0;
+        $skippedDuplicates = 0;
         $errors = [];
+        $hasContentHash = Capsule::schema()->hasColumn('questions', 'content_hash');
+        $seenHashes = [];
 
-        Capsule::connection()->transaction(function () use ($records, &$inserted, &$errors): void {
+        Capsule::connection()->transaction(function () use ($records, &$inserted, &$skippedDuplicates, &$errors, $hasContentHash, &$seenHashes): void {
             $now = date('Y-m-d H:i:s');
 
             foreach ($records as $idx => $record) {
@@ -1191,21 +1257,8 @@ final class MessageHandler
                         throw new \RuntimeException('Нужно минимум 2 ответа');
                     }
 
-                    $questionId = (int) Capsule::table('questions')->insertGetId([
-                        'category_id' => $category->getKey(),
-                        'type' => 'multiple_choice',
-                        'question_text' => $questionText,
-                        'image_url' => isset($record['image_url']) ? (string) $record['image_url'] : null,
-                        'explanation' => isset($record['explanation']) ? (string) $record['explanation'] : null,
-                        'difficulty' => is_numeric($record['difficulty'] ?? null) ? (int) $record['difficulty'] : 1,
-                        'time_limit' => is_numeric($record['time_limit'] ?? null) ? (int) $record['time_limit'] : 30,
-                        'is_active' => true,
-                        'tags' => null,
-                        'created_at' => $now,
-                        'updated_at' => $now,
-                    ]);
-
                     $correctCount = 0;
+                    $correctAnswerText = '';
                     $answerRows = [];
                     foreach ($answers as $a) {
                         if (!is_array($a)) {
@@ -1218,9 +1271,10 @@ final class MessageHandler
                         $isCorrect = (bool) ($a['is_correct'] ?? false);
                         if ($isCorrect) {
                             $correctCount++;
+                            $correctAnswerText = $text;
                         }
                         $answerRows[] = [
-                            'question_id' => $questionId,
+                            'question_id' => 0,
                             'answer_text' => $text,
                             'is_correct' => $isCorrect,
                             'score_delta' => 0,
@@ -1233,7 +1287,41 @@ final class MessageHandler
                         throw new \RuntimeException('В вопросе должен быть ровно 1 правильный ответ');
                     }
 
+                    $contentHash = $this->buildQuestionContentHash($questionText, $correctAnswerText);
+                    if ($hasContentHash) {
+                        if (isset($seenHashes[$contentHash]) || Capsule::table('questions')->where('content_hash', $contentHash)->exists()) {
+                            $skippedDuplicates++;
+                            continue;
+                        }
+                    }
+
+                    $questionRow = [
+                        'category_id' => $category->getKey(),
+                        'type' => 'multiple_choice',
+                        'question_text' => $questionText,
+                        'image_url' => isset($record['image_url']) ? (string) $record['image_url'] : null,
+                        'explanation' => isset($record['explanation']) ? (string) $record['explanation'] : null,
+                        'difficulty' => is_numeric($record['difficulty'] ?? null) ? (int) $record['difficulty'] : 1,
+                        'time_limit' => is_numeric($record['time_limit'] ?? null) ? (int) $record['time_limit'] : 30,
+                        'is_active' => true,
+                        'tags' => null,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                    if ($hasContentHash) {
+                        $questionRow['content_hash'] = $contentHash;
+                    }
+                    $questionId = (int) Capsule::table('questions')->insertGetId($questionRow);
+
+                    foreach ($answerRows as &$answerRow) {
+                        $answerRow['question_id'] = $questionId;
+                    }
+                    unset($answerRow);
+
                     Capsule::table('answers')->insert($answerRows);
+                    if ($hasContentHash) {
+                        $seenHashes[$contentHash] = true;
+                    }
                     $inserted++;
                 } catch (\Throwable $e) {
                     $errors[] = sprintf('JSON #%d: %s', $idx + 1, $e->getMessage());
@@ -1243,12 +1331,13 @@ final class MessageHandler
 
         return [
             'inserted' => $inserted,
+            'skipped_duplicates' => $skippedDuplicates,
             'errors' => $errors,
         ];
     }
 
     /**
-     * @return array{inserted:int,errors:array<int,string>}
+     * @return array{inserted:int,skipped_duplicates:int,errors:array<int,string>}
      */
     private function importQuestionsFromPlainText(string $content, ?string $defaultCategory): array
     {
@@ -1256,10 +1345,13 @@ final class MessageHandler
         $blocks = preg_split('/\\n\\s*\\n/', $normalized) ?: [];
 
         $inserted = 0;
+        $skippedDuplicates = 0;
         $errors = [];
         $globalCategory = $defaultCategory;
+        $hasContentHash = Capsule::schema()->hasColumn('questions', 'content_hash');
+        $seenHashes = [];
 
-        Capsule::connection()->transaction(function () use ($blocks, &$inserted, &$errors, &$globalCategory): void {
+        Capsule::connection()->transaction(function () use ($blocks, &$inserted, &$skippedDuplicates, &$errors, &$globalCategory, $hasContentHash, &$seenHashes): void {
             $now = date('Y-m-d H:i:s');
 
             foreach ($blocks as $blockIndex => $blockRaw) {
@@ -1306,22 +1398,9 @@ final class MessageHandler
                         throw new \RuntimeException('Категория не найдена: ' . $categoryTitle);
                     }
 
-                    $questionId = (int) Capsule::table('questions')->insertGetId([
-                        'category_id' => $category->getKey(),
-                        'type' => 'multiple_choice',
-                        'question_text' => $questionText,
-                        'image_url' => null,
-                        'explanation' => null,
-                        'difficulty' => 1,
-                        'time_limit' => 30,
-                        'is_active' => true,
-                        'tags' => null,
-                        'created_at' => $now,
-                        'updated_at' => $now,
-                    ]);
-
                     $answerRows = [];
                     $correctCount = 0;
+                    $correctAnswerText = '';
                     foreach ($lines as $answerIndex => $line) {
                         $isCorrect = false;
                         $text = $line;
@@ -1349,10 +1428,11 @@ final class MessageHandler
                         }
                         if ($isCorrect) {
                             $correctCount++;
+                            $correctAnswerText = $text;
                         }
 
                         $answerRows[] = [
-                            'question_id' => $questionId,
+                            'question_id' => 0,
                             'answer_text' => $text,
                             'is_correct' => $isCorrect,
                             'score_delta' => 0,
@@ -1365,7 +1445,41 @@ final class MessageHandler
                         throw new \RuntimeException('Нужен минимум 2 ответа и ровно 1 правильный');
                     }
 
+                    $contentHash = $this->buildQuestionContentHash($questionText, $correctAnswerText);
+                    if ($hasContentHash) {
+                        if (isset($seenHashes[$contentHash]) || Capsule::table('questions')->where('content_hash', $contentHash)->exists()) {
+                            $skippedDuplicates++;
+                            continue;
+                        }
+                    }
+
+                    $questionRow = [
+                        'category_id' => $category->getKey(),
+                        'type' => 'multiple_choice',
+                        'question_text' => $questionText,
+                        'image_url' => null,
+                        'explanation' => null,
+                        'difficulty' => 1,
+                        'time_limit' => 30,
+                        'is_active' => true,
+                        'tags' => null,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                    if ($hasContentHash) {
+                        $questionRow['content_hash'] = $contentHash;
+                    }
+                    $questionId = (int) Capsule::table('questions')->insertGetId($questionRow);
+
+                    foreach ($answerRows as &$answerRow) {
+                        $answerRow['question_id'] = $questionId;
+                    }
+                    unset($answerRow);
+
                     Capsule::table('answers')->insert($answerRows);
+                    if ($hasContentHash) {
+                        $seenHashes[$contentHash] = true;
+                    }
                     $inserted++;
                 } catch (\Throwable $e) {
                     $errors[] = sprintf('Блок #%d: %s', $blockIndex + 1, $e->getMessage());
@@ -1375,6 +1489,7 @@ final class MessageHandler
 
         return [
             'inserted' => $inserted,
+            'skipped_duplicates' => $skippedDuplicates,
             'errors' => $errors,
         ];
     }

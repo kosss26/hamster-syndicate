@@ -94,6 +94,9 @@ function printUsage(): void
   --format=ndjson           ndjson|json (если не указано, определяется по расширению)
   --dry-run                 Валидация без записи в БД
   --create-categories       Создавать категории, если не найдены
+
+Примечание:
+  Дубликаты определяются по хешу: нормализованный вопрос + правильный ответ.
 TXT;
 
     fwrite(STDOUT, $usage . PHP_EOL);
@@ -260,6 +263,34 @@ function normalizeDifficulty($difficulty): int
     return $map[$value] ?? 1;
 }
 
+function normalizeImportText(string $value): string
+{
+    $value = str_replace('ё', 'е', mb_strtolower(trim($value)));
+    $value = preg_replace('/\s+/u', ' ', $value) ?? $value;
+    $value = preg_replace('/[!?.,;:…]+$/u', '', $value) ?? $value;
+
+    return trim($value);
+}
+
+/**
+ * @param array<int, array<string,mixed>> $answers
+ */
+function buildQuestionContentHash(string $questionText, array $answers): string
+{
+    $correctAnswerText = '';
+
+    foreach ($answers as $answer) {
+        if (!empty($answer['is_correct'])) {
+            $correctAnswerText = (string) ($answer['answer_text'] ?? '');
+            break;
+        }
+    }
+
+    return sha1(
+        normalizeImportText($questionText) . '|' . normalizeImportText($correctAnswerText)
+    );
+}
+
 /**
  * @return array{question: array<string,mixed>, answers: array<int, array<string,mixed>>, created_category: bool}
  */
@@ -313,6 +344,7 @@ function normalizeRecord(array $record, array &$categoryCache, bool $createCateg
 
     $question = [
         'external_id' => isset($record['external_id']) ? trim((string) $record['external_id']) : null,
+        'content_hash' => buildQuestionContentHash($questionText, $answers),
         'category_id' => $categoryId,
         'type' => trim((string) ($record['type'] ?? 'multiple_choice')) ?: 'multiple_choice',
         'question_text' => $questionText,
@@ -337,16 +369,19 @@ function normalizeRecord(array $record, array &$categoryCache, bool $createCateg
 
 /**
  * @param array<int, array{question: array<string,mixed>, answers: array<int,array<string,mixed>>, created_category: bool}> $batch
- * @return array{processed:int, inserted:int, updated:int, skipped:int, categories_created:int}
+ * @param array<string, bool> $seenHashes
+ * @return array{processed:int, inserted:int, updated:int, skipped:int, categories_created:int, skipped_duplicates:int}
  */
-function processBatch(array $batch, string $mode, bool $dryRun): array
+function processBatch(array $batch, string $mode, bool $dryRun, array &$seenHashes): array
 {
+    $hasContentHash = Capsule::schema()->hasColumn('questions', 'content_hash');
     $stats = [
         'processed' => count($batch),
         'inserted' => 0,
         'updated' => 0,
         'skipped' => 0,
         'categories_created' => 0,
+        'skipped_duplicates' => 0,
     ];
 
     foreach ($batch as $item) {
@@ -355,120 +390,102 @@ function processBatch(array $batch, string $mode, bool $dryRun): array
         }
     }
 
-    if ($dryRun || count($batch) === 0) {
+    if (count($batch) === 0) {
         return $stats;
     }
 
-    $now = date('Y-m-d H:i:s');
+    $hashes = [];
+    $externalIds = [];
 
-    Capsule::connection()->transaction(function () use ($batch, $mode, $now, &$stats): void {
-        $upsertCandidates = [];
-        $insertOnlyItems = [];
+    foreach ($batch as $item) {
+        $hash = $hasContentHash ? (string) ($item['question']['content_hash'] ?? '') : '';
+        if ($hash !== '') {
+            $hashes[] = $hash;
+        }
+        $externalId = (string) ($item['question']['external_id'] ?? '');
+        if ($externalId !== '') {
+            $externalIds[] = $externalId;
+        }
+    }
+
+    $existingByHash = $hasContentHash && count($hashes) > 0
+        ? Capsule::table('questions')->whereIn('content_hash', array_values(array_unique($hashes)))->pluck('id', 'content_hash')->toArray()
+        : [];
+    $existingByExternalId = count($externalIds) > 0
+        ? Capsule::table('questions')->whereIn('external_id', array_values(array_unique($externalIds)))->pluck('id', 'external_id')->toArray()
+        : [];
+
+    $worker = function () use ($batch, $mode, $dryRun, &$stats, &$seenHashes, &$existingByHash, $existingByExternalId, $hasContentHash): void {
+        $now = date('Y-m-d H:i:s');
 
         foreach ($batch as $item) {
             $question = $item['question'];
-            if ($mode === 'upsert' && !empty($question['external_id'])) {
-                $upsertCandidates[] = $item;
+            $answers = $item['answers'];
+            $hash = $hasContentHash ? (string) ($question['content_hash'] ?? '') : '';
+            $externalId = (string) ($question['external_id'] ?? '');
+            $existingQuestionId = $externalId !== '' ? (int) ($existingByExternalId[$externalId] ?? 0) : 0;
+
+            if ($hash !== '' && isset($seenHashes[$hash])) {
+                $stats['skipped']++;
+                $stats['skipped_duplicates']++;
                 continue;
             }
 
-            $insertOnlyItems[] = $item;
-        }
-
-        if (count($upsertCandidates) > 0) {
-            $externalIds = [];
-            $questionRows = [];
-
-            foreach ($upsertCandidates as $item) {
-                $row = $item['question'];
-                $row['created_at'] = $now;
-                $row['updated_at'] = $now;
-                $externalIds[] = $row['external_id'];
-                $questionRows[] = $row;
-            }
-
-            $existingIds = Capsule::table('questions')
-                ->whereIn('external_id', $externalIds)
-                ->pluck('id', 'external_id')
-                ->toArray();
-
-            $updateColumns = [
-                'category_id',
-                'type',
-                'question_text',
-                'image_url',
-                'explanation',
-                'difficulty',
-                'time_limit',
-                'is_active',
-                'tags',
-                'updated_at',
-            ];
-
-            Capsule::table('questions')->upsert($questionRows, ['external_id'], $updateColumns);
-
-            $questionIdsByExternalId = Capsule::table('questions')
-                ->whereIn('external_id', $externalIds)
-                ->pluck('id', 'external_id')
-                ->toArray();
-
-            $allQuestionIds = array_values(array_map('intval', $questionIdsByExternalId));
-            if (count($allQuestionIds) > 0) {
-                Capsule::table('answers')->whereIn('question_id', $allQuestionIds)->delete();
-            }
-
-            $answerRows = [];
-            foreach ($upsertCandidates as $item) {
-                $externalId = $item['question']['external_id'];
-                $questionId = (int) ($questionIdsByExternalId[$externalId] ?? 0);
-                if ($questionId <= 0) {
+            if ($hash !== '' && isset($existingByHash[$hash])) {
+                $hashOwnerId = (int) $existingByHash[$hash];
+                if ($existingQuestionId <= 0 || $hashOwnerId !== $existingQuestionId) {
+                    $stats['skipped']++;
+                    $stats['skipped_duplicates']++;
                     continue;
                 }
-
-                foreach ($item['answers'] as $answer) {
-                    $answerRows[] = [
-                        'question_id' => $questionId,
-                        'answer_text' => $answer['answer_text'],
-                        'is_correct' => $answer['is_correct'],
-                        'score_delta' => $answer['score_delta'],
-                        'created_at' => $now,
-                        'updated_at' => $now,
-                    ];
-                }
             }
 
-            if (count($answerRows) > 0) {
-                Capsule::table('answers')->insert($answerRows);
+            if ($mode === 'insert-only' && $externalId !== '' && $existingQuestionId > 0) {
+                $stats['skipped']++;
+                continue;
             }
 
-            foreach ($upsertCandidates as $item) {
-                $eid = $item['question']['external_id'];
-                if (isset($existingIds[$eid])) {
+            if ($dryRun) {
+                if ($existingQuestionId > 0 && $mode === 'upsert') {
                     $stats['updated']++;
                 } else {
                     $stats['inserted']++;
                 }
+                if ($hash !== '') {
+                    $seenHashes[$hash] = true;
+                }
+                continue;
             }
-        }
 
-        foreach ($insertOnlyItems as $item) {
-            $questionRow = $item['question'];
-            $questionRow['created_at'] = $now;
+            $questionRow = $question;
+            if (!$hasContentHash) {
+                unset($questionRow['content_hash']);
+            }
             $questionRow['updated_at'] = $now;
 
-            if (!empty($questionRow['external_id'])) {
-                $exists = Capsule::table('questions')->where('external_id', $questionRow['external_id'])->exists();
-                if ($exists) {
-                    $stats['skipped']++;
-                    continue;
-                }
+            if ($existingQuestionId > 0 && $mode === 'upsert') {
+                $questionUpdateRow = $questionRow;
+                unset($questionUpdateRow['external_id']);
+
+                Capsule::table('questions')
+                    ->where('id', $existingQuestionId)
+                    ->update($questionUpdateRow);
+
+                Capsule::table('answers')
+                    ->where('question_id', $existingQuestionId)
+                    ->delete();
+
+                $questionId = $existingQuestionId;
+                $stats['updated']++;
+            } else {
+                $questionRow['created_at'] = $now;
+                $questionId = (int) Capsule::table('questions')->insertGetId($questionRow);
+                $stats['inserted']++;
             }
 
-            $questionId = (int) Capsule::table('questions')->insertGetId($questionRow);
-
-            $answersRows = [];
-            foreach ($item['answers'] as $answer) {
-                $answersRows[] = [
+            $answerRows = [];
+            foreach ($answers as $answer) {
+                $answerRows[] = [
                     'question_id' => $questionId,
                     'answer_text' => $answer['answer_text'],
                     'is_correct' => $answer['is_correct'],
@@ -478,10 +495,22 @@ function processBatch(array $batch, string $mode, bool $dryRun): array
                 ];
             }
 
-            Capsule::table('answers')->insert($answersRows);
-            $stats['inserted']++;
+            if (count($answerRows) > 0) {
+                Capsule::table('answers')->insert($answerRows);
+            }
+
+            if ($hash !== '') {
+                $seenHashes[$hash] = true;
+                $existingByHash[$hash] = $questionId;
+            }
         }
-    });
+    };
+
+    if ($dryRun) {
+        $worker();
+    } else {
+        Capsule::connection()->transaction($worker);
+    }
 
     return $stats;
 }
@@ -532,9 +561,11 @@ try {
         'inserted' => 0,
         'updated' => 0,
         'skipped' => 0,
+        'skipped_duplicates' => 0,
         'errors' => 0,
         'categories_created' => 0,
     ];
+    $seenHashes = [];
 
     $startedAt = microtime(true);
 
@@ -550,17 +581,18 @@ try {
         }
 
         if (count($batch) >= $batchSize) {
-            $stats = processBatch($batch, $mode, $dryRun);
+            $stats = processBatch($batch, $mode, $dryRun, $seenHashes);
             foreach ($stats as $k => $v) {
                 $summary[$k] += $v;
             }
 
             fwrite(STDOUT, sprintf(
-                "[batch] processed=%d inserted=%d updated=%d skipped=%d errors=%d\n",
+                "[batch] processed=%d inserted=%d updated=%d skipped=%d dup=%d errors=%d\n",
                 $summary['processed'],
                 $summary['inserted'],
                 $summary['updated'],
                 $summary['skipped'],
+                $summary['skipped_duplicates'],
                 $summary['errors']
             ));
 
@@ -569,7 +601,7 @@ try {
     }
 
     if (count($batch) > 0) {
-        $stats = processBatch($batch, $mode, $dryRun);
+        $stats = processBatch($batch, $mode, $dryRun, $seenHashes);
         foreach ($stats as $k => $v) {
             $summary[$k] += $v;
         }
@@ -578,11 +610,12 @@ try {
     $duration = microtime(true) - $startedAt;
 
     fwrite(STDOUT, PHP_EOL . sprintf(
-        "Готово. processed=%d inserted=%d updated=%d skipped=%d errors=%d categories_created=%d mode=%s dry_run=%s time=%.2fs\n",
+        "Готово. processed=%d inserted=%d updated=%d skipped=%d skipped_duplicates=%d errors=%d categories_created=%d mode=%s dry_run=%s time=%.2fs\n",
         $summary['processed'],
         $summary['inserted'],
         $summary['updated'],
         $summary['skipped'],
+        $summary['skipped_duplicates'],
         $summary['errors'],
         $summary['categories_created'],
         $mode,
