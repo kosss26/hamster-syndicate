@@ -8,13 +8,14 @@ import CoinIcon from '../components/CoinIcon'
 import { getNotificationItems, subscribeNotifications } from '../utils/notificationInbox'
 
 function HomePage() {
-  const { user } = useTelegram()
+  const { user, webApp } = useTelegram()
   const navigate = useNavigate()
   const [profile, setProfile] = useState(null)
   const [onlineCount, setOnlineCount] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
   const [notifications, setNotifications] = useState([])
+  const [ticketSecondsLeft, setTicketSecondsLeft] = useState(0)
 
   useEffect(() => {
     checkActiveDuel()
@@ -61,6 +62,7 @@ function HomePage() {
       const response = await api.getProfile()
       if (response.success) {
         setProfile(response.data)
+        setTicketSecondsLeft(Number(response.data.ticket_seconds_to_next || 0))
       }
     } catch (err) {
       console.error('Failed to load profile:', err)
@@ -89,17 +91,62 @@ function HomePage() {
     }
   }
 
+  useEffect(() => {
+    if (!profile) return
+    if ((profile.tickets ?? 0) >= 10) return
+
+    const timer = setInterval(() => {
+      setTicketSecondsLeft((prev) => {
+        if (prev <= 1) {
+          loadProfile()
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [profile?.tickets])
+
+  const formatTicketTimer = (seconds) => {
+    const safe = Math.max(0, Number(seconds || 0))
+    const mm = String(Math.floor(safe / 60)).padStart(2, '0')
+    const ss = String(safe % 60).padStart(2, '0')
+    return `${mm}:${ss}`
+  }
+
+  const ensureTicketsForDuel = () => {
+    const tickets = Number(profile?.tickets ?? 0)
+    if (tickets > 0) return true
+
+    const text = 'Нет билетов для дуэли. Подожди восстановление или купи билеты в магазине.'
+    if (webApp?.showPopup) {
+      webApp.showPopup({
+        title: 'Билеты закончились',
+        message: text,
+        buttons: [{ type: 'close', text: 'Ок' }],
+      })
+    } else {
+      window.alert(text)
+    }
+    hapticFeedback('error')
+    return false
+  }
+
   const handlePlay = () => {
+    if (!ensureTicketsForDuel()) return
     hapticFeedback('heavy')
     navigate('/duel')
   }
 
   const handleQuickRandom = () => {
+    if (!ensureTicketsForDuel()) return
     hapticFeedback('medium')
     navigate('/duel?mode=random')
   }
 
   const handleQuickFriend = () => {
+    if (!ensureTicketsForDuel()) return
     hapticFeedback('medium')
     navigate('/duel')
   }
@@ -152,7 +199,7 @@ function HomePage() {
             <h1 className="text-white text-3xl font-black leading-tight mb-2">Дуэль</h1>
             <p className="text-white/70 text-sm mb-4">Выбери формат и начни игру.</p>
             <div className="flex justify-center mb-4">
-              <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/30 bg-emerald-500/10 px-3 py-1.5">
+              <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/30 bg-emerald-500/10 px-3 py-1.5 mr-2">
                 <span className="relative flex h-2.5 w-2.5">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
@@ -160,7 +207,17 @@ function HomePage() {
                 <span className="text-white font-semibold text-sm">{onlineCount !== null ? onlineCount : '...'}</span>
                 <span className="text-white/60 text-xs">в сети</span>
               </div>
+              <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/30 bg-amber-500/10 px-3 py-1.5">
+                <span className="text-sm">🎫</span>
+                <span className="text-white font-semibold text-sm">{profile?.tickets ?? '...'}</span>
+                <span className="text-white/60 text-xs">билеты</span>
+              </div>
             </div>
+            {(profile?.tickets ?? 0) < 10 && (
+              <p className="text-white/65 text-xs mb-4">
+                До восстановления билета: <span className="text-amber-200 font-semibold">{formatTicketTimer(ticketSecondsLeft)}</span>
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 gap-2.5 mb-3">

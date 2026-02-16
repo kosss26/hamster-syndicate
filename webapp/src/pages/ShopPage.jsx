@@ -4,13 +4,12 @@ import { useTelegram, hapticFeedback } from '../hooks/useTelegram'
 import api from '../api/client'
 import CoinIcon from '../components/CoinIcon'
 
-const CATEGORY_TABS = [
-  { key: 'all', label: 'Все', icon: '🛍️' },
-  { key: 'hint', label: 'Подсказки', icon: '💡' },
-  { key: 'life', label: 'Билеты', icon: '🎫' },
-  { key: 'boost', label: 'Бусты', icon: '⚡' },
-  { key: 'lootbox', label: 'Лутбоксы', icon: '🎁' },
-  { key: 'cosmetic', label: 'Косметика', icon: '✨' },
+const SHOP_SECTIONS = [
+  { key: 'hint', title: 'Подсказки', icon: '💡', description: 'Поддержка в сложных вопросах' },
+  { key: 'life', title: 'Билеты', icon: '🎫', description: 'Ресурс для входа в дуэли' },
+  { key: 'boost', title: 'Бусты', icon: '⚡', description: 'Ускоряют прогресс и доход' },
+  { key: 'lootbox', title: 'Лутбоксы', icon: '🎁', description: 'Случайные награды и карточки' },
+  { key: 'cosmetic', title: 'Косметика', icon: '✨', description: 'Оформление профиля' },
 ]
 
 const RARITY_STYLES = {
@@ -19,14 +18,6 @@ const RARITY_STYLES = {
   rare: 'border-cyan-300/30 bg-cyan-500/10 text-cyan-100',
   epic: 'border-violet-300/30 bg-violet-500/10 text-violet-100',
   legendary: 'border-amber-300/35 bg-amber-500/10 text-amber-100',
-}
-
-const RECOMMEND_TAG_STYLES = {
-  critical: 'border-red-300/40 bg-red-500/15 text-red-100',
-  hot: 'border-orange-300/40 bg-orange-500/15 text-orange-100',
-  recommended: 'border-cyan-300/40 bg-cyan-500/15 text-cyan-100',
-  daily: 'border-emerald-300/40 bg-emerald-500/15 text-emerald-100',
-  style: 'border-fuchsia-300/40 bg-fuchsia-500/15 text-fuchsia-100',
 }
 
 function rarityLabel(rarity) {
@@ -44,34 +35,12 @@ function rarityLabel(rarity) {
   }
 }
 
-function recommendationTagLabel(tag) {
-  switch (tag) {
-    case 'critical':
-      return 'Срочно'
-    case 'hot':
-      return 'Горячее'
-    case 'recommended':
-      return 'Советуем'
-    case 'daily':
-      return 'Сегодня'
-    case 'style':
-      return 'Стиль'
-    default:
-      return null
-  }
-}
-
 function priceLabel(item, quantity) {
   const q = Math.max(1, Number(quantity || 1))
   const coins = Number(item.price_coins || 0) * q
   const gems = Number(item.price_gems || 0) * q
-
-  if (coins > 0 && gems > 0) {
-    return `${coins} 🪙 + ${gems} 💎`
-  }
-  if (coins > 0) {
-    return `${coins} 🪙`
-  }
+  if (coins > 0 && gems > 0) return `${coins} 🪙 + ${gems} 💎`
+  if (coins > 0) return `${coins} 🪙`
   return `${gems} 💎`
 }
 
@@ -79,7 +48,7 @@ const ShopPage = () => {
   const { webApp } = useTelegram()
   const [loading, setLoading] = useState(true)
   const [busyItemId, setBusyItemId] = useState(null)
-  const [activeCategory, setActiveCategory] = useState('all')
+  const [selectedCategory, setSelectedCategory] = useState(null)
   const [items, setItems] = useState([])
   const [history, setHistory] = useState([])
   const [error, setError] = useState(null)
@@ -88,7 +57,13 @@ const ShopPage = () => {
 
   useEffect(() => {
     if (webApp?.BackButton) {
-      const onBack = () => window.history.back()
+      const onBack = () => {
+        if (selectedCategory) {
+          setSelectedCategory(null)
+          return
+        }
+        window.history.back()
+      }
       webApp.BackButton.show()
       webApp.BackButton.onClick(onBack)
       return () => {
@@ -96,18 +71,18 @@ const ShopPage = () => {
         webApp.BackButton.hide()
       }
     }
-  }, [webApp])
+  }, [webApp, selectedCategory])
 
   useEffect(() => {
     loadShop()
-  }, [activeCategory])
+  }, [selectedCategory])
 
   const loadShop = async () => {
     setLoading(true)
     setError(null)
     try {
       const [itemsResponse, historyResponse] = await Promise.all([
-        api.getShopItems(activeCategory === 'all' ? null : activeCategory),
+        api.getShopItems(selectedCategory),
         api.getShopHistory(),
       ])
 
@@ -115,6 +90,7 @@ const ShopPage = () => {
       const serverBalance = itemsResponse?.data?.balance
       setItems(serverItems)
       setHistory(historyResponse?.data?.history || [])
+
       if (serverBalance) {
         setBalance({
           coins: Number(serverBalance.coins || 0),
@@ -123,15 +99,13 @@ const ShopPage = () => {
           tickets: Number(serverBalance.tickets || serverBalance.lives || 0),
         })
       }
+
       setQuantities((prev) => {
         const next = { ...prev }
         for (const item of serverItems) {
           const max = Number(item.max_per_purchase || 1)
-          if (!next[item.id]) {
-            next[item.id] = 1
-          } else if (next[item.id] > max) {
-            next[item.id] = Math.max(1, max)
-          }
+          if (!next[item.id]) next[item.id] = 1
+          if (next[item.id] > max) next[item.id] = Math.max(1, max)
         }
         return next
       })
@@ -169,9 +143,7 @@ const ShopPage = () => {
       const response = await api.purchaseItem(item.id, quantity)
       if (response.success) {
         hapticFeedback('success')
-        const granted = response?.data?.granted
-        const grantedLabel = granted?.amount ? ` (+${granted.amount})` : ''
-        webApp?.showAlert?.(`Покупка успешна: ${item.name}${grantedLabel}`)
+        webApp?.showAlert?.(`Покупка успешна: ${item.name}`)
         await loadShop()
       }
     } catch (err) {
@@ -183,10 +155,7 @@ const ShopPage = () => {
   }
 
   const historyPreview = useMemo(() => history.slice(0, 8), [history])
-  const featuredItems = useMemo(
-    () => items.filter((item) => item.is_featured).sort((a, b) => (b.recommendation_score || 0) - (a.recommendation_score || 0)).slice(0, 3),
-    [items]
-  )
+  const selectedSectionMeta = SHOP_SECTIONS.find((section) => section.key === selectedCategory)
 
   if (loading) {
     return (
@@ -212,14 +181,14 @@ const ShopPage = () => {
         <section className="rounded-3xl border border-white/10 bg-black/25 backdrop-blur-xl p-4">
           <div className="flex items-center justify-between mb-3">
             <button
-              onClick={() => window.history.back()}
+              onClick={() => (selectedCategory ? setSelectedCategory(null) : window.history.back())}
               className="w-9 h-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M15 18l-6-6 6-6" />
               </svg>
             </button>
-            <h1 className="text-white font-bold text-lg">Магазин</h1>
+            <h1 className="text-white font-bold text-lg">{selectedSectionMeta ? selectedSectionMeta.title : 'Магазин'}</h1>
             <div className="w-9" />
           </div>
 
@@ -249,176 +218,129 @@ const ShopPage = () => {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-white/10 bg-black/20 backdrop-blur-xl p-3">
-          <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
-            {CATEGORY_TABS.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveCategory(tab.key)}
-                className={`shrink-0 px-3 py-2 rounded-xl border text-xs font-semibold ${
-                  activeCategory === tab.key
-                    ? 'border-cyan-300/35 bg-cyan-500/15 text-white'
-                    : 'border-white/10 bg-white/5 text-white/70'
-                }`}
-              >
-                {tab.icon} {tab.label}
-              </button>
-            ))}
-          </div>
-        </section>
-
-        {featuredItems.length > 0 && (
-          <section className="rounded-3xl border border-white/10 bg-black/20 backdrop-blur-xl p-4">
-            <h2 className="text-white font-semibold text-sm mb-3">Персональные предложения</h2>
-            <div className="space-y-2">
-              {featuredItems.map((item) => {
-                const quantity = Math.max(1, Number(quantities[item.id] || 1))
-                const disabled = !canBuy(item) || busyItemId === item.id
-                const tagLabel = recommendationTagLabel(item.recommendation_tag)
-                const tagStyle = RECOMMEND_TAG_STYLES[item.recommendation_tag] || RECOMMEND_TAG_STYLES.recommended
-
-                return (
-                  <div key={`featured-${item.id}`} className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-sm text-white font-semibold truncate">{item.icon || '🛍️'} {item.name}</p>
-                        {item.recommendation_reason ? (
-                          <p className="text-xs text-white/55 mt-1">{item.recommendation_reason}</p>
-                        ) : null}
-                      </div>
-                      {tagLabel ? (
-                        <span className={`text-[10px] px-2 py-1 rounded-full border ${tagStyle}`}>{tagLabel}</span>
-                      ) : null}
-                    </div>
-                    <div className="mt-2 flex justify-end">
-                      <button
-                        onClick={() => handleBuy(item)}
-                        disabled={disabled}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${
-                          disabled
-                            ? 'border-white/10 bg-white/5 text-white/35'
-                            : 'border-cyan-300/35 bg-cyan-500/15 text-white'
-                        }`}
-                      >
-                        {busyItemId === item.id ? 'Покупка...' : `Купить • ${priceLabel(item, quantity)}`}
-                      </button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </section>
-        )}
-
         {error && (
           <section className="rounded-2xl border border-red-400/35 bg-red-500/12 px-4 py-3 text-red-200 text-sm">
             {error}
           </section>
         )}
 
-        <section className="space-y-3">
-          {items.length === 0 && (
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center text-white/50">
-              В этой категории пока нет товаров
-            </div>
-          )}
-
-          {items.map((item) => {
-            const quantity = Math.max(1, Number(quantities[item.id] || 1))
-            const maxQty = Math.max(1, Number(item.max_per_purchase || 1))
-            const disabled = !canBuy(item) || busyItemId === item.id
-            const rarityStyle = RARITY_STYLES[item.rarity] || RARITY_STYLES.common
-            const remainingToday = item.remaining_today
-
-            return (
-              <motion.div
-                key={item.id}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="rounded-3xl border border-white/10 bg-black/25 backdrop-blur-xl p-4"
+        {!selectedCategory ? (
+          <section className="grid grid-cols-1 gap-3">
+            {SHOP_SECTIONS.map((section) => (
+              <motion.button
+                key={section.key}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setSelectedCategory(section.key)}
+                className="rounded-2xl border border-white/10 bg-black/20 backdrop-blur-xl p-4 text-left"
               >
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <div className="w-10 h-10 rounded-xl border border-white/10 bg-white/5 flex items-center justify-center text-lg">
-                        {item.icon || '🛍️'}
-                      </div>
-                      <div>
-                        <p className="text-white font-semibold text-sm">{item.name}</p>
-                        <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] border ${rarityStyle}`}>
-                          {rarityLabel(item.rarity)}
-                        </span>
-                        {item.recommendation_tag && recommendationTagLabel(item.recommendation_tag) ? (
-                          <span className={`inline-flex ml-1 px-2 py-0.5 rounded-full text-[10px] border ${RECOMMEND_TAG_STYLES[item.recommendation_tag] || RECOMMEND_TAG_STYLES.recommended}`}>
-                            {recommendationTagLabel(item.recommendation_tag)}
+                    <p className="text-white font-semibold text-sm mb-1">{section.icon} {section.title}</p>
+                    <p className="text-white/60 text-xs">{section.description}</p>
+                  </div>
+                  <span className="text-white/45 text-sm">Открыть</span>
+                </div>
+              </motion.button>
+            ))}
+          </section>
+        ) : (
+          <section className="space-y-3">
+            {items.length === 0 && (
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center text-white/50">
+                В этом разделе пока нет товаров
+              </div>
+            )}
+
+            {items.map((item) => {
+              const quantity = Math.max(1, Number(quantities[item.id] || 1))
+              const maxQty = Math.max(1, Number(item.max_per_purchase || 1))
+              const disabled = !canBuy(item) || busyItemId === item.id
+              const rarityStyle = RARITY_STYLES[item.rarity] || RARITY_STYLES.common
+              const remainingToday = item.remaining_today
+
+              return (
+                <motion.div
+                  key={item.id}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="rounded-3xl border border-white/10 bg-black/25 backdrop-blur-xl p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <div className="w-10 h-10 rounded-xl border border-white/10 bg-white/5 flex items-center justify-center text-lg">
+                          {item.icon || '🛍️'}
+                        </div>
+                        <div>
+                          <p className="text-white font-semibold text-sm">{item.name}</p>
+                          <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] border ${rarityStyle}`}>
+                            {rarityLabel(item.rarity)}
                           </span>
-                        ) : null}
+                        </div>
                       </div>
+                      {item.description ? <p className="text-xs text-white/65 mt-2 leading-relaxed">{item.description}</p> : null}
                     </div>
-                    {item.description ? (
-                      <p className="text-xs text-white/65 mt-2 leading-relaxed">{item.description}</p>
+                    {item.is_owned ? (
+                      <span className="text-[10px] px-2 py-1 rounded-full border border-emerald-300/35 bg-emerald-500/12 text-emerald-200">
+                        Уже куплено
+                      </span>
                     ) : null}
                   </div>
-                  {item.is_owned ? (
-                    <span className="text-[10px] px-2 py-1 rounded-full border border-emerald-300/35 bg-emerald-500/12 text-emerald-200">
-                      Уже куплено
-                    </span>
-                  ) : null}
-                </div>
 
-                <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-white/60">
-                  {Number(item.unit_quantity || 1) > 1 ? (
-                    <span className="px-2 py-1 rounded-lg border border-white/12 bg-white/5">
-                      В наборе: {item.unit_quantity}
-                    </span>
-                  ) : null}
-                  {item.daily_limit !== null ? (
-                    <span className="px-2 py-1 rounded-lg border border-white/12 bg-white/5">
-                      Лимит/день: {item.daily_limit}
-                    </span>
-                  ) : null}
-                  {remainingToday !== null ? (
-                    <span className="px-2 py-1 rounded-lg border border-white/12 bg-white/5">
-                      Осталось: {remainingToday}
-                    </span>
-                  ) : null}
-                </div>
-
-                <div className="mt-4 flex items-center justify-between gap-3">
-                  <div className="inline-flex items-center rounded-xl border border-white/10 bg-white/5">
-                    <button
-                      onClick={() => setItemQuantity(item, quantity - 1)}
-                      disabled={quantity <= 1}
-                      className="w-8 h-8 text-white/80 disabled:text-white/25"
-                    >
-                      −
-                    </button>
-                    <span className="w-8 text-center text-sm text-white font-semibold">{quantity}</span>
-                    <button
-                      onClick={() => setItemQuantity(item, quantity + 1)}
-                      disabled={quantity >= maxQty}
-                      className="w-8 h-8 text-white/80 disabled:text-white/25"
-                    >
-                      +
-                    </button>
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-white/60">
+                    {Number(item.unit_quantity || 1) > 1 ? (
+                      <span className="px-2 py-1 rounded-lg border border-white/12 bg-white/5">
+                        В наборе: {item.unit_quantity}
+                      </span>
+                    ) : null}
+                    {item.daily_limit !== null ? (
+                      <span className="px-2 py-1 rounded-lg border border-white/12 bg-white/5">
+                        Лимит/день: {item.daily_limit}
+                      </span>
+                    ) : null}
+                    {remainingToday !== null ? (
+                      <span className="px-2 py-1 rounded-lg border border-white/12 bg-white/5">
+                        Осталось: {remainingToday}
+                      </span>
+                    ) : null}
                   </div>
 
-                  <button
-                    onClick={() => handleBuy(item)}
-                    disabled={disabled}
-                    className={`px-4 py-2 rounded-xl text-sm font-semibold border ${
-                      disabled
-                        ? 'border-white/10 bg-white/5 text-white/35'
-                        : 'border-cyan-300/35 bg-cyan-500/15 text-white active:scale-[0.98]'
-                    }`}
-                  >
-                    {busyItemId === item.id ? 'Покупка...' : `Купить • ${priceLabel(item, quantity)}`}
-                  </button>
-                </div>
-              </motion.div>
-            )
-          })}
-        </section>
+                  <div className="mt-4 flex items-center justify-between gap-3">
+                    <div className="inline-flex items-center rounded-xl border border-white/10 bg-white/5">
+                      <button
+                        onClick={() => setItemQuantity(item, quantity - 1)}
+                        disabled={quantity <= 1}
+                        className="w-8 h-8 text-white/80 disabled:text-white/25"
+                      >
+                        −
+                      </button>
+                      <span className="w-8 text-center text-sm text-white font-semibold">{quantity}</span>
+                      <button
+                        onClick={() => setItemQuantity(item, quantity + 1)}
+                        disabled={quantity >= maxQty}
+                        className="w-8 h-8 text-white/80 disabled:text-white/25"
+                      >
+                        +
+                      </button>
+                    </div>
+
+                    <button
+                      onClick={() => handleBuy(item)}
+                      disabled={disabled}
+                      className={`px-4 py-2 rounded-xl text-sm font-semibold border ${
+                        disabled
+                          ? 'border-white/10 bg-white/5 text-white/35'
+                          : 'border-cyan-300/35 bg-cyan-500/15 text-white active:scale-[0.98]'
+                      }`}
+                    >
+                      {busyItemId === item.id ? 'Покупка...' : `Купить • ${priceLabel(item, quantity)}`}
+                    </button>
+                  </div>
+                </motion.div>
+              )
+            })}
+          </section>
+        )}
 
         <section className="rounded-3xl border border-white/10 bg-black/20 backdrop-blur-xl p-4">
           <h2 className="text-white font-semibold text-sm mb-3">Последние покупки</h2>
@@ -453,3 +375,4 @@ const ShopPage = () => {
 }
 
 export default ShopPage
+

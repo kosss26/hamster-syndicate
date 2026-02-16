@@ -35,7 +35,7 @@ function DuelPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { id: duelIdParam } = useParams()
-  const { user } = useTelegram()
+  const { user, webApp } = useTelegram()
   const wsConfigured = Boolean(getWsBaseUrl())
   
   const [state, setState] = useState(STATES.MENU)
@@ -156,6 +156,20 @@ function DuelPage() {
     finishedRewardsShownRef.current.add(stableKey)
     queueRewardNotifications(payload)
   }, [queueRewardNotifications])
+
+  const showNoTicketsModal = useCallback(() => {
+    const text = 'Нет билетов для дуэли. Подожди восстановление или купи билеты в магазине.'
+    if (webApp?.showPopup) {
+      webApp.showPopup({
+        title: 'Билеты закончились',
+        message: text,
+        buttons: [{ type: 'close', text: 'Ок' }],
+      })
+    } else {
+      window.alert(text)
+    }
+    hapticFeedback('error')
+  }, [webApp])
 
   useEffect(() => {
     duelStateRef.current = state
@@ -909,6 +923,9 @@ function DuelPage() {
       }
     } catch (err) {
       console.error('Failed to create duel:', err)
+      if (String(err?.message || '').toLowerCase().includes('билет')) {
+        showNoTicketsModal()
+      }
       setError(`Ошибка: ${err.message}`)
       setState(STATES.MENU)
     } finally {
@@ -937,6 +954,9 @@ function DuelPage() {
       }
     } catch (err) {
       console.error('Failed to create invite duel:', err)
+      if (String(err?.message || '').toLowerCase().includes('билет')) {
+        showNoTicketsModal()
+      }
       setError(`Ошибка: ${err.message}`)
       setState(STATES.MENU)
     } finally {
@@ -1002,6 +1022,9 @@ function DuelPage() {
       }
     } catch (err) {
       console.error('Failed to join duel:', err)
+      if (String(err?.message || '').toLowerCase().includes('билет')) {
+        showNoTicketsModal()
+      }
       setError(`Ошибка: ${err.message}`)
       hapticFeedback('error')
     } finally {
