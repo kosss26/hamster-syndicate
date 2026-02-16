@@ -635,6 +635,11 @@ class DuelService
         return $duel->refresh();
     }
 
+    public function hasGhostSnapshotForUser(User $user): bool
+    {
+        return $this->selectGhostSnapshotForUser($user) instanceof DuelGhostSnapshot;
+    }
+
     public function cancelAllActiveDuels(): int
     {
         $activeStatuses = ['waiting', 'matched', 'in_progress'];

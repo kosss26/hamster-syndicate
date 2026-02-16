@@ -59,6 +59,7 @@ function DuelPage() {
   const [hiddenAnswers, setHiddenAnswers] = useState([]) // Скрытые ответы после 50/50
   const [hintUsed, setHintUsed] = useState(false) // Использована ли подсказка в раунде
   const [searchTimeLeft, setSearchTimeLeft] = useState(30) // Таймер поиска соперника
+  const [ghostFallbackPending, setGhostFallbackPending] = useState(false)
   const [inviteCode, setInviteCode] = useState('') // Код для присоединения к дуэли
   const [opponent, setOpponent] = useState(null) // Данные оппонента {name, rating}
   const [myRating, setMyRating] = useState(0) // Мой рейтинг
@@ -85,6 +86,7 @@ function DuelPage() {
   const foundScreenUntilRef = useRef(0)
   const roundResultUntilRef = useRef(0)
   const finishedRewardsShownRef = useRef(new Set())
+  const ghostPoolAvailableRef = useRef(null)
 
   const enterFoundState = useCallback(() => {
     foundScreenUntilRef.current = Date.now() + FOUND_SCREEN_MIN_MS
@@ -647,10 +649,14 @@ function DuelPage() {
         clearInterval(searchTimerRef.current)
         searchTimerRef.current = null
       }
+      setGhostFallbackPending(false)
+      setGhostPoolAvailable(null)
+      ghostPoolAvailableRef.current = null
       return
     }
 
     setSearchTimeLeft(30)
+    setGhostFallbackPending(false)
     
     searchTimerRef.current = setInterval(() => {
       setSearchTimeLeft(prev => {
@@ -667,6 +673,8 @@ function DuelPage() {
             return 0
           }
 
+          setGhostFallbackPending(true)
+
           ;(async () => {
             await checkDuelStatus(currentDuelId)
 
@@ -674,11 +682,18 @@ function DuelPage() {
               if (duelStateRef.current !== STATES.WAITING_OPPONENT) {
                 return
               }
-              api.cancelDuel(currentDuelId).catch(console.error)
-              setError('Соперник не найден. Попробуйте ещё раз.')
-              setState(STATES.MENU)
-              hapticFeedback('error')
-            }, 1400)
+              checkDuelStatus(currentDuelId).finally(() => {
+                if (duelStateRef.current !== STATES.WAITING_OPPONENT) {
+                  return
+                }
+                api.cancelDuel(currentDuelId).catch(console.error)
+                setError(ghostPoolAvailableRef.current === false
+                  ? 'Соперник не найден: пока нет записей призраков. Сыграйте несколько реальных дуэлей.'
+                  : 'Соперник не найден. Попробуйте ещё раз.')
+                setState(STATES.MENU)
+                hapticFeedback('error')
+              })
+            }, 3500)
           })().catch(() => {
             if (duelStateRef.current !== STATES.WAITING_OPPONENT) {
               return
@@ -710,6 +725,12 @@ function DuelPage() {
       if (response.success) {
         const data = response.data
         setDuel(prev => ({ ...(prev || {}), ...data }))
+        if (typeof data.ghost_pool_available === 'boolean') {
+          ghostPoolAvailableRef.current = data.ghost_pool_available
+        }
+        if (data.ghost_fallback_attempted && !data.ghost_fallback_assigned && !data.is_ghost_match) {
+          setGhostFallbackPending(true)
+        }
         const currentState = duelStateRef.current
         setRoundStatus(data.round_status || null)
         
@@ -1353,8 +1374,17 @@ function DuelPage() {
                  </div>
              ) : (
                  <p className="text-white/40 mb-8 font-mono">
-                    {searchTimeLeft > 0 ? `00:${searchTimeLeft.toString().padStart(2, '0')}` : 'Отмена...'}
+                    {ghostFallbackPending
+                      ? 'Подбираю призрака...'
+                      : searchTimeLeft > 0
+                        ? `00:${searchTimeLeft.toString().padStart(2, '0')}`
+                        : 'Отмена...'}
                  </p>
+             )}
+             {!isInvite && ghostFallbackPending && (
+               <p className="text-cyan-200/80 text-xs mb-5 text-center">
+                 Ищем асинхронного соперника из реальных матчей
+               </p>
              )}
              
              <button 

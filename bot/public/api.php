@@ -759,10 +759,16 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
     $isMatchmakingOwner = $duel->status === 'waiting'
         && $duel->opponent_user_id === null
         && $duel->initiator_user_id === $user->getKey();
+    $ghostFallbackAttempted = false;
+    $ghostFallbackAssigned = false;
+    $ghostPoolAvailable = null;
 
     if ($isMatchmakingOwner && $duelService->isMatchmaking($duel) && $duelService->shouldUseGhostFallback($duel, 30)) {
+        $ghostFallbackAttempted = true;
+        $ghostPoolAvailable = $duelService->hasGhostSnapshotForUser($user);
         $ghostDuel = $duelService->assignGhostOpponentForMatchmaking($duel, $user);
         if ($ghostDuel) {
+            $ghostFallbackAssigned = true;
             $duel = $ghostDuel;
             $duelSettings = is_array($duel->settings) ? $duel->settings : [];
             notifyDuelRealtime($duel->getKey());
@@ -956,6 +962,9 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
         'code' => $duel->code,
         'match_type' => $isGhostMatch ? 'ghost' : 'live',
         'is_ghost_match' => $isGhostMatch,
+        'ghost_fallback_attempted' => $ghostFallbackAttempted,
+        'ghost_fallback_assigned' => $ghostFallbackAssigned,
+        'ghost_pool_available' => $ghostPoolAvailable,
         'rating_change' => $ratingChange,
         'current_round' => $completedRounds + 1,
         'total_rounds' => $duel->rounds_to_win * 2,
