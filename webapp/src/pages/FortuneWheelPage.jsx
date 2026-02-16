@@ -76,7 +76,7 @@ const FortuneWheelPage = () => {
     if (type === 'gems') return `+${reward.amount} кристаллов`
     if (type === 'exp') return `+${reward.amount} XP`
     if (type === 'hint') return `+${reward.amount} подсказка`
-    if (type === 'life') return `+${reward.amount} жизнь`
+    if (type === 'life') return `+${reward.amount} билет`
     if (type === 'lootbox') return `+${reward.amount} лутбокс`
     return `+${reward.amount}`
   }

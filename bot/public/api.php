@@ -20,6 +20,7 @@ use QuizBot\Application\Services\TelegramPhotoService;
 use QuizBot\Application\Services\AchievementService;
 use QuizBot\Application\Services\AchievementTrackerService;
 use QuizBot\Application\Services\CollectionService;
+use QuizBot\Application\Services\TicketService;
 
 // Загрузка автолоадера
 require dirname(__DIR__) . '/vendor/autoload.php';
@@ -571,6 +572,9 @@ function handleGetProfile($container, ?array $telegramUser): void
 
     $rank = $profileFormatter->getRankByRating((int) $profile->rating);
     $experienceProgress = $userService->getExperienceProgress($profile);
+    /** @var TicketService $ticketService */
+    $ticketService = $container->get(TicketService::class);
+    $ticketState = $ticketService->sync($user);
 
     jsonResponse([
         'level' => (int) $profile->level,
@@ -580,6 +584,11 @@ function handleGetProfile($container, ?array $telegramUser): void
         'rank' => $rank,
         'coins' => (int) $profile->coins,
         'gems' => (int) $profile->gems,
+        'tickets' => (int) $ticketState['tickets'],
+        'ticket_cap' => (int) $ticketState['cap'],
+        'ticket_regen_cap' => (int) $ticketState['regen_cap'],
+        'ticket_seconds_to_next' => (int) $ticketState['seconds_to_next'],
+        'ticket_next_at' => $ticketState['next_ticket_at'],
         'win_streak' => (int) $profile->streak_days,
         'true_false_record' => (int) $profile->true_false_record,
         'photo_url' => $user->photo_url,
@@ -634,6 +643,13 @@ function handleCreateDuel($container, ?array $telegramUser, array $body): void
         return;
     }
 
+    /** @var TicketService $ticketService */
+    $ticketService = $container->get(TicketService::class);
+    $ticketState = $ticketService->sync($user);
+    if ((int) $ticketState['tickets'] < 1) {
+        jsonError('Недостаточно билетов для дуэли', 409);
+    }
+
     // Режим дуэли с другом (приватная дуэль по коду)
     if (\in_array($mode, ['invite', 'friend'], true)) {
         $duel = $duelService->createDuel($user, null, null, [
@@ -659,6 +675,15 @@ function handleCreateDuel($container, ?array $telegramUser, array $body): void
     if ($availableTicket) {
         // Нашли соперника - присоединяемся и сразу стартуем дуэль
         $duel = $duelService->acceptDuel($availableTicket, $user);
+
+        $ticketCharge = chargeDuelTicketsIfNeeded($container, $duel);
+        if (!$ticketCharge['success']) {
+            $duel->status = 'cancelled';
+            $duel->finished_at = \Illuminate\Support\Carbon::now();
+            $duel->save();
+            jsonError($ticketCharge['error'] ?? 'Не удалось списать билет', 409);
+        }
+
         $duel = $duelService->startDuel($duel);
         $duel->loadMissing('initiator.profile');
 
@@ -722,6 +747,14 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
     
     // Если дуэль matched но ещё не стартовала - стартуем
     if ($duel->status === 'matched' && $duel->started_at === null) {
+        $ticketCharge = chargeDuelTicketsIfNeeded($container, $duel);
+        if (!$ticketCharge['success']) {
+            $duel->status = 'cancelled';
+            $duel->finished_at = \Illuminate\Support\Carbon::now();
+            $duel->save();
+            jsonError($ticketCharge['error'] ?? 'Не удалось списать билет', 409);
+        }
+
         $duel = $duelService->startDuel($duel);
         notifyDuelRealtime($duel->getKey());
     }
@@ -1098,6 +1131,13 @@ function handleJoinDuel($container, ?array $telegramUser, array $body): void
 
     /** @var DuelService $duelService */
     $duelService = $container->get(DuelService::class);
+    /** @var TicketService $ticketService */
+    $ticketService = $container->get(TicketService::class);
+
+    $ticketState = $ticketService->sync($user);
+    if ((int) $ticketState['tickets'] < 1) {
+        jsonError('Недостаточно билетов для дуэли', 409);
+    }
     
     // Ищем дуэль по коду
     $duel = \QuizBot\Domain\Model\Duel::query()
@@ -1117,6 +1157,13 @@ function handleJoinDuel($container, ?array $telegramUser, array $body): void
 
     // Присоединяемся к дуэли
     $duel = $duelService->acceptDuel($duel, $user);
+    $ticketCharge = chargeDuelTicketsIfNeeded($container, $duel);
+    if (!$ticketCharge['success']) {
+        $duel->status = 'cancelled';
+        $duel->finished_at = \Illuminate\Support\Carbon::now();
+        $duel->save();
+        jsonError($ticketCharge['error'] ?? 'Не удалось списать билет', 409);
+    }
     $duel->loadMissing('initiator.profile');
 
     notifyDuelRealtime($duel->getKey());
@@ -1130,6 +1177,55 @@ function handleJoinDuel($container, ?array $telegramUser, array $body): void
             'photo_url' => $duel->initiator->photo_url,
         ] : null,
     ]);
+}
+
+/**
+ * Списывает билеты у участников, если для дуэли они еще не списаны.
+ *
+ * @return array{success:bool,error?:string}
+ */
+function chargeDuelTicketsIfNeeded($container, \QuizBot\Domain\Model\Duel $duel): array
+{
+    $duel->loadMissing('initiator.profile', 'opponent.profile');
+    $settings = is_array($duel->settings) ? $duel->settings : [];
+
+    /** @var TicketService $ticketService */
+    $ticketService = $container->get(TicketService::class);
+
+    // Сначала пред-проверка, чтобы избежать частичного списания.
+    if ($duel->initiator && empty($settings['ticket_charged_initiator'])) {
+        $state = $ticketService->sync($duel->initiator);
+        if ((int) ($state['tickets'] ?? 0) < 1) {
+            return ['success' => false, 'error' => 'У инициатора закончились билеты'];
+        }
+    }
+    if ($duel->opponent && empty($settings['ticket_charged_opponent'])) {
+        $state = $ticketService->sync($duel->opponent);
+        if ((int) ($state['tickets'] ?? 0) < 1) {
+            return ['success' => false, 'error' => 'У соперника закончились билеты'];
+        }
+    }
+
+    if ($duel->initiator && empty($settings['ticket_charged_initiator'])) {
+        $spent = $ticketService->spend($duel->initiator, 1);
+        if (!$spent['success']) {
+            return ['success' => false, 'error' => 'У инициатора закончились билеты'];
+        }
+        $settings['ticket_charged_initiator'] = true;
+    }
+
+    if ($duel->opponent && empty($settings['ticket_charged_opponent'])) {
+        $spent = $ticketService->spend($duel->opponent, 1);
+        if (!$spent['success']) {
+            return ['success' => false, 'error' => 'У соперника закончились билеты'];
+        }
+        $settings['ticket_charged_opponent'] = true;
+    }
+
+    $duel->settings = $settings;
+    $duel->save();
+
+    return ['success' => true];
 }
 
 /**
@@ -2184,11 +2280,14 @@ function handleGetShopItems($container, ?array $telegramUser, ?string $category)
     try {
         $userService = $container->get(\QuizBot\Application\Services\UserService::class);
         $shopService = $container->get(\QuizBot\Application\Services\ShopService::class);
+        /** @var TicketService $ticketService */
+        $ticketService = $container->get(TicketService::class);
         $user = $userService->findByTelegramId((int) $telegramUser['id']);
         if (!$user) {
             jsonError('Пользователь не найден', 404);
         }
 
+        $ticketState = $ticketService->sync($user);
         $items = $shopService->getItemsForUser($category, $user);
         $profile = $user->profile;
         
@@ -2198,7 +2297,9 @@ function handleGetShopItems($container, ?array $telegramUser, ?string $category)
                 'coins' => (int) ($profile->coins ?? 0),
                 'gems' => (int) ($profile->gems ?? 0),
                 'hints' => (int) ($profile->hints ?? 0),
-                'lives' => (int) ($profile->lives ?? 0),
+                'tickets' => (int) ($ticketState['tickets'] ?? 0),
+                // legacy alias
+                'lives' => (int) ($ticketState['tickets'] ?? 0),
             ],
         ]);
     } catch (\Throwable $e) {

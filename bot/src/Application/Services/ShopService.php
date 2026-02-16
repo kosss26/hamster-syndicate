@@ -270,10 +270,10 @@ class ShopService
                 return ['type' => 'hint', 'amount' => $totalUnits];
 
             case ShopItem::TYPE_LIFE:
-                // Жизни добавляем в профиль
-                $profile->lives += $totalUnits;
+                // Билеты добавляем в профиль
+                $profile->lives = min(50, (int) $profile->lives + $totalUnits);
                 $profile->save();
-                return ['type' => 'life', 'amount' => $totalUnits];
+                return ['type' => 'ticket', 'amount' => $totalUnits];
 
             case ShopItem::TYPE_BOOST:
                 // Бусты активируем
@@ -452,11 +452,11 @@ class ShopService
                 if ($lives <= 1) {
                     $score = 92;
                     $tag = 'critical';
-                    $reason = 'Мало жизней для серий';
+                    $reason = 'Мало билетов для серий';
                 } elseif ($lives <= 3) {
                     $score = 78;
                     $tag = 'recommended';
-                    $reason = 'Пополните жизни заранее';
+                    $reason = 'Пополните билеты заранее';
                 } else {
                     $score = 50;
                 }

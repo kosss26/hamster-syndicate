@@ -7,7 +7,7 @@ import CoinIcon from '../components/CoinIcon'
 const CATEGORY_TABS = [
   { key: 'all', label: 'Все', icon: '🛍️' },
   { key: 'hint', label: 'Подсказки', icon: '💡' },
-  { key: 'life', label: 'Жизни', icon: '❤️' },
+  { key: 'life', label: 'Билеты', icon: '🎫' },
   { key: 'boost', label: 'Бусты', icon: '⚡' },
   { key: 'lootbox', label: 'Лутбоксы', icon: '🎁' },
   { key: 'cosmetic', label: 'Косметика', icon: '✨' },
@@ -83,7 +83,7 @@ const ShopPage = () => {
   const [items, setItems] = useState([])
   const [history, setHistory] = useState([])
   const [error, setError] = useState(null)
-  const [balance, setBalance] = useState({ coins: 0, gems: 0, hints: 0, lives: 0 })
+  const [balance, setBalance] = useState({ coins: 0, gems: 0, hints: 0, tickets: 0 })
   const [quantities, setQuantities] = useState({})
 
   useEffect(() => {
@@ -120,7 +120,7 @@ const ShopPage = () => {
           coins: Number(serverBalance.coins || 0),
           gems: Number(serverBalance.gems || 0),
           hints: Number(serverBalance.hints || 0),
-          lives: Number(serverBalance.lives || 0),
+          tickets: Number(serverBalance.tickets || serverBalance.lives || 0),
         })
       }
       setQuantities((prev) => {
@@ -243,8 +243,8 @@ const ShopPage = () => {
               <p className="text-white font-semibold text-sm mt-1">💡 {balance.hints}</p>
             </div>
             <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
-              <p className="text-[10px] text-white/45 uppercase">Жизни</p>
-              <p className="text-white font-semibold text-sm mt-1">❤️ {balance.lives}</p>
+              <p className="text-[10px] text-white/45 uppercase">Билеты</p>
+              <p className="text-white font-semibold text-sm mt-1">🎫 {balance.tickets}</p>
             </div>
           </div>
         </section>

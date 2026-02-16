@@ -55,7 +55,7 @@ class UserService
                 'experience' => 0,
                 'rating' => 0,
                 'coins' => 300,
-                'lives' => 3,
+                'lives' => 10,
                 'streak_days' => 0,
                 'duel_wins' => 0,
                 'duel_losses' => 0,
@@ -64,7 +64,9 @@ class UserService
                 'true_false_record' => 0,
                 'gems' => 10,
                 'hints' => 1,
-                'settings' => [],
+                'settings' => [
+                    'tickets_last_regen_at' => Carbon::now()->toIso8601String(),
+                ],
             ]);
 
             $user->profile()->save($profile);
@@ -114,7 +116,7 @@ class UserService
             'experience' => 0,
             'rating' => 0,
             'coins' => 300,
-            'lives' => 3,
+            'lives' => 10,
             'streak_days' => 0,
             'duel_wins' => 0,
             'duel_losses' => 0,
@@ -123,7 +125,9 @@ class UserService
             'true_false_record' => 0,
             'gems' => 10,
             'hints' => 1,
-            'settings' => [],
+            'settings' => [
+                'tickets_last_regen_at' => Carbon::now()->toIso8601String(),
+            ],
         ]);
 
         $user->profile()->save($profile);

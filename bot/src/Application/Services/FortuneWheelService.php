@@ -24,7 +24,7 @@ class FortuneWheelService
         ['type' => 'exp', 'amount' => 40, 'weight' => 12, 'icon' => '⭐'],
         ['type' => 'exp', 'amount' => 80, 'weight' => 8, 'icon' => '⭐'],
         ['type' => 'hint', 'amount' => 1, 'weight' => 4, 'icon' => '💡'],
-        ['type' => 'life', 'amount' => 1, 'weight' => 3, 'icon' => '❤️'],
+        ['type' => 'life', 'amount' => 1, 'weight' => 3, 'icon' => '🎫'],
         ['type' => 'gems', 'amount' => 10, 'weight' => 2, 'icon' => '💎'],
         ['type' => 'lootbox', 'amount' => 1, 'weight' => 1, 'icon' => '🎁'],
     ];
@@ -207,7 +207,7 @@ class FortuneWheelService
                 break;
 
             case 'life':
-                $profile->lives += $reward['amount'];
+                $profile->lives = min(50, (int) $profile->lives + (int) $reward['amount']);
                 break;
 
             case 'hint':

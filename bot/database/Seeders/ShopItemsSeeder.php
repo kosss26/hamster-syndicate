@@ -63,9 +63,9 @@ class ShopItemsSeeder
             // ============= ЖИЗНИ =============
             [
                 'type' => 'life',
-                'name' => '1 жизнь',
-                'description' => 'Одна дополнительная попытка',
-                'icon' => '❤️',
+                'name' => '1 билет',
+                'description' => '1 дуэльный билет',
+                'icon' => '🎫',
                 'rarity' => 'common',
                 'price_coins' => 80,
                 'price_gems' => 0,
@@ -78,9 +78,9 @@ class ShopItemsSeeder
             ],
             [
                 'type' => 'life',
-                'name' => '5 жизней',
-                'description' => 'Набор жизней для длинной серии',
-                'icon' => '❤️',
+                'name' => '5 билетов',
+                'description' => 'Набор дуэльных билетов',
+                'icon' => '🎫',
                 'rarity' => 'uncommon',
                 'price_coins' => 350,
                 'price_gems' => 0,
@@ -310,6 +310,9 @@ class ShopItemsSeeder
                 'sort_order' => 61,
             ],
         ];
+
+        // Деактивируем устаревшие позиции после переименования "жизни" -> "билеты".
+        ShopItem::whereIn('name', ['1 жизнь', '5 жизней'])->update(['is_active' => false]);
 
         foreach ($items as $itemData) {
             // Добавляем is_active если не указано

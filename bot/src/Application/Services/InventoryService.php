@@ -14,11 +14,13 @@ class InventoryService
 {
     private Logger $logger;
     private UserService $userService;
+    private TicketService $ticketService;
 
-    public function __construct(Logger $logger, UserService $userService)
+    public function __construct(Logger $logger, UserService $userService, TicketService $ticketService)
     {
         $this->logger = $logger;
         $this->userService = $userService;
+        $this->ticketService = $ticketService;
     }
 
     /**
@@ -28,6 +30,7 @@ class InventoryService
     {
         $user = $this->userService->ensureProfile($user);
         $profile = $user->profile;
+        $ticketState = $this->ticketService->sync($user);
 
         // Получаем предметы из инвентаря
         $items = UserInventory::where('user_id', $user->getKey())
@@ -45,7 +48,9 @@ class InventoryService
                 'coins' => $profile->coins,
                 'gems' => $profile->gems,
                 'hints' => $profile->hints,
-                'lives' => $profile->lives,
+                'tickets' => (int) ($ticketState['tickets'] ?? $profile->lives),
+                // legacy alias
+                'lives' => (int) ($ticketState['tickets'] ?? $profile->lives),
             ],
             'items' => $items->map(function (UserInventory $item) {
                 return [
@@ -53,7 +58,7 @@ class InventoryService
                     'type' => $item->item_type,
                     'key' => $item->item_key,
                     'quantity' => $item->quantity,
-                    'expires_at' => $item->expires_at?->toIso8601String(),
+                    'expires_at' => $item->expires_at ? $item->expires_at->toIso8601String() : null,
                     'is_expired' => $item->isExpired(),
                 ];
             })->toArray(),
@@ -190,4 +195,3 @@ class InventoryService
         return $deleted;
     }
 }
-

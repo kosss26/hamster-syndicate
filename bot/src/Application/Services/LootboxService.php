@@ -248,7 +248,7 @@ class LootboxService
                 break;
 
             case 'life':
-                $profile->lives += $reward['amount'];
+                $profile->lives = min(50, (int) $profile->lives + (int) $reward['amount']);
                 $profile->save();
                 break;
 

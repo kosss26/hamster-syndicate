@@ -79,7 +79,7 @@ const InventoryPage = () => {
     const icons = {
       lootbox: { bronze: '📦', silver: '📦', gold: '🎁', legendary: '💎' },
       hint: '💡',
-      life: '❤️',
+      life: '🎫',
       boost: '⚡',
     }
     return icons[type]?.[key] || icons[type] || '📦'
@@ -137,8 +137,8 @@ const InventoryPage = () => {
               <div className="text-white font-bold">{inventory.resources.hints}</div>
             </div>
             <div className="bg-red-500/20 rounded-xl p-3 text-center border border-red-500/30">
-              <div className="text-2xl mb-1">❤️</div>
-              <div className="text-white font-bold">{inventory.resources.lives}</div>
+              <div className="text-2xl mb-1">🎫</div>
+              <div className="text-white font-bold">{inventory.resources.tickets ?? inventory.resources.lives}</div>
             </div>
           </div>
         )}
@@ -297,4 +297,3 @@ const InventoryPage = () => {
 }
 
 export default InventoryPage
-

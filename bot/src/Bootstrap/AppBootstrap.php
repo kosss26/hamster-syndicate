@@ -228,12 +228,19 @@ final class AppBootstrap
             \QuizBot\Application\Services\InventoryService::class => function (Container $c) {
                 return new \QuizBot\Application\Services\InventoryService(
                     $c->get(Logger::class),
-                    $c->get(UserService::class)
+                    $c->get(UserService::class),
+                    $c->get(\QuizBot\Application\Services\TicketService::class)
                 );
             },
             \QuizBot\Application\Services\BoostService::class => function (Container $c) {
                 return new \QuizBot\Application\Services\BoostService(
                     $c->get(Logger::class)
+                );
+            },
+            \QuizBot\Application\Services\TicketService::class => function (Container $c) {
+                return new \QuizBot\Application\Services\TicketService(
+                    $c->get(Logger::class),
+                    $c->get(UserService::class)
                 );
             },
             AchievementService::class => function (Container $c) {
