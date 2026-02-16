@@ -611,6 +611,34 @@ class AchievementsSeeder
                 'sort_order' => 42,
             ],
             [
+                'key' => 'invite_10_friends',
+                'title' => 'Магнит друзей',
+                'description' => 'Пригласи 10 друзей',
+                'icon' => '🤝',
+                'rarity' => 'epic',
+                'category' => 'social',
+                'condition_type' => 'counter',
+                'condition_value' => 10,
+                'reward_coins' => 2200,
+                'reward_gems' => 20,
+                'is_secret' => false,
+                'sort_order' => 43,
+            ],
+            [
+                'key' => 'invite_25_friends',
+                'title' => 'Лидер комьюнити',
+                'description' => 'Пригласи 25 друзей',
+                'icon' => '👑',
+                'rarity' => 'legendary',
+                'category' => 'social',
+                'condition_type' => 'counter',
+                'condition_value' => 25,
+                'reward_coins' => 6000,
+                'reward_gems' => 60,
+                'is_secret' => false,
+                'sort_order' => 44,
+            ],
+            [
                 'key' => 'top_10_leaderboard',
                 'title' => 'Топ-10',
                 'description' => 'Попади в топ-10 рейтинга',
@@ -622,7 +650,7 @@ class AchievementsSeeder
                 'reward_coins' => 2000,
                 'reward_gems' => 0,
                 'is_secret' => false,
-                'sort_order' => 43,
+                'sort_order' => 45,
             ],
             [
                 'key' => 'top_3_leaderboard',
@@ -636,7 +664,7 @@ class AchievementsSeeder
                 'reward_coins' => 5000,
                 'reward_gems' => 50,
                 'is_secret' => false,
-                'sort_order' => 44,
+                'sort_order' => 46,
             ],
             [
                 'key' => 'rank_1',
@@ -650,7 +678,7 @@ class AchievementsSeeder
                 'reward_coins' => 10000,
                 'reward_gems' => 100,
                 'is_secret' => false,
-                'sort_order' => 45,
+                'sort_order' => 47,
             ],
 
             // === СЕКРЕТНЫЕ (5 достижений) ===
@@ -666,7 +694,7 @@ class AchievementsSeeder
                 'reward_coins' => 666,
                 'reward_gems' => 0,
                 'is_secret' => true,
-                'sort_order' => 46,
+                'sort_order' => 48,
             ],
             [
                 'key' => 'secret_lucky_7',
@@ -680,7 +708,7 @@ class AchievementsSeeder
                 'reward_coins' => 777,
                 'reward_gems' => 0,
                 'is_secret' => true,
-                'sort_order' => 47,
+                'sort_order' => 49,
             ],
             [
                 'key' => 'secret_easter_egg',
@@ -694,7 +722,7 @@ class AchievementsSeeder
                 'reward_coins' => 1337,
                 'reward_gems' => 0,
                 'is_secret' => true,
-                'sort_order' => 48,
+                'sort_order' => 50,
             ],
             [
                 'key' => 'secret_persistent',
@@ -708,7 +736,7 @@ class AchievementsSeeder
                 'reward_coins' => 3000,
                 'reward_gems' => 30,
                 'is_secret' => true,
-                'sort_order' => 49,
+                'sort_order' => 51,
             ],
             [
                 'key' => 'secret_perfectionist',
@@ -722,7 +750,7 @@ class AchievementsSeeder
                 'reward_coins' => 50000,
                 'reward_gems' => 500,
                 'is_secret' => true,
-                'sort_order' => 50,
+                'sort_order' => 52,
             ],
         ];
 

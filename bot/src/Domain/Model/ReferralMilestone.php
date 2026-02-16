@@ -19,6 +19,7 @@ class ReferralMilestone extends BaseModel
         'description',
         'reward_coins',
         'reward_experience',
+        'reward_tickets',
         'reward_badge',
         'is_active',
     ];
@@ -30,6 +31,7 @@ class ReferralMilestone extends BaseModel
         'referrals_count' => 'int',
         'reward_coins' => 'int',
         'reward_experience' => 'int',
+        'reward_tickets' => 'int',
         'is_active' => 'bool',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
@@ -42,4 +44,3 @@ class ReferralMilestone extends BaseModel
             ->withTimestamps();
     }
 }
-

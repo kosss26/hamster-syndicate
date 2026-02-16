@@ -16,18 +16,22 @@ class ReferralService
 {
     private const BASE_REFERRER_REWARD_COINS = 100;
     private const BASE_REFERRER_REWARD_EXP = 50;
+    private const BASE_REFERRER_REWARD_TICKETS = 1;
     private const BASE_REFERRED_REWARD_COINS = 50;
     private const BASE_REFERRED_REWARD_EXP = 25;
+    private const BASE_REFERRED_REWARD_TICKETS = 0;
     
     private const ACTIVATION_REQUIRED_GAMES = 3;
 
     private Logger $logger;
     private UserService $userService;
+    private ?AchievementTrackerService $achievementTracker;
 
-    public function __construct(Logger $logger, UserService $userService)
+    public function __construct(Logger $logger, UserService $userService, ?AchievementTrackerService $achievementTracker = null)
     {
         $this->logger = $logger;
         $this->userService = $userService;
+        $this->achievementTracker = $achievementTracker;
     }
 
     /**
@@ -185,9 +189,11 @@ class ReferralService
 
         $coinsReward = self::BASE_REFERRER_REWARD_COINS;
         $expReward = self::BASE_REFERRER_REWARD_EXP;
+        $ticketReward = self::BASE_REFERRER_REWARD_TICKETS;
 
         $referrerProfile->coins += $coinsReward;
         $referrerProfile->experience += $expReward;
+        $referrerProfile->lives = min(50, (int) $referrerProfile->lives + $ticketReward);
         $referrerProfile->total_referrals += 1;
         $referrerProfile->save();
 
@@ -197,16 +203,27 @@ class ReferralService
         $referral->rewarded_at = Carbon::now();
         $referral->referrer_coins_earned = $coinsReward;
         $referral->referrer_experience_earned = $expReward;
+        $referral->referrer_tickets_earned = $ticketReward;
         $referral->save();
 
         // Проверяем milestone награды
         $this->checkAndGrantMilestones($referrer);
+
+        if ($this->achievementTracker) {
+            $totalReferrals = (int) $referrerProfile->total_referrals;
+            $this->achievementTracker->setStat((int) $referrer->getKey(), 'referrals_active', $totalReferrals);
+            $this->achievementTracker->checkAndUnlock((int) $referrer->getKey(), [
+                'context' => 'referral_activate',
+                'total_referrals' => $totalReferrals,
+            ]);
+        }
 
         $this->logger->info('Реферал активирован', [
             'referrer_id' => $referrer->getKey(),
             'referred_id' => $referred->getKey(),
             'coins' => $coinsReward,
             'exp' => $expReward,
+            'tickets' => $ticketReward,
         ]);
 
         return true;
@@ -222,10 +239,14 @@ class ReferralService
 
         $profile->coins += self::BASE_REFERRED_REWARD_COINS;
         $profile->experience += self::BASE_REFERRED_REWARD_EXP;
+        if (self::BASE_REFERRED_REWARD_TICKETS > 0) {
+            $profile->lives = min(50, (int) $profile->lives + self::BASE_REFERRED_REWARD_TICKETS);
+        }
         $profile->save();
 
         $referral->referred_coins_earned = self::BASE_REFERRED_REWARD_COINS;
         $referral->referred_experience_earned = self::BASE_REFERRED_REWARD_EXP;
+        $referral->referred_tickets_earned = self::BASE_REFERRED_REWARD_TICKETS;
         $referral->save();
     }
 
@@ -254,6 +275,7 @@ class ReferralService
             $profile = $referrer->profile;
             $profile->coins += $milestone->reward_coins;
             $profile->experience += $milestone->reward_experience;
+            $profile->lives = min(50, (int) $profile->lives + (int) ($milestone->reward_tickets ?? 0));
             $profile->save();
 
             // Отмечаем как полученную
@@ -285,6 +307,8 @@ class ReferralService
         $active = $referrals->where('status', 'active')->count();
         $totalCoins = $referrals->sum('referrer_coins_earned');
         $totalExp = $referrals->sum('referrer_experience_earned');
+        $totalTickets = $referrals->sum('referrer_tickets_earned');
+        $milestoneTickets = $user->referralMilestones()->sum('referral_milestones.reward_tickets');
 
         // Следующий milestone
         $currentCount = $user->profile->total_referrals ?? 0;
@@ -300,6 +324,7 @@ class ReferralService
             'pending_referrals' => $pending,
             'total_coins_earned' => (int)$totalCoins,
             'total_exp_earned' => (int)$totalExp,
+            'total_tickets_earned' => (int)$totalTickets + (int)$milestoneTickets,
             'referrals' => $referrals->filter(function (Referral $ref) {
                 return $ref->referred !== null;
             })->map(function (Referral $ref) {
@@ -320,6 +345,7 @@ class ReferralService
                 'progress' => $currentCount,
                 'reward_coins' => $nextMilestone->reward_coins,
                 'reward_experience' => $nextMilestone->reward_experience,
+                'reward_tickets' => (int) ($nextMilestone->reward_tickets ?? 0),
             ] : null,
         ];
     }
@@ -348,4 +374,3 @@ class ReferralService
         return sprintf('https://t.me/%s?start=ref_%s', $botUsername, $code);
     }
 }
-

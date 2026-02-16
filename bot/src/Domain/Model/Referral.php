@@ -20,8 +20,10 @@ class Referral extends BaseModel
         'status',
         'referrer_coins_earned',
         'referrer_experience_earned',
+        'referrer_tickets_earned',
         'referred_coins_earned',
         'referred_experience_earned',
+        'referred_tickets_earned',
         'referred_completed_onboarding',
         'referred_games_played',
         'activated_at',
@@ -34,8 +36,10 @@ class Referral extends BaseModel
     protected $casts = [
         'referrer_coins_earned' => 'int',
         'referrer_experience_earned' => 'int',
+        'referrer_tickets_earned' => 'int',
         'referred_coins_earned' => 'int',
         'referred_experience_earned' => 'int',
+        'referred_tickets_earned' => 'int',
         'referred_completed_onboarding' => 'bool',
         'referred_games_played' => 'int',
         'activated_at' => 'datetime',
@@ -64,4 +68,3 @@ class Referral extends BaseModel
         return $this->status === 'rewarded';
     }
 }
-

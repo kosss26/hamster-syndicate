@@ -270,6 +270,10 @@ class AchievementTrackerService
             'shopaholic' => 'shop_purchases',
             'wheel_spin_10' => 'wheel_spins',
             'lootbox_open_10' => 'lootbox_openings',
+            'invite_friend' => 'referrals_active',
+            'invite_5_friends' => 'referrals_active',
+            'invite_10_friends' => 'referrals_active',
+            'invite_25_friends' => 'referrals_active',
         ];
         
         return $mapping[$achievementKey] ?? null;

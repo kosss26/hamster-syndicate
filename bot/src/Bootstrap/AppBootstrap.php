@@ -200,7 +200,8 @@ final class AppBootstrap
             ReferralService::class => function (Container $c) {
                 return new ReferralService(
                     $c->get(Logger::class),
-                    $c->get(UserService::class)
+                    $c->get(UserService::class),
+                    $c->get(AchievementTrackerService::class)
                 );
             },
             \QuizBot\Application\Services\ShopService::class => function (Container $c) {
