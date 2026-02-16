@@ -18,6 +18,7 @@ import LootboxPage from './pages/LootboxPage'
 import AchievementsPage from './pages/AchievementsPage'
 import CollectionsPage from './pages/CollectionsPage'
 import CollectionDetailPage from './pages/CollectionDetailPage'
+import NotificationsPage from './pages/NotificationsPage'
 import AdminButton from './components/AdminButton'
 import TelegramBackButton from './components/TelegramBackButton'
 
@@ -127,6 +128,7 @@ function App() {
               <Route path="/achievements" element={<AchievementsPage />} />
               <Route path="/collections" element={<CollectionsPage />} />
               <Route path="/collections/:collectionId" element={<CollectionDetailPage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/admin" element={<AdminPage />} />
             </Route>
 

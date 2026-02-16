@@ -5,6 +5,7 @@ import { useTelegram, hapticFeedback } from '../hooks/useTelegram'
 import api from '../api/client'
 import AvatarWithFrame from '../components/AvatarWithFrame'
 import CoinIcon from '../components/CoinIcon'
+import { getNotificationItems, subscribeNotifications } from '../utils/notificationInbox'
 
 function HomePage() {
   const { user } = useTelegram()
@@ -13,16 +14,22 @@ function HomePage() {
   const [onlineCount, setOnlineCount] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [notifications, setNotifications] = useState([])
 
   useEffect(() => {
     checkActiveDuel()
     loadData()
+    setNotifications(getNotificationItems())
+    const unsubscribeNotifications = subscribeNotifications((items) => setNotifications(items))
 
     const interval = setInterval(() => {
       loadOnline()
     }, 30000)
 
-    return () => clearInterval(interval)
+    return () => {
+      clearInterval(interval)
+      unsubscribeNotifications()
+    }
   }, [])
 
   const checkActiveDuel = async () => {
@@ -120,6 +127,21 @@ function HomePage() {
             </div>
 
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => navigate('/notifications')}
+                className="relative w-9 h-9 rounded-full border border-white/10 bg-white/5 flex items-center justify-center text-white/70"
+                aria-label="Уведомления"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5" />
+                  <path d="M9 17a3 3 0 0 0 6 0" />
+                </svg>
+                {notifications.length > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold leading-4 text-center">
+                    {notifications.length > 99 ? '99+' : notifications.length}
+                  </span>
+                )}
+              </button>
               <div className="flex items-center gap-1.5 rounded-full border border-emerald-300/30 bg-emerald-500/10 px-3 py-1.5">
                 <span className="relative flex h-2.5 w-2.5">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -179,6 +201,24 @@ function HomePage() {
         </motion.div>
 
         <div className="grid grid-cols-2 gap-3">
+          {notifications.length > 0 && (
+            <motion.button
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate('/notifications')}
+              className="col-span-2 rounded-2xl border border-amber-300/25 bg-amber-500/10 p-4 text-left"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-white font-semibold text-sm mb-1">🔔 Новые уведомления ({notifications.length})</div>
+                  <div className="text-white/65 text-xs truncate">
+                    {notifications[0]?.title || 'Открой, чтобы посмотреть'}
+                  </div>
+                </div>
+                <div className="text-amber-200 text-xs font-semibold whitespace-nowrap">Открыть</div>
+              </div>
+            </motion.button>
+          )}
+
           <motion.button
             whileTap={{ scale: 0.98 }}
             onClick={() => navigate('/truefalse')}

@@ -4,8 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useTelegram, showBackButton, hapticFeedback } from '../hooks/useTelegram'
 import api, { getWsBaseUrl } from '../api/client'
 import AvatarWithFrame from '../components/AvatarWithFrame'
-import RewardNotifications from '../components/RewardNotifications'
 import { deriveDuelViewState } from './duelStateMachine'
+import { addNotificationItems } from '../utils/notificationInbox'
 
 const WS_STATUS = {
   OFFLINE: 'offline',
@@ -65,7 +65,6 @@ function DuelPage() {
   const [wsConnected, setWsConnected] = useState(false)
   const [wsConnectionState, setWsConnectionState] = useState(WS_STATUS.OFFLINE)
   const [wsRetrying, setWsRetrying] = useState(false)
-  const [rewardNotifications, setRewardNotifications] = useState([])
   
   const currentQuestionId = useRef(null)
   const timerRef = useRef(null)
@@ -90,10 +89,6 @@ function DuelPage() {
   const enterFoundState = useCallback(() => {
     foundScreenUntilRef.current = Date.now() + FOUND_SCREEN_MIN_MS
     setState(STATES.FOUND)
-  }, [])
-
-  const dismissRewardNotification = useCallback((id) => {
-    setRewardNotifications((prev) => prev.filter((item) => item.id !== id))
   }, [])
 
   const queueRewardNotifications = useCallback((payload) => {
@@ -145,13 +140,8 @@ function DuelPage() {
 
     if (next.length === 0) return
 
-    setRewardNotifications((prev) => [...prev, ...next].slice(-5))
-    next.forEach((item) => {
-      setTimeout(() => {
-        dismissRewardNotification(item.id)
-      }, 4500)
-    })
-  }, [dismissRewardNotification])
+    addNotificationItems(next)
+  }, [])
 
   const queueFinishedRewardsIfNeeded = useCallback((payload) => {
     if (!payload) return
@@ -1428,7 +1418,6 @@ function DuelPage() {
       return (
         <div className="min-h-dvh bg-aurora relative overflow-hidden flex flex-col">
             <div className="noise-overlay" />
-            <RewardNotifications items={rewardNotifications} onDismiss={dismissRewardNotification} />
             
             {/* Header VS */}
             <div className="relative z-20 pt-4 px-4 pb-2 bg-gradient-to-b from-black/40 to-transparent">
@@ -1680,7 +1669,6 @@ function DuelPage() {
       return (
          <div className="min-h-dvh bg-aurora relative overflow-hidden flex flex-col items-center justify-center p-6 text-center">
             <div className="noise-overlay" />
-            <RewardNotifications items={rewardNotifications} onDismiss={dismissRewardNotification} />
             
             {isWin && (
                 <>

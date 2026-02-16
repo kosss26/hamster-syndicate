@@ -1,8 +1,16 @@
 import { Link, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { useEffect, useState } from 'react'
+import { getNotificationItems, subscribeNotifications } from '../utils/notificationInbox'
 
 export default function BottomMenu() {
   const location = useLocation()
+  const [notificationCount, setNotificationCount] = useState(0)
+
+  useEffect(() => {
+    setNotificationCount(getNotificationItems().length)
+    return subscribeNotifications((items) => setNotificationCount(items.length))
+  }, [])
   
   const tabs = [
     {
@@ -44,6 +52,17 @@ export default function BottomMenu() {
       )
     },
     {
+      id: 'notifications',
+      path: '/notifications',
+      label: 'Увед.',
+      icon: (active) => (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={active ? "currentColor" : "currentColor"} strokeWidth={active ? "2.5" : "2"} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5"/>
+          <path d="M9 17a3 3 0 0 0 6 0"/>
+        </svg>
+      )
+    },
+    {
       id: 'profile',
       path: '/profile',
       label: 'Профиль',
@@ -74,9 +93,10 @@ export default function BottomMenu() {
         className="relative rounded-[28px] border border-white/10 bg-black/45 backdrop-blur-2xl p-1.5 shadow-[0_20px_40px_rgba(0,0,0,0.45)]"
       >
         <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/35 to-transparent" />
-        <div className="grid grid-cols-4 gap-1">
+        <div className="grid grid-cols-5 gap-1">
           {tabs.map((tab) => {
             const isActive = isTabActive(tab.path)
+            const showNotifBadge = tab.id === 'notifications' && notificationCount > 0
 
             return (
               <Link
@@ -94,6 +114,11 @@ export default function BottomMenu() {
                 )}
 
                 <div className={`relative z-10 flex flex-col items-center transition-colors ${isActive ? 'text-cyan-200' : 'text-white/45 group-hover:text-white/70'}`}>
+                  {showNotifBadge && (
+                    <span className="absolute -top-1 -right-3 min-w-4 h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold leading-4 text-center">
+                      {notificationCount > 99 ? '99+' : notificationCount}
+                    </span>
+                  )}
                   {tab.icon(isActive)}
                   <span className={`text-[10px] mt-0.5 ${isActive ? 'text-white' : 'text-white/45'}`}>{tab.label}</span>
                 </div>

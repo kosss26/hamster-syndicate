@@ -4,6 +4,7 @@ import { api } from '../api/client'
 import { useTelegram } from '../hooks/useTelegram'
 import CoinIcon from '../components/CoinIcon'
 import RewardNotifications from '../components/RewardNotifications'
+import { addNotificationItems } from '../utils/notificationInbox'
 
 const LootboxPage = () => {
   const { webApp } = useTelegram()
@@ -179,6 +180,7 @@ const LootboxPage = () => {
     if (queue.length === 0) return
 
     setRewardNotifications((prev) => [...prev, ...queue].slice(-6))
+    addNotificationItems(queue)
     queue.forEach((entry) => {
       setTimeout(() => dismissRewardNotification(entry.id), 5500)
     })

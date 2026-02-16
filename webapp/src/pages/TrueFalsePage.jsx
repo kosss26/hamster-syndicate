@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useTelegram, showBackButton, hapticFeedback } from '../hooks/useTelegram'
 import api from '../api/client'
 import RewardNotifications from '../components/RewardNotifications'
+import { addNotificationItems } from '../utils/notificationInbox'
 
 const QUESTION_TIME_LIMIT = 15
 const BREAK_STATE_MS = 3000
@@ -228,6 +229,7 @@ function TrueFalsePage() {
     if (queue.length === 0) return
 
     setRewardNotifications((prev) => [...prev, ...queue].slice(-5))
+    addNotificationItems(queue)
     queue.forEach((entry) => {
       setTimeout(() => dismissRewardNotification(entry.id), 4500)
     })
