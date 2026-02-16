@@ -79,6 +79,7 @@ function DuelPage() {
   const nextRoundIntervalRef = useRef(null)
   const loadDuelRef = useRef(null)
   const autoJoinAttemptedRef = useRef(false)
+  const seenAchievementRewardsRef = useRef(new Set())
 
   const dismissRewardNotification = useCallback((id) => {
     setRewardNotifications((prev) => prev.filter((item) => item.id !== id))
@@ -94,6 +95,11 @@ function DuelPage() {
     achievementUnlocks.forEach((unlock, index) => {
       const achievement = unlock?.achievement
       if (!achievement?.title) return
+      const dedupeKey = `achievement_${achievement.id || achievement.key || achievement.title}`
+      if (seenAchievementRewardsRef.current.has(dedupeKey)) {
+        return
+      }
+      seenAchievementRewardsRef.current.add(dedupeKey)
 
       next.push({
         id: `ach_${Date.now()}_${index}_${achievement.id || achievement.key || 'x'}`,
@@ -650,6 +656,7 @@ function DuelPage() {
       
       if (response.success) {
         const data = response.data
+        queueRewardNotifications(data)
         const currentState = duelStateRef.current
         setRoundStatus(data.round_status || null)
         
@@ -770,6 +777,7 @@ function DuelPage() {
       
       if (response.success) {
         const data = response.data
+        queueRewardNotifications(data)
         setDuel(data)
         setRoundStatus(data.round_status || null)
         setRound(data.current_round)

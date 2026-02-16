@@ -846,6 +846,7 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
 
     // Получаем изменение рейтинга, если дуэль завершена
     $ratingChange = 0;
+    $duelAchievementUnlocks = [];
     if ($duel->status === 'finished') {
         $result = $duel->result;
         if ($result && isset($result->metadata['rating_changes'])) {
@@ -853,6 +854,13 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
             $ratingChange = $isInitiator 
                 ? ($changes['initiator_rating_change'] ?? 0)
                 : ($changes['opponent_rating_change'] ?? 0);
+        }
+        if ($result && isset($result->metadata['achievement_unlocks']) && is_array($result->metadata['achievement_unlocks'])) {
+            $unlockBucket = $isInitiator ? 'initiator' : 'opponent';
+            $bucketData = $result->metadata['achievement_unlocks'][$unlockBucket] ?? [];
+            if (is_array($bucketData)) {
+                $duelAchievementUnlocks = $bucketData;
+            }
         }
     }
 
@@ -881,6 +889,7 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
         'round_status' => $roundStatus,
         'last_closed_round' => $lastClosedRoundStatus,
         'is_initiator' => $isInitiator,
+        'achievement_unlocks' => $duelAchievementUnlocks,
     ]);
 }
 

@@ -384,21 +384,30 @@ class DuelService
         $this->logger->info(sprintf('Дуэль %s завершена, результат %s', $duel->code, $resultStatus));
 
         // Обновляем статистику и проверяем достижения
+        $achievementUnlocks = [
+            'initiator' => [],
+            'opponent' => [],
+        ];
         if ($this->statisticsService) {
             try {
                 // Для инициатора
                 $isInitiatorWin = $resultStatus === 'initiator_win';
-                $this->statisticsService->recordDuelResult($duel->initiator, $isInitiatorWin);
+                $achievementUnlocks['initiator'] = $this->statisticsService->recordDuelResult($duel->initiator, $isInitiatorWin);
 
                 // Для оппонента (если есть)
                 if ($duel->opponent) {
                     $isOpponentWin = $resultStatus === 'opponent_win';
-                    $this->statisticsService->recordDuelResult($duel->opponent, $isOpponentWin);
+                    $achievementUnlocks['opponent'] = $this->statisticsService->recordDuelResult($duel->opponent, $isOpponentWin);
                 }
             } catch (\Throwable $e) {
                 $this->logger->error('Ошибка обновления статистики дуэли: ' . $e->getMessage());
             }
         }
+
+        $metadata = $result->metadata ?? [];
+        $metadata['achievement_unlocks'] = $achievementUnlocks;
+        $result->metadata = $metadata;
+        $result->save();
 
         // Проверяем активацию рефералов для обоих участников
         $this->checkReferralActivation($duel->initiator);
