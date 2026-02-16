@@ -71,7 +71,8 @@ class AchievementTrackerService
         
         foreach ($achievements as $achievement) {
             try {
-                if (!is_string($achievement->key) || trim($achievement->key) === '') {
+                $achievementKey = $this->resolveAchievementKey($achievement);
+                if ($achievementKey === null) {
                     continue;
                 }
 
@@ -88,7 +89,7 @@ class AchievementTrackerService
                 $shouldUnlock = $this->checkCondition($userId, $achievement, $context);
                 
                 if ($shouldUnlock) {
-                    $result = $this->achievementService->unlockAchievement($userId, $achievement->key);
+                    $result = $this->achievementService->unlockAchievement($userId, $achievementKey);
                     if ($result) {
                         $unlockedAchievements[] = $result;
                     }
@@ -96,7 +97,7 @@ class AchievementTrackerService
                     // Обновляем прогресс, если есть
                     $currentValue = $this->getCurrentValue($userId, $achievement, $context);
                     if ($currentValue !== null) {
-                        $this->achievementService->updateProgress($userId, $achievement->key, $currentValue);
+                        $this->achievementService->updateProgress($userId, $achievementKey, $currentValue);
                     }
                 }
             } catch (\Throwable $e) {
@@ -147,7 +148,8 @@ class AchievementTrackerService
      */
     private function checkStreakCondition(int $userId, Achievement $achievement): bool
     {
-        if (str_contains($achievement->key, 'win_streak')) {
+        $achievementKey = $this->resolveAchievementKey($achievement);
+        if ($achievementKey !== null && str_contains($achievementKey, 'win_streak')) {
             $currentStreak = $this->getStat($userId, 'current_win_streak');
             return $currentStreak >= $achievement->condition_value;
         }
@@ -160,7 +162,12 @@ class AchievementTrackerService
      */
     private function checkSpecialCondition(int $userId, Achievement $achievement, array $context): bool
     {
-        switch ($achievement->key) {
+        $achievementKey = $this->resolveAchievementKey($achievement);
+        if ($achievementKey === null) {
+            return false;
+        }
+
+        switch ($achievementKey) {
             // Идеальная дуэль (10/10)
             case 'perfect_duel':
                 return ($context['context'] ?? '') === 'duel_complete' 
@@ -231,6 +238,11 @@ class AchievementTrackerService
      */
     private function getStatKeyForAchievement(Achievement $achievement): ?string
     {
+        $achievementKey = $this->resolveAchievementKey($achievement);
+        if ($achievementKey === null) {
+            return null;
+        }
+
         // Мапинг достижений на ключи статистики
         $mapping = [
             'first_duel' => 'total_duels',
@@ -259,6 +271,19 @@ class AchievementTrackerService
             'lootbox_open_10' => 'lootbox_openings',
         ];
         
-        return $mapping[$achievement->key] ?? null;
+        return $mapping[$achievementKey] ?? null;
+    }
+
+    private function resolveAchievementKey(Achievement $achievement): ?string
+    {
+        if (is_string($achievement->key) && trim($achievement->key) !== '') {
+            return trim($achievement->key);
+        }
+
+        if (isset($achievement->code) && is_string($achievement->code) && trim($achievement->code) !== '') {
+            return trim($achievement->code);
+        }
+
+        return null;
     }
 }

@@ -8,6 +8,19 @@ use QuizBot\Domain\Model\UserProfile;
 
 class AchievementService
 {
+    private function resolveAchievementByIdentifier(string $identifier): ?Achievement
+    {
+        $trimmed = trim($identifier);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        return Achievement::query()
+            ->where('key', $trimmed)
+            ->orWhere('code', $trimmed)
+            ->first();
+    }
+
     /**
      * Получить все достижения
      */
@@ -53,7 +66,7 @@ class AchievementService
             return array_merge($achievement, [
                 'current_value' => $userAch ? $userAch->current_value : 0,
                 'is_completed' => $userAch ? $userAch->is_completed : false,
-                'completed_at' => $userAch ? $userAch->completed_at?->format('Y-m-d H:i:s') : null,
+                'completed_at' => ($userAch && $userAch->completed_at) ? $userAch->completed_at->format('Y-m-d H:i:s') : null,
                 'is_showcased' => $userAch ? $userAch->is_showcased : false,
                 'progress' => $userAch ? $userAch->progress : 0,
             ]);
@@ -83,7 +96,7 @@ class AchievementService
                 'icon' => $achievement->icon,
                 'rarity' => $achievement->rarity,
                 'category' => $achievement->category,
-                'completed_at' => $userAch->completed_at?->format('Y-m-d H:i:s'),
+                'completed_at' => $userAch->completed_at ? $userAch->completed_at->format('Y-m-d H:i:s') : null,
             ];
         })->toArray();
     }
@@ -116,7 +129,7 @@ class AchievementService
      */
     public function unlockAchievement(int $userId, string $achievementKey): ?array
     {
-        $achievement = Achievement::where('key', $achievementKey)->first();
+        $achievement = $this->resolveAchievementByIdentifier($achievementKey);
         if (!$achievement) {
             return null;
         }
@@ -171,7 +184,7 @@ class AchievementService
      */
     public function updateProgress(int $userId, string $achievementKey, int $newValue): ?array
     {
-        $achievement = Achievement::where('key', $achievementKey)->first();
+        $achievement = $this->resolveAchievementByIdentifier($achievementKey);
         if (!$achievement) {
             return null;
         }
@@ -237,4 +250,3 @@ class AchievementService
         ];
     }
 }
-

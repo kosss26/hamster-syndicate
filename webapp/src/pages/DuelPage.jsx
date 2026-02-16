@@ -14,6 +14,9 @@ const WS_STATUS = {
   DISABLED: 'disabled'
 }
 
+const FOUND_SCREEN_MIN_MS = 2000
+const ROUND_RESULT_MIN_MS = 3000
+
 // Состояния дуэли
 const STATES = {
   MENU: 'menu',
@@ -80,6 +83,14 @@ function DuelPage() {
   const loadDuelRef = useRef(null)
   const autoJoinAttemptedRef = useRef(false)
   const seenAchievementRewardsRef = useRef(new Set())
+  const foundScreenUntilRef = useRef(0)
+  const roundResultUntilRef = useRef(0)
+  const finishedRewardsShownRef = useRef(new Set())
+
+  const enterFoundState = useCallback(() => {
+    foundScreenUntilRef.current = Date.now() + FOUND_SCREEN_MIN_MS
+    setState(STATES.FOUND)
+  }, [])
 
   const dismissRewardNotification = useCallback((id) => {
     setRewardNotifications((prev) => prev.filter((item) => item.id !== id))
@@ -141,6 +152,20 @@ function DuelPage() {
       }, 4500)
     })
   }, [dismissRewardNotification])
+
+  const queueFinishedRewardsIfNeeded = useCallback((payload) => {
+    if (!payload) return
+
+    const duelId = payload.duel_id
+    const stableKey = duelId ? `duel_${duelId}` : `duel_fallback_${Date.now()}`
+    const achievementUnlocks = Array.isArray(payload.achievement_unlocks) ? payload.achievement_unlocks : []
+
+    if (achievementUnlocks.length === 0) return
+    if (finishedRewardsShownRef.current.has(stableKey)) return
+
+    finishedRewardsShownRef.current.add(stableKey)
+    queueRewardNotifications(payload)
+  }, [queueRewardNotifications])
 
   useEffect(() => {
     duelStateRef.current = state
@@ -207,6 +232,12 @@ function DuelPage() {
       }
     }, delayMs)
   }, [clearNextRoundTimers])
+
+  const enterRoundResultState = useCallback((duelId) => {
+    roundResultUntilRef.current = Date.now() + ROUND_RESULT_MIN_MS
+    setState(STATES.SHOWING_RESULT)
+    scheduleNextRoundLoad(duelId, ROUND_RESULT_MIN_MS)
+  }, [scheduleNextRoundLoad])
 
   const closeDuelSocket = useCallback((preventReconnect = true, resetAttempts = preventReconnect) => {
     if (wsReconnectRef.current) {
@@ -519,7 +550,6 @@ function DuelPage() {
     try {
       const response = await api.submitAnswer(duel.duel_id, round, null)
       if (response.success && response.data?.round_id) {
-        queueRewardNotifications(response.data)
         answeredRoundId.current = response.data.round_id
         
         // Если раунд уже закрыт (оппонент тоже ответил/таймаут)
@@ -534,14 +564,13 @@ function DuelPage() {
           if (response.data.correct_answer_id) {
             setCorrectAnswer(response.data.correct_answer_id)
           }
-          setState(STATES.SHOWING_RESULT)
-          scheduleNextRoundLoad(duel.duel_id)
+          enterRoundResultState(duel.duel_id)
         }
       }
     } catch (err) {
       console.error('Failed to submit timeout:', err)
     }
-  }, [duel, round, scheduleNextRoundLoad])
+  }, [duel, round, enterRoundResultState])
 
   useEffect(() => {
     if (timerRef.current) {
@@ -578,21 +607,18 @@ function DuelPage() {
   }, [state, question?.id, handleTimeoutSubmit])
 
   useEffect(() => {
-    if (!duel || state === STATES.FINISHED || state === STATES.SHOWING_RESULT) return
+    if (!duel || state === STATES.FINISHED) return
 
-    // При активном WS оставляем polling только как safety-net в критических состояниях.
-    if (wsConnected && state !== STATES.WAITING_OPPONENT_ANSWER && state !== STATES.WAITING_OPPONENT) {
-      return
-    }
-
-    const interval = (state === STATES.WAITING_OPPONENT_ANSWER || state === STATES.WAITING_OPPONENT) ? 1000 : 3000
+    const interval = (state === STATES.WAITING_OPPONENT_ANSWER || state === STATES.WAITING_OPPONENT)
+      ? 900
+      : 1500
 
     const checkInterval = setInterval(() => {
       checkDuelStatus(duel.duel_id)
     }, interval)
 
     return () => clearInterval(checkInterval)
-  }, [duel?.duel_id, state, wsConnected])
+  }, [duel?.duel_id, state])
 
 
   useEffect(() => {
@@ -656,7 +682,6 @@ function DuelPage() {
       
       if (response.success) {
         const data = response.data
-        queueRewardNotifications(data)
         const currentState = duelStateRef.current
         setRoundStatus(data.round_status || null)
         
@@ -674,7 +699,12 @@ function DuelPage() {
 
         if (derivedState === STATES.FINISHED) {
           clearNextRoundTimers()
+          queueFinishedRewardsIfNeeded(data)
           setState(STATES.FINISHED)
+        } else if (currentState === STATES.FOUND && Date.now() < foundScreenUntilRef.current) {
+          return
+        } else if (currentState === STATES.SHOWING_RESULT && Date.now() < roundResultUntilRef.current) {
+          return
         } else if (currentState === STATES.WAITING_OPPONENT && (data.opponent || data.status === 'in_progress')) {
           // Соперник найден! Показываем экран FOUND
           if (data.opponent) {
@@ -684,11 +714,11 @@ function DuelPage() {
               photo_url: data.opponent.photo_url
             })
           }
-          setState(STATES.FOUND)
+          enterFoundState()
           hapticFeedback('success')
           setTimeout(() => {
             loadDuel(duelId)
-          }, 3000)
+          }, FOUND_SCREEN_MIN_MS)
         } else if (currentState === STATES.WAITING_OPPONENT_ANSWER) {
           const currentRoundId = data.round_status?.round_id
           const lastClosedRound = data.last_closed_round
@@ -758,9 +788,8 @@ function DuelPage() {
               addRoundToHistory(lastClosedRound)
             }
             
-            setState(STATES.SHOWING_RESULT)
+            enterRoundResultState(duelId)
             hapticFeedback(opponentCorrect ? 'warning' : 'success')
-            scheduleNextRoundLoad(duelId)
           }
         } else if (derivedState !== currentState && derivedState !== STATES.FOUND) {
           setState(derivedState)
@@ -777,7 +806,6 @@ function DuelPage() {
       
       if (response.success) {
         const data = response.data
-        queueRewardNotifications(data)
         setDuel(data)
         setRoundStatus(data.round_status || null)
         setRound(data.current_round)
@@ -801,7 +829,12 @@ function DuelPage() {
 
         if (derivedState === STATES.FINISHED) {
           clearNextRoundTimers()
+          queueFinishedRewardsIfNeeded(data)
           setState(STATES.FINISHED)
+        } else if (duelStateRef.current === STATES.FOUND && Date.now() < foundScreenUntilRef.current) {
+          return
+        } else if (duelStateRef.current === STATES.SHOWING_RESULT && Date.now() < roundResultUntilRef.current) {
+          return
         } else if (data.question) {
           // Новый вопрос — сбрасываем состояние и запускаем таймер
           if (currentQuestionId.current !== data.question.id) {
@@ -851,6 +884,7 @@ function DuelPage() {
     setState(STATES.SEARCHING)
     setLoading(true)
     setError(null)
+    finishedRewardsShownRef.current = new Set()
     setHintUsed(false) // Сбрасываем при новой дуэли
     hapticFeedback('medium')
     
@@ -870,12 +904,12 @@ function DuelPage() {
               photo_url: data.opponent.photo_url
             })
           }
-          setState(STATES.FOUND)
+          enterFoundState()
           hapticFeedback('success')
           
           setTimeout(() => {
             loadDuel(data.duel_id)
-          }, 3000)
+          }, FOUND_SCREEN_MIN_MS)
         } else {
           setState(STATES.WAITING_OPPONENT)
         }
@@ -896,6 +930,7 @@ function DuelPage() {
   const inviteFriend = async () => {
     setLoading(true)
     setError(null)
+    finishedRewardsShownRef.current = new Set()
     setHintUsed(false)
     hapticFeedback('medium')
     
@@ -947,6 +982,7 @@ function DuelPage() {
 
     setLoading(true)
     setError(null)
+    finishedRewardsShownRef.current = new Set()
     hapticFeedback('medium')
     
     try {
@@ -964,12 +1000,12 @@ function DuelPage() {
            })
         }
         
-        setState(STATES.FOUND)
+        enterFoundState()
         hapticFeedback('success')
         
         setTimeout(() => {
           loadDuel(data.duel_id)
-        }, 2000)
+        }, FOUND_SCREEN_MIN_MS)
       } else {
         setError(response.error || 'Дуэль не найдена')
         hapticFeedback('error')
@@ -1016,7 +1052,6 @@ function DuelPage() {
       
       if (response.success) {
         const data = response.data
-        queueRewardNotifications(data)
         setLastResult(data)
         
         if (data.round_id) {
@@ -1045,8 +1080,7 @@ function DuelPage() {
             reason: data.opponent_reason ?? null
           })
         
-        setState(STATES.SHOWING_RESULT)
-        scheduleNextRoundLoad(duel.duel_id)
+        enterRoundResultState(duel.duel_id)
         } else {
           setOpponentAnswer({
             answered: false,
@@ -1061,6 +1095,8 @@ function DuelPage() {
       }
     } catch (err) {
       console.error('Failed to submit answer:', err)
+      setSelectedAnswer(null)
+      hasAnsweredRef.current = false
       setError(`Ошибка: ${err.message}`)
     }
   }
@@ -1490,6 +1526,20 @@ function DuelPage() {
                     </motion.div>
                 </AnimatePresence>
             </div>
+
+            <AnimatePresence>
+              {state === STATES.WAITING_OPPONENT_ANSWER && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  className="relative z-20 mx-auto mb-2 bg-black/70 backdrop-blur-md px-5 py-2 rounded-full border border-white/10 text-white/90 text-sm font-medium flex items-center gap-3"
+                >
+                  <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
+                  Ожидаем соперника...
+                </motion.div>
+              )}
+            </AnimatePresence>
             
             {/* Answers Grid */}
             <div className="p-4 relative z-10 pb-8">
@@ -1597,20 +1647,6 @@ function DuelPage() {
                 )}
             </AnimatePresence>
             
-            {/* Waiting Opponent Toast */}
-            <AnimatePresence>
-                {state === STATES.WAITING_OPPONENT_ANSWER && (
-                    <motion.div
-                       initial={{ y: 100 }}
-                       animate={{ y: 0 }}
-                       exit={{ y: 100 }}
-                       className="fixed bottom-8 left-1/2 -translate-x-1/2 z-30 bg-black/80 backdrop-blur-md px-6 py-3 rounded-full border border-white/10 text-white text-sm font-medium flex items-center gap-3"
-                    >
-                        <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
-                        Ожидаем соперника...
-                    </motion.div>
-                )}
-            </AnimatePresence>
         </div>
       )
   }
@@ -1644,6 +1680,7 @@ function DuelPage() {
       return (
          <div className="min-h-dvh bg-aurora relative overflow-hidden flex flex-col items-center justify-center p-6 text-center">
             <div className="noise-overlay" />
+            <RewardNotifications items={rewardNotifications} onDismiss={dismissRewardNotification} />
             
             {isWin && (
                 <>
@@ -1700,7 +1737,7 @@ function DuelPage() {
                                 : 'bg-white/5 border-white/10 text-white/40'
                         }`}
                       >
-                        {pill.state === 'win' ? 'W' : pill.state === 'lose' ? 'L' : pill.state === 'draw' ? 'D' : '·'}
+                        {pill.state === 'win' ? '✓' : pill.state === 'lose' ? '✕' : pill.state === 'draw' ? '•' : '·'}
                       </div>
                     ))}
                   </div>
