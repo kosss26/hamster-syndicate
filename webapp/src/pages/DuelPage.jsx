@@ -655,17 +655,40 @@ function DuelPage() {
     searchTimerRef.current = setInterval(() => {
       setSearchTimeLeft(prev => {
         if (prev <= 1) {
-          // Время вышло - отменяем дуэль
+          // Время вышло: сначала проверяем fallback на призрака.
           clearInterval(searchTimerRef.current)
           searchTimerRef.current = null
-          
-          if (duel) {
-            api.cancelDuel(duel.duel_id).catch(console.error)
+
+          const currentDuelId = duel?.duel_id
+          if (!currentDuelId) {
+            setError('Соперник не найден. Попробуйте ещё раз.')
+            setState(STATES.MENU)
+            hapticFeedback('error')
+            return 0
           }
-          
-          setError('Соперник не найден. Попробуйте ещё раз.')
-          setState(STATES.MENU)
-          hapticFeedback('error')
+
+          ;(async () => {
+            await checkDuelStatus(currentDuelId)
+
+            setTimeout(() => {
+              if (duelStateRef.current !== STATES.WAITING_OPPONENT) {
+                return
+              }
+              api.cancelDuel(currentDuelId).catch(console.error)
+              setError('Соперник не найден. Попробуйте ещё раз.')
+              setState(STATES.MENU)
+              hapticFeedback('error')
+            }, 1400)
+          })().catch(() => {
+            if (duelStateRef.current !== STATES.WAITING_OPPONENT) {
+              return
+            }
+            api.cancelDuel(currentDuelId).catch(console.error)
+            setError('Соперник не найден. Попробуйте ещё раз.')
+            setState(STATES.MENU)
+            hapticFeedback('error')
+          })
+
           return 0
         }
         return prev - 1
@@ -686,6 +709,7 @@ function DuelPage() {
       
       if (response.success) {
         const data = response.data
+        setDuel(prev => ({ ...(prev || {}), ...data }))
         const currentState = duelStateRef.current
         setRoundStatus(data.round_status || null)
         
@@ -1390,8 +1414,11 @@ function DuelPage() {
                                 <span>{opponent?.name?.[0] || '?'}</span>
                             )}
                         </div>
-                     </div>
+                    </div>
                     <p className="mt-4 font-bold text-xl text-white">{opponent?.name || 'Соперник'}</p>
+                    {duel?.is_ghost_match && (
+                      <p className="mt-1 text-[11px] uppercase tracking-wide text-cyan-200/90">Асинхронный призрак</p>
+                    )}
                     <div className="px-3 py-1 bg-white/10 rounded-full text-xs font-mono mt-2 text-white/60">
                         {opponent?.rating || '???'} MMR
                     </div>

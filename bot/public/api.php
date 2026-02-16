@@ -754,6 +754,20 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
     if (!$duel) {
         jsonError('Дуэль не найдена', 404);
     }
+
+    $duelSettings = is_array($duel->settings) ? $duel->settings : [];
+    $isMatchmakingOwner = $duel->status === 'waiting'
+        && $duel->opponent_user_id === null
+        && $duel->initiator_user_id === $user->getKey();
+
+    if ($isMatchmakingOwner && $duelService->isMatchmaking($duel) && $duelService->shouldUseGhostFallback($duel, 30)) {
+        $ghostDuel = $duelService->assignGhostOpponentForMatchmaking($duel, $user);
+        if ($ghostDuel) {
+            $duel = $ghostDuel;
+            $duelSettings = is_array($duel->settings) ? $duel->settings : [];
+            notifyDuelRealtime($duel->getKey());
+        }
+    }
     
     // Если дуэль matched но ещё не стартовала - стартуем
     if ($duel->status === 'matched' && $duel->started_at === null) {
@@ -765,11 +779,25 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
             jsonError($ticketCharge['error'] ?? 'Не удалось списать билет', 409);
         }
 
-        $duel = $duelService->startDuel($duel);
+        $roundConfigs = [];
+        $duelSettings = is_array($duel->settings) ? $duel->settings : [];
+        if (($duelSettings['ghost_mode'] ?? false) === true && is_array($duelSettings['ghost_round_configs'] ?? null)) {
+            $roundConfigs = $duelSettings['ghost_round_configs'];
+        }
+
+        $duel = $duelService->startDuel($duel, $roundConfigs);
+        if (($duelSettings['ghost_mode'] ?? false) === true) {
+            $updatedSettings = is_array($duel->settings) ? $duel->settings : [];
+            unset($updatedSettings['ghost_round_configs']);
+            $duel->settings = $updatedSettings;
+            $duel->save();
+        }
         notifyDuelRealtime($duel->getKey());
     }
 
     $duel->loadMissing('rounds.question.answers', 'rounds.question.category', 'initiator.profile', 'opponent.profile');
+    $duelSettings = is_array($duel->settings) ? $duel->settings : [];
+    $isGhostMatch = (($duelSettings['ghost_mode'] ?? false) === true) || (($duelSettings['match_type'] ?? '') === 'ghost');
 
     // Определяем роль текущего пользователя
     $isInitiator = $user && $duel->initiator_user_id === $user->getKey();
@@ -926,6 +954,8 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
         'duel_id' => $duel->getKey(),
         'status' => $duel->status,
         'code' => $duel->code,
+        'match_type' => $isGhostMatch ? 'ghost' : 'live',
+        'is_ghost_match' => $isGhostMatch,
         'rating_change' => $ratingChange,
         'current_round' => $completedRounds + 1,
         'total_rounds' => $duel->rounds_to_win * 2,
@@ -940,8 +970,11 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
         'opponent' => $duel->opponent ? [
             'id' => $duel->opponent->getKey(),
             'name' => $duel->opponent->first_name,
-            'rating' => $duel->opponent->profile ? $duel->opponent->profile->rating : 0,
+            'rating' => $isGhostMatch
+                ? (int) ($duelSettings['ghost_source_rating'] ?? ($duel->opponent->profile ? $duel->opponent->profile->rating : 0))
+                : ($duel->opponent->profile ? $duel->opponent->profile->rating : 0),
             'photo_url' => $duel->opponent->photo_url,
+            'is_ghost' => $isGhostMatch,
         ] : null,
         'question' => $question,
         'round_status' => $roundStatus,
