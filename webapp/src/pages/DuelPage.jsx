@@ -84,6 +84,7 @@ function DuelPage() {
   const nextRoundIntervalRef = useRef(null)
   const loadDuelRef = useRef(null)
   const autoJoinAttemptedRef = useRef(false)
+  const autoModeHandledRef = useRef(false)
   const seenAchievementRewardsRef = useRef(new Set())
   const foundScreenUntilRef = useRef(0)
   const roundResultUntilRef = useRef(0)
@@ -572,10 +573,28 @@ function DuelPage() {
   }, [state, loadIncomingRematch])
 
   useEffect(() => {
-    if (searchParams.get('mode') === 'random') {
+    if (autoModeHandledRef.current) return
+    if (state !== STATES.MENU) return
+
+    const mode = (searchParams.get('mode') || '').toLowerCase()
+    if (mode === 'random') {
+      autoModeHandledRef.current = true
       startSearch()
+      return
     }
-  }, [searchParams])
+    if (mode === 'invite' || mode === 'friend') {
+      autoModeHandledRef.current = true
+      inviteFriend()
+      return
+    }
+    if (mode === 'enter_code' || mode === 'join') {
+      autoModeHandledRef.current = true
+      const code = (searchParams.get('code') || '').replace(/\D+/g, '').slice(0, 5)
+      setInviteCode(code)
+      setState(STATES.ENTER_CODE)
+      return
+    }
+  }, [searchParams, state])
 
   useEffect(() => {
     if (autoJoinAttemptedRef.current) return

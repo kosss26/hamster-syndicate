@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useTelegram, hapticFeedback } from '../hooks/useTelegram'
@@ -20,6 +20,10 @@ function HomePage() {
   const [loading, setLoading] = useState(true)
   const [notifications, setNotifications] = useState([])
   const [ticketSecondsLeft, setTicketSecondsLeft] = useState(0)
+  const [showFriendModePicker, setShowFriendModePicker] = useState(false)
+  const [friendJoinCode, setFriendJoinCode] = useState('')
+  const [incomingRematch, setIncomingRematch] = useState(null)
+  const [rematchLoading, setRematchLoading] = useState(false)
 
   useEffect(() => {
     checkActiveDuel()
@@ -36,6 +40,25 @@ function HomePage() {
       unsubscribeNotifications()
     }
   }, [])
+
+  const loadIncomingRematch = useCallback(async () => {
+    try {
+      const response = await api.getIncomingRematch()
+      if (response.success) {
+        setIncomingRematch(response.data?.incoming || null)
+      }
+    } catch (_) {
+      // ignore
+    }
+  }, [])
+
+  useEffect(() => {
+    loadIncomingRematch()
+    const interval = setInterval(() => {
+      loadIncomingRematch()
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [loadIncomingRematch])
 
   const checkActiveDuel = async () => {
     try {
@@ -140,7 +163,7 @@ function HomePage() {
   const handlePlay = () => {
     if (!ensureTicketsForDuel()) return
     hapticFeedback('heavy')
-    navigate('/duel')
+    navigate('/duel?mode=random')
   }
 
   const handleQuickRandom = () => {
@@ -152,7 +175,54 @@ function HomePage() {
   const handleQuickFriend = () => {
     if (!ensureTicketsForDuel()) return
     hapticFeedback('medium')
-    navigate('/duel')
+    setFriendJoinCode('')
+    setShowFriendModePicker(true)
+  }
+
+  const handleCreateFriendRoom = () => {
+    if (!ensureTicketsForDuel()) return
+    setShowFriendModePicker(false)
+    navigate('/duel?mode=invite')
+  }
+
+  const handleJoinFriendByCode = () => {
+    const code = friendJoinCode.replace(/\D+/g, '').slice(0, 5)
+    if (!/^\d{5}$/.test(code)) return
+    if (!ensureTicketsForDuel()) return
+    setShowFriendModePicker(false)
+    navigate(`/duel?mode=enter_code&code=${code}`)
+  }
+
+  const handleAcceptRematch = async () => {
+    if (!incomingRematch?.duel_id) return
+    setRematchLoading(true)
+    try {
+      const response = await api.acceptRematch(incomingRematch.duel_id)
+      if (!response.success) {
+        throw new Error(response.error || 'Не удалось принять реванш')
+      }
+      setIncomingRematch(null)
+      navigate(`/duel/${incomingRematch.duel_id}`)
+      hapticFeedback('success')
+    } catch (err) {
+      hapticFeedback('error')
+    } finally {
+      setRematchLoading(false)
+    }
+  }
+
+  const handleDeclineRematch = async () => {
+    if (!incomingRematch?.duel_id) return
+    setRematchLoading(true)
+    try {
+      await api.declineRematch(incomingRematch.duel_id)
+      setIncomingRematch(null)
+      hapticFeedback('warning')
+    } catch (err) {
+      hapticFeedback('error')
+    } finally {
+      setRematchLoading(false)
+    }
   }
 
   return (
@@ -256,6 +326,41 @@ function HomePage() {
         </motion.div>
 
         <div className="grid grid-cols-2 gap-3">
+          {incomingRematch && (
+            <motion.div
+              whileTap={{ scale: 0.98 }}
+              className="col-span-2 rounded-2xl border border-cyan-300/30 bg-cyan-500/10 p-4"
+            >
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <div className="min-w-0">
+                  <div className="text-white font-semibold text-sm mb-1">Входящий реванш</div>
+                  <div className="text-white/70 text-xs truncate">
+                    {incomingRematch?.initiator?.name || 'Соперник'} зовёт сыграть ещё раз
+                  </div>
+                </div>
+                <div className="text-cyan-200 text-xs font-semibold whitespace-nowrap">
+                  {Number.isFinite(incomingRematch?.expires_in) ? `${Math.max(0, Number(incomingRematch.expires_in))}с` : ''}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 mt-3">
+                <button
+                  onClick={handleAcceptRematch}
+                  disabled={rematchLoading}
+                  className="py-2.5 rounded-xl bg-emerald-400 text-slate-900 font-bold disabled:opacity-60"
+                >
+                  Принять
+                </button>
+                <button
+                  onClick={handleDeclineRematch}
+                  disabled={rematchLoading}
+                  className="py-2.5 rounded-xl border border-white/20 text-white font-semibold disabled:opacity-60"
+                >
+                  Отказаться
+                </button>
+              </div>
+            </motion.div>
+          )}
+
           {notifications.length > 0 && (
             <motion.button
               whileTap={{ scale: 0.98 }}
@@ -326,6 +431,50 @@ function HomePage() {
           <div className="text-center text-white/40 text-xs mt-4">Обновляю данные...</div>
         )}
       </div>
+
+      {showFriendModePicker && (
+        <div className="fixed inset-0 z-50 bg-black/65 backdrop-blur-sm flex items-center justify-center p-5">
+          <div className="w-full max-w-sm rounded-3xl border border-white/15 bg-slate-950/95 p-5">
+            <h3 className="text-white font-bold text-lg mb-1">С другом</h3>
+            <p className="text-white/60 text-sm mb-4">Выбери, как начать приватную дуэль</p>
+
+            <div className="space-y-2">
+              <button
+                onClick={handleCreateFriendRoom}
+                className="w-full py-3 rounded-xl bg-white text-slate-900 font-bold"
+              >
+                Создать комнату
+              </button>
+
+              <div className="rounded-xl border border-white/15 p-3">
+                <p className="text-white/60 text-xs mb-2">Ввести код (5 цифр)</p>
+                <input
+                  value={friendJoinCode}
+                  onChange={(e) => setFriendJoinCode(e.target.value.replace(/\D+/g, '').slice(0, 5))}
+                  placeholder="12345"
+                  inputMode="numeric"
+                  maxLength={5}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg py-2.5 text-center tracking-[0.25em] text-white font-mono font-bold outline-none"
+                />
+                <button
+                  onClick={handleJoinFriendByCode}
+                  disabled={!/^\d{5}$/.test(friendJoinCode)}
+                  className="w-full mt-2 py-2.5 rounded-lg border border-cyan-300/35 bg-cyan-500/15 text-white font-semibold disabled:opacity-50"
+                >
+                  Войти по коду
+                </button>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowFriendModePicker(false)}
+              className="w-full mt-3 py-2.5 rounded-xl text-white/70 border border-white/10"
+            >
+              Закрыть
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
