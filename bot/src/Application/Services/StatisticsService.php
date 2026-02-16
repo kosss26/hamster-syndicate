@@ -79,6 +79,9 @@ class StatisticsService
                     $this->achievementTracker->incrementStat($user->getKey(), 'speed_answers_under_3s');
                 }
             }
+            if ($categoryId !== null) {
+                $this->achievementTracker->incrementStat($user->getKey(), "category_{$categoryId}");
+            }
             
             $this->achievementTracker->checkAndUnlock($user->getKey(), [
                 'context' => 'quiz_answer',
@@ -376,4 +379,3 @@ class StatisticsService
         }
     }
 }
-

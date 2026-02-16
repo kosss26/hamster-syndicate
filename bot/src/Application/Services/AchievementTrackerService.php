@@ -4,6 +4,7 @@ namespace QuizBot\Application\Services;
 
 use QuizBot\Domain\Model\Achievement;
 use QuizBot\Domain\Model\AchievementStat;
+use QuizBot\Domain\Model\Category;
 use QuizBot\Domain\Model\UserProfile;
 
 class AchievementTrackerService
@@ -62,33 +63,45 @@ class AchievementTrackerService
     {
         $unlockedAchievements = [];
         
-        // Получаем все достижения
-        $achievements = Achievement::all();
+        // Получаем все достижения в стабильном порядке.
+        $achievements = Achievement::query()
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
         
         foreach ($achievements as $achievement) {
-            // Пропускаем уже разблокированные
-            $userAch = \QuizBot\Domain\Model\UserAchievement::where('user_id', $userId)
-                ->where('achievement_id', $achievement->id)
-                ->first();
-            
-            if ($userAch && $userAch->is_completed) {
+            try {
+                if (!is_string($achievement->key) || trim($achievement->key) === '') {
+                    continue;
+                }
+
+                // Пропускаем уже разблокированные
+                $userAch = \QuizBot\Domain\Model\UserAchievement::where('user_id', $userId)
+                    ->where('achievement_id', $achievement->id)
+                    ->first();
+                
+                if ($userAch && $userAch->is_completed) {
+                    continue;
+                }
+                
+                // Проверяем условие
+                $shouldUnlock = $this->checkCondition($userId, $achievement, $context);
+                
+                if ($shouldUnlock) {
+                    $result = $this->achievementService->unlockAchievement($userId, $achievement->key);
+                    if ($result) {
+                        $unlockedAchievements[] = $result;
+                    }
+                } else {
+                    // Обновляем прогресс, если есть
+                    $currentValue = $this->getCurrentValue($userId, $achievement, $context);
+                    if ($currentValue !== null) {
+                        $this->achievementService->updateProgress($userId, $achievement->key, $currentValue);
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Одна проблемная ачивка не должна ломать трекинг остальных.
                 continue;
-            }
-            
-            // Проверяем условие
-            $shouldUnlock = $this->checkCondition($userId, $achievement, $context);
-            
-            if ($shouldUnlock) {
-                $result = $this->achievementService->unlockAchievement($userId, $achievement->key);
-                if ($result) {
-                    $unlockedAchievements[] = $result;
-                }
-            } else {
-                // Обновляем прогресс, если есть
-                $currentValue = $this->getCurrentValue($userId, $achievement, $context);
-                if ($currentValue !== null) {
-                    $this->achievementService->updateProgress($userId, $achievement->key, $currentValue);
-                }
             }
         }
         
@@ -177,7 +190,7 @@ class AchievementTrackerService
             
             // Все категории
             case 'all_categories':
-                $categories = \QuizBot\Domain\Model\QuizCategory::pluck('id')->toArray();
+                $categories = Category::query()->pluck('id')->toArray();
                 foreach ($categories as $categoryId) {
                     if ($this->getStat($userId, "category_{$categoryId}") === 0) {
                         return false;
@@ -249,4 +262,3 @@ class AchievementTrackerService
         return $mapping[$achievement->key] ?? null;
     }
 }
-
