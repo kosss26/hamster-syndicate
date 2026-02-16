@@ -460,9 +460,8 @@ final class MessageHandler
     private function sendWelcome($chatId): void
     {
         $text = implode("\n", [
-            '👋 Привет! Это викторина «Битва знаний».',
-            'Доступны дуэли, мини-игры и подробный профиль.',
-            'Команды: /duel, /profile, /truth, /help.',
+            'Я обрабатываю только команды из /help.',
+            'Нажмите кнопку 🎮 Играть, чтобы открыть приложение.',
         ]);
 
         $this->telegramClient->request('POST', 'sendMessage', [
@@ -480,24 +479,17 @@ final class MessageHandler
      */
     private function getMainKeyboard(): array
     {
+        $webappUrl = getenv('WEBAPP_URL');
+        if (empty($webappUrl)) {
+            return ['remove_keyboard' => true];
+        }
+
         return [
-            'keyboard' => [
+            'inline_keyboard' => [
                 [
-                    ['text' => '⚔️ Дуэль'],
-                ],
-                [
-                    ['text' => '📊 Профиль'],
-                    ['text' => '🏆 Рейтинг'],
-                ],
-                [
-                    ['text' => '🆘 Тех.поддержка'],
-                ],
-                [
-                    ['text' => '🧠 Правда или ложь'],
+                    ['text' => '🎮 Играть', 'web_app' => ['url' => $webappUrl]],
                 ],
             ],
-            'resize_keyboard' => true,
-            'one_time_keyboard' => false,
         ];
     }
 

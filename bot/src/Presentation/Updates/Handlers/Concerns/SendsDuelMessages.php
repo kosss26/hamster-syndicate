@@ -27,35 +27,16 @@ trait SendsDuelMessages
      */
     protected function getMainKeyboard(): array
     {
-        $keyboard = [
-            [
-                ['text' => '⚔️ Дуэль'],
-            ],
-            [
-                ['text' => '📊 Профиль'],
-                ['text' => '🏆 Рейтинг'],
-            ],
-            [
-                ['text' => '🆘 Тех.поддержка'],
-            ],
-            [
-                ['text' => '🧠 Правда или ложь'],
-            ],
-        ];
-
-        // Добавляем кнопку WebApp, если настроен URL
         $webappUrl = getenv('WEBAPP_URL');
-        if (!empty($webappUrl)) {
-            array_unshift($keyboard, [
-                ['text' => '🎮 Играть', 'web_app' => ['url' => $webappUrl]],
-            ]);
+        if (empty($webappUrl)) {
+            return ['remove_keyboard' => true];
         }
 
-        return [
-            'keyboard' => $keyboard,
-            'resize_keyboard' => true,
-            'one_time_keyboard' => false,
+        $inlineKeyboard = [];
+        $inlineKeyboard[] = [
+            ['text' => '🎮 Играть', 'web_app' => ['url' => $webappUrl]],
         ];
+        return ['inline_keyboard' => $inlineKeyboard];
     }
     
     /**

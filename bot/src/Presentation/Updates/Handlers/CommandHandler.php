@@ -208,34 +208,17 @@ final class CommandHandler
      */
     private function getMainKeyboard(): array
     {
-        $keyboard = [
-                [
-                    ['text' => '⚔️ Дуэль'],
-                ],
-                [
-                    ['text' => '📊 Профиль'],
-                    ['text' => '🏆 Рейтинг'],
-                ],
-                [
-                    ['text' => '🆘 Тех.поддержка'],
-                ],
-                [
-                    ['text' => '🧠 Правда или ложь'],
-                ],
-        ];
-
-        // Добавляем кнопку WebApp, если настроен URL
         $webappUrl = getenv('WEBAPP_URL');
-        if (!empty($webappUrl)) {
-            array_unshift($keyboard, [
-                ['text' => '🎮 Играть', 'web_app' => ['url' => $webappUrl]],
-            ]);
+        if (empty($webappUrl)) {
+            return ['remove_keyboard' => true];
         }
 
         return [
-            'keyboard' => $keyboard,
-            'resize_keyboard' => true,
-            'one_time_keyboard' => false,
+            'inline_keyboard' => [
+                [
+                    ['text' => '🎮 Играть', 'web_app' => ['url' => $webappUrl]],
+                ],
+            ],
         ];
     }
 
@@ -582,13 +565,19 @@ final class CommandHandler
     private function sendHelp($chatId): void
     {
         $text = implode("\n", [
-            'ℹ️ <b>Подсказки</b>',
-            '/story — сюжетные приключения по главам.',
-            '/play — быстрые раунды по категориям.',
-            '/duel — дуэль с друзьями (по нику @username или случайным соперником).',
-            '/profile — твоя статистика.',
-            '/leaderboard — глобальный рейтинг игроков.',
-            '/truth — режим «Правда или ложь» с короткими фактами.',
+            '📋 <b>Список доступных команд</b>',
+            '/start — старт и приветствие',
+            '/help — список команд',
+            '/play — быстрые раунды',
+            '/duel — дуэли',
+            '/profile — профиль',
+            '/stats — статистика',
+            '/leaderboard — рейтинг',
+            '/truth — режим «Правда или ложь»',
+            '/story — сюжет',
+            '/referral — реферальная программа',
+            '',
+            'Если удобнее, просто нажми кнопку <b>🎮 Играть</b> ниже.',
         ]);
 
         $this->telegramClient->request('POST', 'sendMessage', [
@@ -872,10 +861,11 @@ final class CommandHandler
 
     private function sendUnknown($chatId): void
     {
+        $text = 'Я обрабатываю только команды из /help. Нажми 🎮 Играть, чтобы открыть приложение.';
         $this->telegramClient->request('POST', 'sendMessage', [
             'json' => [
                 'chat_id' => $chatId,
-                'text' => '🤔 Не понимаю эту команду. Попробуйте /help.',
+                'text' => $text,
                 'reply_markup' => $this->getMainKeyboard(),
             ],
         ]);
