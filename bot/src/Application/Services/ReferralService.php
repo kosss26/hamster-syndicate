@@ -9,6 +9,7 @@ use QuizBot\Domain\Model\Referral;
 use QuizBot\Domain\Model\ReferralMilestone;
 use QuizBot\Domain\Model\User;
 use QuizBot\Domain\Model\UserProfile;
+use Illuminate\Database\Capsule\Manager as Capsule;
 use Illuminate\Support\Str;
 use Illuminate\Support\Carbon;
 
@@ -26,6 +27,8 @@ class ReferralService
     private Logger $logger;
     private UserService $userService;
     private ?AchievementTrackerService $achievementTracker;
+    /** @var array<string, bool> */
+    private array $schemaFlags = [];
 
     public function __construct(Logger $logger, UserService $userService, ?AchievementTrackerService $achievementTracker = null)
     {
@@ -203,7 +206,9 @@ class ReferralService
         $referral->rewarded_at = Carbon::now();
         $referral->referrer_coins_earned = $coinsReward;
         $referral->referrer_experience_earned = $expReward;
-        $referral->referrer_tickets_earned = $ticketReward;
+        if ($this->hasColumn('referrals', 'referrer_tickets_earned')) {
+            $referral->referrer_tickets_earned = $ticketReward;
+        }
         $referral->save();
 
         // Проверяем milestone награды
@@ -246,7 +251,9 @@ class ReferralService
 
         $referral->referred_coins_earned = self::BASE_REFERRED_REWARD_COINS;
         $referral->referred_experience_earned = self::BASE_REFERRED_REWARD_EXP;
-        $referral->referred_tickets_earned = self::BASE_REFERRED_REWARD_TICKETS;
+        if ($this->hasColumn('referrals', 'referred_tickets_earned')) {
+            $referral->referred_tickets_earned = self::BASE_REFERRED_REWARD_TICKETS;
+        }
         $referral->save();
     }
 
@@ -307,8 +314,16 @@ class ReferralService
         $active = $referrals->where('status', 'active')->count();
         $totalCoins = $referrals->sum('referrer_coins_earned');
         $totalExp = $referrals->sum('referrer_experience_earned');
-        $totalTickets = $referrals->sum('referrer_tickets_earned');
-        $milestoneTickets = $user->referralMilestones()->sum('referral_milestones.reward_tickets');
+        $totalTickets = $this->hasColumn('referrals', 'referrer_tickets_earned')
+            ? $referrals->sum('referrer_tickets_earned')
+            : 0;
+        $milestoneTickets = 0;
+        if ($this->hasTable('referral_milestones')
+            && $this->hasTable('user_referral_milestones')
+            && $this->hasColumn('referral_milestones', 'reward_tickets')
+        ) {
+            $milestoneTickets = $user->referralMilestones()->sum('referral_milestones.reward_tickets');
+        }
 
         // Следующий milestone
         $currentCount = $user->profile->total_referrals ?? 0;
@@ -345,9 +360,47 @@ class ReferralService
                 'progress' => $currentCount,
                 'reward_coins' => $nextMilestone->reward_coins,
                 'reward_experience' => $nextMilestone->reward_experience,
-                'reward_tickets' => (int) ($nextMilestone->reward_tickets ?? 0),
+                'reward_tickets' => $this->hasColumn('referral_milestones', 'reward_tickets')
+                    ? (int) ($nextMilestone->reward_tickets ?? 0)
+                    : 0,
             ] : null,
         ];
+    }
+
+    private function hasTable(string $table): bool
+    {
+        $key = 'table:' . $table;
+        if (array_key_exists($key, $this->schemaFlags)) {
+            return $this->schemaFlags[$key];
+        }
+
+        try {
+            $exists = Capsule::schema()->hasTable($table);
+        } catch (\Throwable $e) {
+            $exists = false;
+        }
+
+        $this->schemaFlags[$key] = $exists;
+
+        return $exists;
+    }
+
+    private function hasColumn(string $table, string $column): bool
+    {
+        $key = 'column:' . $table . ':' . $column;
+        if (array_key_exists($key, $this->schemaFlags)) {
+            return $this->schemaFlags[$key];
+        }
+
+        try {
+            $exists = Capsule::schema()->hasTable($table) && Capsule::schema()->hasColumn($table, $column);
+        } catch (\Throwable $e) {
+            $exists = false;
+        }
+
+        $this->schemaFlags[$key] = $exists;
+
+        return $exists;
     }
 
     /**
