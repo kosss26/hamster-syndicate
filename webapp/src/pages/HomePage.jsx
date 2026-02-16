@@ -5,6 +5,7 @@ import { useTelegram, hapticFeedback } from '../hooks/useTelegram'
 import api from '../api/client'
 import AvatarWithFrame from '../components/AvatarWithFrame'
 import CoinIcon from '../components/CoinIcon'
+import TicketIcon from '../components/TicketIcon'
 import { getNotificationItems, subscribeNotifications } from '../utils/notificationInbox'
 
 function HomePage() {
@@ -208,7 +209,7 @@ function HomePage() {
                 <span className="text-white/60 text-xs">в сети</span>
               </div>
               <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/30 bg-amber-500/10 px-3 py-1.5">
-                <span className="text-sm">🎫</span>
+                <TicketIcon className="w-4 h-4" />
                 <span className="text-white font-semibold text-sm">{profile?.tickets ?? '...'}</span>
                 <span className="text-white/60 text-xs">билеты</span>
               </div>

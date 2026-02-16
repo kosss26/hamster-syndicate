@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { api } from '../api/client'
 import { useTelegram } from '../hooks/useTelegram'
 import CoinIcon from '../components/CoinIcon'
+import TicketIcon from '../components/TicketIcon'
 import AvatarWithFrame from '../components/AvatarWithFrame'
 
 const InventoryPage = () => {
@@ -137,7 +138,9 @@ const InventoryPage = () => {
               <div className="text-white font-bold">{inventory.resources.hints}</div>
             </div>
             <div className="bg-red-500/20 rounded-xl p-3 text-center border border-red-500/30">
-              <div className="text-2xl mb-1">🎫</div>
+              <div className="flex justify-center mb-1">
+                <TicketIcon size={32} />
+              </div>
               <div className="text-white font-bold">{inventory.resources.tickets ?? inventory.resources.lives}</div>
             </div>
           </div>

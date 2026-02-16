@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { useTelegram, hapticFeedback } from '../hooks/useTelegram'
 import api from '../api/client'
 import CoinIcon from '../components/CoinIcon'
+import TicketIcon from '../components/TicketIcon'
 
 const SHOP_SECTIONS = [
   { key: 'hint', title: 'Подсказки', icon: '💡', description: 'Поддержка в сложных вопросах' },
@@ -204,7 +205,10 @@ const ShopPage = () => {
             </div>
             <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
               <p className="text-[10px] text-white/45 uppercase">Билеты</p>
-              <p className="text-white font-semibold text-sm mt-1">🎫 {balance.tickets}</p>
+              <p className="text-white font-semibold text-sm mt-1 flex items-center gap-1.5">
+                <TicketIcon className="w-4 h-4" />
+                {balance.tickets}
+              </p>
             </div>
           </div>
         </section>

@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { api } from '../api/client'
 import { useTelegram } from '../hooks/useTelegram'
 import CoinIcon from '../components/CoinIcon'
+import TicketIcon from '../components/TicketIcon'
 import RewardNotifications from '../components/RewardNotifications'
 import { addNotificationItems } from '../utils/notificationInbox'
 
@@ -88,11 +89,11 @@ function rewardPoolLabel(reward) {
 
 function rewardIcon(type) {
   if (type === 'coins') return <CoinIcon size={28} />
+  if (type === 'life') return <TicketIcon size={28} />
   const map = {
     exp: '⭐',
     gems: '💎',
     hint: '💡',
-    life: '🎫',
     boost_12h: '⚡',
     boost_24h: '⚡',
     boost_7d: '💫',
