@@ -198,6 +198,26 @@ try {
             handleCancelDuel($container, $telegramUser, (int) $matches[1]);
             break;
 
+        // GET /duel/rematch/incoming - входящее приглашение на реванш
+        case $path === '/duel/rematch/incoming' && $requestMethod === 'GET':
+            handleGetIncomingRematch($container, $telegramUser);
+            break;
+
+        // POST /duel/rematch/accept - принять реванш
+        case $path === '/duel/rematch/accept' && $requestMethod === 'POST':
+            handleAcceptRematch($container, $telegramUser, $body);
+            break;
+
+        // POST /duel/rematch/decline - отклонить реванш
+        case $path === '/duel/rematch/decline' && $requestMethod === 'POST':
+            handleDeclineRematch($container, $telegramUser, $body);
+            break;
+
+        // POST /duel/rematch/cancel - отменить отправленный реванш
+        case $path === '/duel/rematch/cancel' && $requestMethod === 'POST':
+            handleCancelRematch($container, $telegramUser, $body);
+            break;
+
         // GET /truefalse/question - получить вопрос "Правда или ложь"
         case $path === '/truefalse/question' && $requestMethod === 'GET':
             handleGetTrueFalseQuestion($container, $telegramUser);
@@ -634,6 +654,8 @@ function handleCreateDuel($container, ?array $telegramUser, array $body): void
     $duelService = $container->get(DuelService::class);
     
     $mode = strtolower((string) ($body['mode'] ?? 'random'));
+    $targetUserId = isset($body['target_user_id']) ? (int) $body['target_user_id'] : 0;
+    $sourceDuelId = isset($body['source_duel_id']) ? (int) $body['source_duel_id'] : 0;
     
     // Очищаем зависшие matchmaking-дуэли (старше 60 секунд)
     $duelService->cleanupStaleMatchmakingDuels(60);
@@ -658,6 +680,50 @@ function handleCreateDuel($container, ?array $telegramUser, array $body): void
     $ticketState = $ticketService->sync($user);
     if ((int) $ticketState['tickets'] < 1) {
         jsonError('Недостаточно билетов для дуэли', 409);
+    }
+
+    if ($mode === 'rematch') {
+        if ($targetUserId <= 0) {
+            jsonError('Не указан соперник для реванша', 400);
+        }
+
+        $target = \QuizBot\Domain\Model\User::query()->find($targetUserId);
+        if (!$target) {
+            jsonError('Соперник для реванша не найден', 404);
+        }
+
+        if ((int) $target->getKey() === (int) $user->getKey()) {
+            jsonError('Нельзя отправить реванш самому себе', 400);
+        }
+
+        $targetActive = $duelService->findActiveDuelForUser($target, true);
+        if ($targetActive) {
+            jsonError('Соперник сейчас занят в другой дуэли', 409);
+        }
+
+        $sourceDuel = null;
+        if ($sourceDuelId > 0) {
+            $sourceDuel = $duelService->findById($sourceDuelId);
+        }
+
+        $duel = $duelService->createRematchInvite($user, $target, $sourceDuel);
+
+        notifyDuelRealtime($duel->getKey());
+        jsonResponse([
+            'duel_id' => $duel->getKey(),
+            'status' => $duel->status,
+            'code' => $duel->code,
+            'initiator_id' => $duel->initiator_user_id,
+            'opponent_id' => $duel->opponent_user_id,
+            'mode' => 'rematch',
+            'waiting' => true,
+            'target_user' => [
+                'id' => (int) $target->getKey(),
+                'name' => (string) ($target->first_name ?: 'Соперник'),
+            ],
+            'expires_in' => 30,
+        ]);
+        return;
     }
 
     // Режим дуэли с другом (приватная дуэль по коду)
@@ -935,6 +1001,8 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
     $initiatorScore = $duel->rounds->sum('initiator_score');
     $opponentScore = $duel->rounds->sum('opponent_score');
     $completedRounds = $duel->rounds->whereNotNull('closed_at')->count();
+    $cancelReason = isset($duelSettings['cancel_reason']) ? (string) $duelSettings['cancel_reason'] : null;
+    $isCancelledWithoutMatch = $duel->status === 'cancelled' && $completedRounds === 0;
 
     // Получаем изменение рейтинга, если дуэль завершена
     $ratingChange = 0;
@@ -959,8 +1027,11 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
     jsonResponse([
         'duel_id' => $duel->getKey(),
         'status' => $duel->status,
+        'cancel_reason' => $cancelReason,
+        'cancelled_without_match' => $isCancelledWithoutMatch,
         'code' => $duel->code,
         'match_type' => $isGhostMatch ? 'ghost' : 'live',
+        'is_rematch' => (($duelSettings['rematch_invite'] ?? false) === true),
         'is_ghost_match' => $isGhostMatch,
         'ghost_fallback_attempted' => $ghostFallbackAttempted,
         'ghost_fallback_assigned' => $ghostFallbackAssigned,
@@ -1089,6 +1160,11 @@ function handleDuelAnswer($container, ?array $telegramUser, array $body): void
     if ($speedDeltaSeconds !== null && $speedDeltaSeconds > 0) {
         $xpGain += 2;
     }
+    $duelSettings = is_array($duel->settings) ? $duel->settings : [];
+    $rewardFactor = (float) ($duelSettings['reward_factor'] ?? 1.0);
+    if ($rewardFactor > 0 && $rewardFactor < 1) {
+        $xpGain = max(1, (int) round($xpGain * $rewardFactor));
+    }
     $xpResult = $userService->grantExperience($user, $xpGain);
 
     notifyDuelRealtime($duel->getKey());
@@ -1148,12 +1224,208 @@ function handleCancelDuel($container, ?array $telegramUser, int $duelId): void
         jsonError('Дуэль уже началась или завершена', 400);
     }
 
+    $settings = is_array($duel->settings) ? $duel->settings : [];
+    if (($settings['rematch_invite'] ?? false) === true) {
+        $settings['cancel_reason'] = 'rematch_cancelled_by_initiator';
+        $settings['cancelled_by_user_id'] = (int) $user->getKey();
+        $duel->settings = $settings;
+    } elseif (($settings['matchmaking'] ?? false) === true) {
+        $settings['cancel_reason'] = 'search_cancelled';
+        $settings['cancelled_by_user_id'] = (int) $user->getKey();
+        $duel->settings = $settings;
+    }
+
     $duel->status = 'cancelled';
     $duel->finished_at = \Illuminate\Support\Carbon::now();
     $duel->save();
 
     notifyDuelRealtime($duel->getKey());
     jsonResponse(['cancelled' => true, 'duel_id' => $duelId]);
+}
+
+/**
+ * Получить входящее приглашение на реванш
+ */
+function handleGetIncomingRematch($container, ?array $telegramUser): void
+{
+    if (!$telegramUser) {
+        jsonError('Не авторизован', 401);
+    }
+
+    /** @var UserService $userService */
+    $userService = $container->get(UserService::class);
+    $user = $userService->findByTelegramId((int) $telegramUser['id']);
+    if (!$user) {
+        jsonError('Пользователь не найден', 404);
+    }
+
+    /** @var DuelService $duelService */
+    $duelService = $container->get(DuelService::class);
+    $invite = $duelService->getIncomingRematchInvite($user);
+
+    if (!$invite) {
+        jsonResponse(['incoming' => null]);
+    }
+
+    $invite->loadMissing('initiator.profile');
+    $settings = is_array($invite->settings) ? $invite->settings : [];
+    $expiresAtRaw = (string) ($settings['rematch_expires_at'] ?? '');
+    $secondsLeft = 0;
+    if ($expiresAtRaw !== '') {
+        try {
+            $secondsLeft = max(0, \Illuminate\Support\Carbon::now()->diffInSeconds(\Illuminate\Support\Carbon::parse($expiresAtRaw), false));
+        } catch (\Throwable $e) {
+            $secondsLeft = 0;
+        }
+    }
+
+    jsonResponse([
+        'incoming' => [
+            'duel_id' => (int) $invite->getKey(),
+            'code' => (string) $invite->code,
+            'created_at' => $invite->created_at ? $invite->created_at->toIso8601String() : null,
+            'expires_in' => $secondsLeft,
+            'initiator' => $invite->initiator ? [
+                'id' => (int) $invite->initiator->getKey(),
+                'name' => (string) ($invite->initiator->first_name ?: 'Соперник'),
+                'rating' => (int) ($invite->initiator->profile ? $invite->initiator->profile->rating : 0),
+                'photo_url' => $invite->initiator->photo_url,
+            ] : null,
+            'reward_factor' => (float) ($settings['reward_factor'] ?? \QuizBot\Application\Services\DuelService::REMATCH_REWARD_COEFFICIENT),
+        ],
+    ]);
+}
+
+/**
+ * Принять приглашение на реванш
+ */
+function handleAcceptRematch($container, ?array $telegramUser, array $body): void
+{
+    if (!$telegramUser) {
+        jsonError('Не авторизован', 401);
+    }
+
+    $duelId = (int) ($body['duel_id'] ?? 0);
+    if ($duelId <= 0) {
+        jsonError('Не указан duel_id', 400);
+    }
+
+    /** @var UserService $userService */
+    $userService = $container->get(UserService::class);
+    /** @var DuelService $duelService */
+    $duelService = $container->get(DuelService::class);
+
+    $user = $userService->findByTelegramId((int) $telegramUser['id']);
+    if (!$user) {
+        jsonError('Пользователь не найден', 404);
+    }
+
+    /** @var TicketService $ticketService */
+    $ticketService = $container->get(TicketService::class);
+    $ticketState = $ticketService->sync($user);
+    if ((int) $ticketState['tickets'] < 1) {
+        jsonError('Недостаточно билетов для реванша', 409);
+    }
+
+    $duel = $duelService->findById($duelId);
+    if (!$duel) {
+        jsonError('Приглашение не найдено', 404);
+    }
+
+    try {
+        $duel = $duelService->acceptRematchInvite($duel, $user);
+    } catch (\Throwable $e) {
+        jsonError($e->getMessage(), 409);
+    }
+
+    notifyDuelRealtime($duel->getKey());
+    jsonResponse([
+        'duel_id' => (int) $duel->getKey(),
+        'status' => (string) $duel->status,
+        'accepted' => true,
+    ]);
+}
+
+/**
+ * Отклонить приглашение на реванш
+ */
+function handleDeclineRematch($container, ?array $telegramUser, array $body): void
+{
+    if (!$telegramUser) {
+        jsonError('Не авторизован', 401);
+    }
+
+    $duelId = (int) ($body['duel_id'] ?? 0);
+    if ($duelId <= 0) {
+        jsonError('Не указан duel_id', 400);
+    }
+
+    /** @var UserService $userService */
+    $userService = $container->get(UserService::class);
+    /** @var DuelService $duelService */
+    $duelService = $container->get(DuelService::class);
+    $user = $userService->findByTelegramId((int) $telegramUser['id']);
+    if (!$user) {
+        jsonError('Пользователь не найден', 404);
+    }
+
+    $duel = $duelService->findById($duelId);
+    if (!$duel) {
+        jsonError('Приглашение не найдено', 404);
+    }
+
+    try {
+        $duel = $duelService->declineRematchInvite($duel, $user);
+    } catch (\Throwable $e) {
+        jsonError($e->getMessage(), 409);
+    }
+
+    notifyDuelRealtime($duel->getKey());
+    jsonResponse([
+        'duel_id' => (int) $duel->getKey(),
+        'declined' => true,
+    ]);
+}
+
+/**
+ * Отменить отправленное приглашение на реванш
+ */
+function handleCancelRematch($container, ?array $telegramUser, array $body): void
+{
+    if (!$telegramUser) {
+        jsonError('Не авторизован', 401);
+    }
+
+    $duelId = (int) ($body['duel_id'] ?? 0);
+    if ($duelId <= 0) {
+        jsonError('Не указан duel_id', 400);
+    }
+
+    /** @var UserService $userService */
+    $userService = $container->get(UserService::class);
+    /** @var DuelService $duelService */
+    $duelService = $container->get(DuelService::class);
+    $user = $userService->findByTelegramId((int) $telegramUser['id']);
+    if (!$user) {
+        jsonError('Пользователь не найден', 404);
+    }
+
+    $duel = $duelService->findById($duelId);
+    if (!$duel) {
+        jsonError('Приглашение не найдено', 404);
+    }
+
+    try {
+        $duel = $duelService->cancelRematchInvite($duel, $user);
+    } catch (\Throwable $e) {
+        jsonError($e->getMessage(), 409);
+    }
+
+    notifyDuelRealtime($duel->getKey());
+    jsonResponse([
+        'duel_id' => (int) $duel->getKey(),
+        'cancelled' => true,
+    ]);
 }
 
 /**

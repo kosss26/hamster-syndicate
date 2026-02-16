@@ -63,6 +63,7 @@ function DuelPage() {
   const [ghostFallbackPending, setGhostFallbackPending] = useState(false)
   const [inviteCode, setInviteCode] = useState('') // Код для присоединения к дуэли
   const [opponent, setOpponent] = useState(null) // Данные оппонента {name, rating}
+  const [incomingRematch, setIncomingRematch] = useState(null)
   const [myRating, setMyRating] = useState(0) // Мой рейтинг
   const [wsConnected, setWsConnected] = useState(false)
   const [wsConnectionState, setWsConnectionState] = useState(WS_STATUS.OFFLINE)
@@ -173,6 +174,15 @@ function DuelPage() {
     }
     hapticFeedback('error')
   }, [webApp])
+
+  const mapCancelReason = useCallback((reason) => {
+    const code = String(reason || '')
+    if (code === 'search_cancelled') return 'Поиск отменён.'
+    if (code === 'rematch_expired') return 'Соперник не принял реванш за 30 секунд.'
+    if (code === 'rematch_declined') return 'Соперник отклонил реванш.'
+    if (code === 'rematch_cancelled_by_initiator') return 'Инициатор отменил приглашение на реванш.'
+    return 'Соперник не найден.'
+  }, [])
 
   useEffect(() => {
     duelStateRef.current = state
@@ -491,9 +501,75 @@ function DuelPage() {
     }
   }
 
+  const loadIncomingRematch = useCallback(async () => {
+    try {
+      const response = await api.getIncomingRematch()
+      if (!response.success) return
+      const incoming = response.data?.incoming || null
+      setIncomingRematch(incoming)
+    } catch (_) {
+      // ignore poll errors
+    }
+  }, [])
+
+  const acceptIncomingRematch = useCallback(async () => {
+    if (!incomingRematch?.duel_id) return
+
+    setLoading(true)
+    setError(null)
+    try {
+      const response = await api.acceptRematch(incomingRematch.duel_id)
+      if (!response.success) {
+        throw new Error(response.error || 'Не удалось принять реванш')
+      }
+      setIncomingRematch(null)
+      setDuel({ duel_id: incomingRematch.duel_id, status: response.data?.status || 'matched' })
+      enterFoundState()
+      hapticFeedback('success')
+      setTimeout(() => {
+        if (typeof loadDuelRef.current === 'function') {
+          loadDuelRef.current(incomingRematch.duel_id)
+        }
+      }, FOUND_SCREEN_MIN_MS)
+    } catch (err) {
+      setError(String(err?.message || 'Не удалось принять реванш'))
+      hapticFeedback('error')
+      loadIncomingRematch()
+    } finally {
+      setLoading(false)
+    }
+  }, [incomingRematch, enterFoundState, loadIncomingRematch])
+
+  const declineIncomingRematch = useCallback(async () => {
+    if (!incomingRematch?.duel_id) return
+    setLoading(true)
+    setError(null)
+    try {
+      await api.declineRematch(incomingRematch.duel_id)
+      setIncomingRematch(null)
+      hapticFeedback('warning')
+    } catch (err) {
+      setError(String(err?.message || 'Не удалось отклонить реванш'))
+      hapticFeedback('error')
+    } finally {
+      setLoading(false)
+    }
+  }, [incomingRematch])
+
   useEffect(() => {
     loadProfile()
   }, [])
+
+  useEffect(() => {
+    if (state !== STATES.MENU) return
+
+    loadIncomingRematch()
+    const timer = setInterval(() => {
+      loadIncomingRematch()
+    }, 5000)
+
+    return () => clearInterval(timer)
+  }, [state, loadIncomingRematch])
 
   useEffect(() => {
     if (searchParams.get('mode') === 'random') {
@@ -657,6 +733,7 @@ function DuelPage() {
 
     setSearchTimeLeft(30)
     setGhostFallbackPending(false)
+    const isRematchWaiting = Boolean(duel?.is_rematch || duel?.mode === 'rematch')
     
     searchTimerRef.current = setInterval(() => {
       setSearchTimeLeft(prev => {
@@ -667,9 +744,18 @@ function DuelPage() {
 
           const currentDuelId = duel?.duel_id
           if (!currentDuelId) {
-            setError('Соперник не найден. Попробуйте ещё раз.')
+            setError(isRematchWaiting ? 'Соперник не принял реванш.' : 'Соперник не найден. Попробуйте ещё раз.')
             setState(STATES.MENU)
             hapticFeedback('error')
+            return 0
+          }
+
+          if (isRematchWaiting) {
+            api.cancelRematch(currentDuelId).catch(() => api.cancelDuel(currentDuelId).catch(console.error))
+            setError('Соперник не принял реванш за 30 секунд.')
+            setDuel(null)
+            setState(STATES.MENU)
+            hapticFeedback('warning')
             return 0
           }
 
@@ -716,7 +802,7 @@ function DuelPage() {
         searchTimerRef.current = null
       }
     }
-  }, [state, duel?.duel_id])
+  }, [state, duel?.duel_id, duel?.is_rematch, duel?.mode])
 
   const checkDuelStatus = async (duelId) => {
     try {
@@ -739,6 +825,22 @@ function DuelPage() {
           player: isInitiator ? data.initiator_score : data.opponent_score,
           opponent: isInitiator ? data.opponent_score : data.initiator_score
         })
+
+        if (data.status === 'cancelled' && data.cancelled_without_match) {
+          clearNextRoundTimers()
+          setIncomingRematch(null)
+          setDuel(null)
+          setQuestion(null)
+          setRoundStatus(null)
+          setRoundHistory([])
+          setSelectedAnswer(null)
+          hasAnsweredRef.current = false
+          answeredRoundId.current = null
+          currentQuestionId.current = null
+          setError(mapCancelReason(data.cancel_reason))
+          setState(STATES.MENU)
+          return
+        }
         
         const derivedState = deriveDuelViewState(data, {
           currentState,
@@ -870,6 +972,22 @@ function DuelPage() {
           opponent: isInitiator ? data.opponent_score : data.initiator_score
         })
 
+        if (data.status === 'cancelled' && data.cancelled_without_match) {
+          clearNextRoundTimers()
+          setIncomingRematch(null)
+          setDuel(null)
+          setQuestion(null)
+          setRoundStatus(null)
+          setRoundHistory([])
+          setSelectedAnswer(null)
+          hasAnsweredRef.current = false
+          answeredRoundId.current = null
+          currentQuestionId.current = null
+          setError(mapCancelReason(data.cancel_reason))
+          setState(STATES.MENU)
+          return
+        }
+
         const derivedState = deriveDuelViewState(data, {
           currentState: duelStateRef.current,
           selectedAnswer,
@@ -933,6 +1051,7 @@ function DuelPage() {
     setState(STATES.SEARCHING)
     setLoading(true)
     setError(null)
+    setIncomingRematch(null)
     finishedRewardsShownRef.current = new Set()
     setHintUsed(false) // Сбрасываем при новой дуэли
     hapticFeedback('medium')
@@ -982,6 +1101,7 @@ function DuelPage() {
   const inviteFriend = async () => {
     setLoading(true)
     setError(null)
+    setIncomingRematch(null)
     finishedRewardsShownRef.current = new Set()
     setHintUsed(false)
     hapticFeedback('medium')
@@ -1080,6 +1200,42 @@ function DuelPage() {
   // Присоединиться по коду
   const joinByCode = async () => {
     await joinByCodeValue(inviteCode)
+  }
+
+  const sendRematchInvite = async () => {
+    if (!duel) return
+    const targetId = duel.is_initiator ? duel.opponent?.id : duel.initiator?.id
+    if (!targetId) {
+      setError('Не удалось определить соперника для реванша')
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+    setState(STATES.SEARCHING)
+    try {
+      const response = await api.createDuel('rematch', {
+        target_user_id: targetId,
+        source_duel_id: duel.duel_id,
+      })
+
+      if (!response.success) {
+        throw new Error(response.error || 'Не удалось отправить приглашение на реванш')
+      }
+
+      setDuel(response.data)
+      setState(STATES.WAITING_OPPONENT)
+      hapticFeedback('medium')
+    } catch (err) {
+      if (String(err?.message || '').toLowerCase().includes('билет')) {
+        showNoTicketsModal()
+      }
+      setError(String(err?.message || 'Не удалось отправить приглашение на реванш'))
+      setState(STATES.MENU)
+      hapticFeedback('error')
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -1226,6 +1382,36 @@ function DuelPage() {
           </motion.div>
         )}
 
+        {incomingRematch && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="relative z-10 bg-cyan-500/10 border border-cyan-400/30 rounded-2xl p-4 mb-4 backdrop-blur-md"
+          >
+            <p className="text-cyan-100 font-semibold text-sm mb-1">Входящий реванш</p>
+            <p className="text-white/75 text-xs mb-3">
+              {incomingRematch?.initiator?.name || 'Соперник'} зовёт сыграть ещё раз
+              {Number.isFinite(incomingRematch?.expires_in) ? ` · ${Math.max(0, Number(incomingRematch.expires_in))}с` : ''}
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={acceptIncomingRematch}
+                disabled={loading}
+                className="py-2.5 rounded-xl bg-emerald-400 text-slate-900 font-bold disabled:opacity-60"
+              >
+                Принять
+              </button>
+              <button
+                onClick={declineIncomingRematch}
+                disabled={loading}
+                className="py-2.5 rounded-xl border border-white/20 text-white font-semibold disabled:opacity-60"
+              >
+                Отказаться
+              </button>
+            </div>
+          </motion.div>
+        )}
+
         <div className="relative z-10 flex-1 flex flex-col gap-4 justify-end pb-8">
           <motion.button
             initial={{ opacity: 0, x: -30 }}
@@ -1327,6 +1513,7 @@ function DuelPage() {
   if (state === STATES.SEARCHING || state === STATES.WAITING_OPPONENT || state === STATES.INVITE) {
      const isInvite = state === STATES.INVITE
      const isSearching = state === STATES.SEARCHING
+     const isRematchWaiting = Boolean(!isInvite && (duel?.is_rematch || duel?.mode === 'rematch'))
      
      return (
        <div className="min-h-dvh bg-aurora relative overflow-hidden flex flex-col items-center justify-center p-6 text-center">
@@ -1353,13 +1540,13 @@ function DuelPage() {
                         className="absolute inset-0 bg-gradient-to-t from-game-primary/20 to-transparent w-full h-1/2 origin-bottom"
                      />
                      <div className="text-4xl relative z-10">
-                        {isInvite ? '📨' : '🔭'}
+                        {isInvite ? '📨' : isRematchWaiting ? '♻️' : '🔭'}
                      </div>
                  </div>
              </div>
              
              <h2 className="text-2xl font-bold text-white mb-2">
-                 {isInvite ? 'Ожидание друга' : isSearching ? 'Поиск оппонента' : 'Ожидание...'}
+                 {isInvite ? 'Ожидание друга' : isRematchWaiting ? 'Ожидание реванша' : isSearching ? 'Поиск оппонента' : 'Ожидание...'}
              </h2>
              
              {isInvite ? (
@@ -1374,27 +1561,44 @@ function DuelPage() {
                  </div>
              ) : (
                  <p className="text-white/40 mb-8 font-mono">
-                    {ghostFallbackPending
+                    {isRematchWaiting
+                      ? (searchTimeLeft > 0 ? `00:${searchTimeLeft.toString().padStart(2, '0')}` : 'Истекло')
+                      : ghostFallbackPending
                       ? 'Подбираю призрака...'
                       : searchTimeLeft > 0
                         ? `00:${searchTimeLeft.toString().padStart(2, '0')}`
                         : 'Отмена...'}
                  </p>
              )}
-             {!isInvite && ghostFallbackPending && (
+             {!isInvite && !isRematchWaiting && ghostFallbackPending && (
                <p className="text-cyan-200/80 text-xs mb-5 text-center">
                  Ищем асинхронного соперника из реальных матчей
                </p>
              )}
+             {isRematchWaiting && (
+               <p className="text-cyan-200/80 text-xs mb-5 text-center">
+                 Приглашение отправлено. Награды за этот матч будут с коэффициентом 0.5
+               </p>
+             )}
              
              <button 
-                onClick={() => {
-                   if (duel) api.cancelDuel(duel.duel_id).catch(console.error)
+                onClick={async () => {
+                   if (duel) {
+                     if (isRematchWaiting) {
+                       await api.cancelRematch(duel.duel_id).catch(() => api.cancelDuel(duel.duel_id).catch(console.error))
+                     } else {
+                       await api.cancelDuel(duel.duel_id).catch(console.error)
+                     }
+                   }
+                   if (isRematchWaiting) {
+                     setError('Приглашение на реванш отменено.')
+                   }
+                   setDuel(null)
                    setState(STATES.MENU)
                 }}
                 className="text-white/40 text-sm hover:text-white"
              >
-                Отменить поиск
+                {isRematchWaiting ? 'Отменить приглашение' : 'Отменить поиск'}
              </button>
          </div>
        </div>
@@ -1814,10 +2018,7 @@ function DuelPage() {
                 <button
                     onClick={() => {
                         setRoundHistory([])
-                        setState(STATES.MENU)
-                        setDuel(null)
-                        setScore({ player: 0, opponent: 0 })
-                        startSearch()
+                        sendRematchInvite()
                     }} 
                     className="w-full py-4 bg-white rounded-2xl text-black font-bold text-lg mb-3 hover:bg-white/90 transition-colors"
                 >

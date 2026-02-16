@@ -50,9 +50,9 @@ export const api = {
   
   // Дуэли
   getActiveDuel: () => request('/duel/current'),
-  createDuel: (mode = 'random') => request('/duel/create', {
+  createDuel: (mode = 'random', extra = {}) => request('/duel/create', {
     method: 'POST',
-    body: JSON.stringify({ mode })
+    body: JSON.stringify({ mode, ...extra })
   }),
   
   getDuel: (duelId) => request(`/duel/${duelId}`),
@@ -65,6 +65,19 @@ export const api = {
   
   cancelDuel: (duelId) => request(`/duel/${duelId}/cancel`, {
     method: 'POST'
+  }),
+  getIncomingRematch: () => request('/duel/rematch/incoming'),
+  acceptRematch: (duelId) => request('/duel/rematch/accept', {
+    method: 'POST',
+    body: JSON.stringify({ duel_id: duelId })
+  }),
+  declineRematch: (duelId) => request('/duel/rematch/decline', {
+    method: 'POST',
+    body: JSON.stringify({ duel_id: duelId })
+  }),
+  cancelRematch: (duelId) => request('/duel/rematch/cancel', {
+    method: 'POST',
+    body: JSON.stringify({ duel_id: duelId })
   }),
   
   joinDuel: (code) => request('/duel/join', {
