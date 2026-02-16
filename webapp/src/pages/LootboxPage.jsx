@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { api } from '../api/client'
 import { useTelegram } from '../hooks/useTelegram'
 import CoinIcon from '../components/CoinIcon'
+import RewardNotifications from '../components/RewardNotifications'
 
 const LootboxPage = () => {
   const { webApp } = useTelegram()
@@ -10,6 +11,7 @@ const LootboxPage = () => {
   const [selectedType, setSelectedType] = useState(null)
   const [opening, setOpening] = useState(false)
   const [rewards, setRewards] = useState(null)
+  const [rewardNotifications, setRewardNotifications] = useState([])
   const [loading, setLoading] = useState(true)
 
   // Показываем кнопку Назад
@@ -81,6 +83,7 @@ const LootboxPage = () => {
 
     try {
       const response = await api.openLootbox(selectedType)
+      queueRewardNotifications(response.data)
       
       // Показываем анимацию открытия
       setTimeout(() => {
@@ -130,6 +133,57 @@ const LootboxPage = () => {
 
   const availableLootboxes = inventory?.items?.filter(item => item.type === 'lootbox') || []
 
+  const dismissRewardNotification = (id) => {
+    setRewardNotifications((prev) => prev.filter((item) => item.id !== id))
+  }
+
+  const queueRewardNotifications = (payload) => {
+    if (!payload) return
+
+    const queue = []
+    const achievements = Array.isArray(payload.achievement_unlocks) ? payload.achievement_unlocks : []
+    const drops = Array.isArray(payload.collection_drops) ? payload.collection_drops : []
+
+    achievements.forEach((unlock, index) => {
+      const achievement = unlock?.achievement
+      if (!achievement?.title) return
+      queue.push({
+        id: `lb_ach_${Date.now()}_${index}_${achievement.id || achievement.key || 'x'}`,
+        type: 'achievement',
+        icon: achievement.icon || '🏆',
+        title: achievement.title,
+        subtitle: achievement.description || '',
+        rarity: achievement.rarity || 'common',
+      })
+    })
+
+    drops.forEach((drop, index) => {
+      const item = drop?.item
+      if (!item?.name) return
+      const isDuplicate = Boolean(drop?.is_duplicate)
+      const coins = isDuplicate
+        ? Number(drop?.duplicate_compensation?.coins || 0)
+        : Number(drop?.new_card_bonus?.coins || 0)
+      queue.push({
+        id: `lb_card_${Date.now()}_${index}_${item.id || item.key || 'x'}`,
+        type: 'card',
+        icon: isDuplicate ? '♻️' : '🃏',
+        title: isDuplicate ? `Дубликат: ${item.name}` : `Карточка: ${item.name}`,
+        subtitle: isDuplicate
+          ? `Обмен на +${coins} монет`
+          : `Редкость: ${item.rarity_label || drop.rarity_label || 'Обычная'}${coins > 0 ? ` · +${coins} монет` : ''}`,
+        rarity: item.rarity || 'common',
+      })
+    })
+
+    if (queue.length === 0) return
+
+    setRewardNotifications((prev) => [...prev, ...queue].slice(-6))
+    queue.forEach((entry) => {
+      setTimeout(() => dismissRewardNotification(entry.id), 5500)
+    })
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-dark-950 to-dark-900 flex items-center justify-center">
@@ -140,6 +194,7 @@ const LootboxPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-dark-950 to-dark-900 pb-24">
+      <RewardNotifications items={rewardNotifications} onDismiss={dismissRewardNotification} />
       {/* Header */}
       <div className="glass-effect border-b border-white/10 p-4">
         <div className="flex items-center justify-between mb-2">
@@ -358,4 +413,3 @@ const LootboxPage = () => {
 }
 
 export default LootboxPage
-

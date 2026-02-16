@@ -935,7 +935,7 @@ function handleDuelAnswer($container, ?array $telegramUser, array $body): void
     // Записываем в статистику
     /** @var StatisticsService $statisticsService */
     $statisticsService = $container->get(StatisticsService::class);
-    $statisticsService->recordAnswer(
+    $achievementUnlocks = $statisticsService->recordAnswer(
         $user,
         $round->question ? $round->question->category_id : null,
         $round->question ? $round->question->getKey() : null,
@@ -943,6 +943,13 @@ function handleDuelAnswer($container, ?array $telegramUser, array $body): void
         (int)(($payload['time_elapsed'] ?? 0) * 1000), // секунды в мс
         'duel'
     );
+
+    /** @var CollectionService $collectionService */
+    $collectionService = $container->get(CollectionService::class);
+    $collectionDrop = $collectionService->awardDropForEvent($user->getKey(), 'duel', [
+        'is_success' => (bool) ($payload['is_correct'] ?? false),
+        'is_timeout' => (($payload['reason'] ?? null) === 'timeout'),
+    ]);
     $opponentPayload = $isInitiator ? $round->opponent_payload : $round->initiator_payload;
     
     // Находим ID правильного ответа
@@ -993,6 +1000,8 @@ function handleDuelAnswer($container, ?array $telegramUser, array $body): void
         'speed_delta_seconds' => $speedDeltaSeconds,
         'round_closed' => $roundClosed,
         'experience' => $xpResult,
+        'achievement_unlocks' => $achievementUnlocks,
+        'collection_drops' => $collectionDrop ? [$collectionDrop] : [],
     ]);
 }
 
@@ -1304,8 +1313,8 @@ function handleTrueFalseAnswer($container, ?array $telegramUser, array $body): v
     $factId = $body['factId'] ?? null;
     $answer = $body['answer'] ?? null;
 
-    if ($factId === null || $answer === null) {
-        jsonError('Не указаны обязательные параметры', 400);
+    if ($factId === null) {
+        jsonError('Не указан факт', 400);
     }
 
     /** @var UserService $userService */
@@ -1317,12 +1326,45 @@ function handleTrueFalseAnswer($container, ?array $telegramUser, array $body): v
         jsonError('Пользователь не найден', 404);
     }
 
+    $fact = \QuizBot\Domain\Model\TrueFalseFact::query()
+        ->where('is_active', true)
+        ->find((int) $factId);
+
+    if (!$fact) {
+        jsonError('Факт не найден', 404);
+    }
+
+    $isTimeout = $answer === null;
+    $answerBool = $isTimeout
+        ? !(bool) $fact->is_true
+        : (bool) $answer;
+
     /** @var TrueFalseService $trueFalseService */
     $trueFalseService = $container->get(TrueFalseService::class);
     
-    $result = $trueFalseService->handleAnswer($user, (int) $factId, (bool) $answer);
+    $result = $trueFalseService->handleAnswer($user, (int) $factId, $answerBool);
     $xpGain = $result['is_correct'] ? (6 + min(10, (int) $result['streak'])) : 2;
     $xpResult = $userService->grantExperience($user, $xpGain);
+
+    /** @var AchievementTrackerService $achievementTracker */
+    $achievementTracker = $container->get(AchievementTrackerService::class);
+    if ($result['is_correct']) {
+        $achievementTracker->incrementStat($user->getKey(), 'true_false_correct');
+    }
+    $achievementUnlocks = $achievementTracker->checkAndUnlock($user->getKey(), [
+        'context' => 'truefalse_answer',
+        'is_correct' => (bool) $result['is_correct'],
+        'is_timeout' => $isTimeout,
+        'streak' => (int) ($result['streak'] ?? 0),
+    ]);
+
+    /** @var CollectionService $collectionService */
+    $collectionService = $container->get(CollectionService::class);
+    $collectionDrop = $collectionService->awardDropForEvent($user->getKey(), 'truefalse', [
+        'is_success' => (bool) $result['is_correct'],
+        'is_timeout' => $isTimeout,
+        'streak' => (int) ($result['streak'] ?? 0),
+    ]);
 
     jsonResponse([
         'is_correct' => $result['is_correct'],
@@ -1331,6 +1373,8 @@ function handleTrueFalseAnswer($container, ?array $telegramUser, array $body): v
         'streak' => $result['streak'],
         'record' => $result['record'],
         'experience' => $xpResult,
+        'achievement_unlocks' => $achievementUnlocks,
+        'collection_drops' => $collectionDrop ? [$collectionDrop] : [],
         'next_fact' => $result['next_fact'] ? [
             'id' => $result['next_fact']->getKey(),
             'statement' => $result['next_fact']->statement,

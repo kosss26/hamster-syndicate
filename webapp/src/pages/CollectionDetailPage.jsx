@@ -168,7 +168,13 @@ function ItemModal({ item, isOpen, onClose }) {
                 </p>
                 {item.obtained_from && (
                   <p className="text-xs text-gray-500 mt-1">
-                    Источник: {item.obtained_from === 'lootbox' ? 'Лутбокс' : 'Достижение'}
+                    Источник: {item.obtained_from.startsWith('lootbox')
+                      ? 'Лутбокс'
+                      : item.obtained_from === 'duel'
+                        ? 'Дуэль'
+                        : item.obtained_from === 'truefalse'
+                          ? 'Правда или ложь'
+                          : 'Событие'}
                   </p>
                 )}
               </div>

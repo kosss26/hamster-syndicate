@@ -45,8 +45,9 @@ class StatisticsService
         bool $isCorrect,
         int $timeMs,
         string $mode
-    ): void {
+    ): array {
         $now = Carbon::now();
+        $unlockedAchievements = [];
 
         // Записываем в историю
         UserAnswerHistory::query()->create([
@@ -83,7 +84,7 @@ class StatisticsService
                 $this->achievementTracker->incrementStat($user->getKey(), "category_{$categoryId}");
             }
             
-            $this->achievementTracker->checkAndUnlock($user->getKey(), [
+            $unlockedAchievements = $this->achievementTracker->checkAndUnlock($user->getKey(), [
                 'context' => 'quiz_answer',
                 'is_correct' => $isCorrect,
                 'answer_time_ms' => $timeMs
@@ -91,6 +92,8 @@ class StatisticsService
         } catch (\Throwable $e) {
             $this->logger->error('Error tracking answer achievements: ' . $e->getMessage());
         }
+
+        return $unlockedAchievements;
     }
 
     /**
@@ -150,16 +153,17 @@ class StatisticsService
                 'accuracy' => $bestHour['accuracy'],
             ] : null,
             'activity' => $recentActivity,
-            'last_activity' => $userStats->last_activity_at?->toIso8601String(),
+            'last_activity' => $userStats->last_activity_at ? $userStats->last_activity_at->toIso8601String() : null,
         ];
     }
 
     /**
      * Записать победу/поражение в дуэли (для отслеживания серии)
      */
-    public function recordDuelResult(User $user, bool $isWin): void
+    public function recordDuelResult(User $user, bool $isWin): array
     {
         $userStats = $this->getOrCreateUserStats($user);
+        $unlockedAchievements = [];
 
         if ($isWin) {
             $userStats->current_streak++;
@@ -186,12 +190,14 @@ class StatisticsService
                 $this->achievementTracker->setStat($user->getKey(), 'current_win_streak', 0);
             }
             
-            $this->achievementTracker->checkAndUnlock($user->getKey(), [
+            $unlockedAchievements = $this->achievementTracker->checkAndUnlock($user->getKey(), [
                 'context' => $isWin ? 'duel_win' : 'duel_loss',
             ]);
         } catch (\Throwable $e) {
             $this->logger->error('Error tracking duel achievements: ' . $e->getMessage());
         }
+
+        return $unlockedAchievements;
     }
 
     /**
@@ -322,8 +328,8 @@ class StatisticsService
             $category = $stat->category;
             return [
                 'category_id' => $stat->category_id,
-                'category_name' => $category?->title ?? 'Неизвестно',
-                'category_icon' => $category?->icon ?? '❓',
+                'category_name' => $category ? $category->title : 'Неизвестно',
+                'category_icon' => $category ? $category->icon : '❓',
                 'total' => $stat->total_questions,
                 'correct' => $stat->correct_answers,
                 'accuracy' => $stat->getAccuracyPercent(),

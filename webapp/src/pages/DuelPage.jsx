@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useTelegram, showBackButton, hapticFeedback } from '../hooks/useTelegram'
 import api, { getWsBaseUrl } from '../api/client'
 import AvatarWithFrame from '../components/AvatarWithFrame'
+import RewardNotifications from '../components/RewardNotifications'
 import { deriveDuelViewState } from './duelStateMachine'
 
 const WS_STATUS = {
@@ -61,6 +62,7 @@ function DuelPage() {
   const [wsConnected, setWsConnected] = useState(false)
   const [wsConnectionState, setWsConnectionState] = useState(WS_STATUS.OFFLINE)
   const [wsRetrying, setWsRetrying] = useState(false)
+  const [rewardNotifications, setRewardNotifications] = useState([])
   
   const currentQuestionId = useRef(null)
   const timerRef = useRef(null)
@@ -77,6 +79,62 @@ function DuelPage() {
   const nextRoundIntervalRef = useRef(null)
   const loadDuelRef = useRef(null)
   const autoJoinAttemptedRef = useRef(false)
+
+  const dismissRewardNotification = useCallback((id) => {
+    setRewardNotifications((prev) => prev.filter((item) => item.id !== id))
+  }, [])
+
+  const queueRewardNotifications = useCallback((payload) => {
+    if (!payload) return
+
+    const next = []
+    const achievementUnlocks = Array.isArray(payload.achievement_unlocks) ? payload.achievement_unlocks : []
+    const collectionDrops = Array.isArray(payload.collection_drops) ? payload.collection_drops : []
+
+    achievementUnlocks.forEach((unlock, index) => {
+      const achievement = unlock?.achievement
+      if (!achievement?.title) return
+
+      next.push({
+        id: `ach_${Date.now()}_${index}_${achievement.id || achievement.key || 'x'}`,
+        type: 'achievement',
+        icon: achievement.icon || '🏆',
+        title: achievement.title,
+        subtitle: achievement.description || '',
+        rarity: achievement.rarity || 'common',
+      })
+    })
+
+    collectionDrops.forEach((drop, index) => {
+      const item = drop?.item
+      if (!item?.name) return
+      const isDuplicate = Boolean(drop?.is_duplicate)
+      const coinBonus = isDuplicate
+        ? Number(drop?.duplicate_compensation?.coins || 0)
+        : Number(drop?.new_card_bonus?.coins || 0)
+      const subtitle = isDuplicate
+        ? `Дубликат обменян: +${coinBonus} монет`
+        : `Редкость: ${item.rarity_label || drop.rarity_label || 'Обычная'}${coinBonus > 0 ? ` · +${coinBonus} монет` : ''}`
+
+      next.push({
+        id: `card_${Date.now()}_${index}_${item.id || item.key || 'x'}`,
+        type: 'card',
+        icon: isDuplicate ? '♻️' : '🃏',
+        title: isDuplicate ? `Дубликат: ${item.name}` : `Карточка: ${item.name}`,
+        subtitle,
+        rarity: item.rarity || 'common',
+      })
+    })
+
+    if (next.length === 0) return
+
+    setRewardNotifications((prev) => [...prev, ...next].slice(-5))
+    next.forEach((item) => {
+      setTimeout(() => {
+        dismissRewardNotification(item.id)
+      }, 4500)
+    })
+  }, [dismissRewardNotification])
 
   useEffect(() => {
     duelStateRef.current = state
@@ -455,6 +513,7 @@ function DuelPage() {
     try {
       const response = await api.submitAnswer(duel.duel_id, round, null)
       if (response.success && response.data?.round_id) {
+        queueRewardNotifications(response.data)
         answeredRoundId.current = response.data.round_id
         
         // Если раунд уже закрыт (оппонент тоже ответил/таймаут)
@@ -949,6 +1008,7 @@ function DuelPage() {
       
       if (response.success) {
         const data = response.data
+        queueRewardNotifications(data)
         setLastResult(data)
         
         if (data.round_id) {
@@ -1324,6 +1384,7 @@ function DuelPage() {
       return (
         <div className="min-h-dvh bg-aurora relative overflow-hidden flex flex-col">
             <div className="noise-overlay" />
+            <RewardNotifications items={rewardNotifications} onDismiss={dismissRewardNotification} />
             
             {/* Header VS */}
             <div className="relative z-20 pt-4 px-4 pb-2 bg-gradient-to-b from-black/40 to-transparent">

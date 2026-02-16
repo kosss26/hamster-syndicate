@@ -17,6 +17,7 @@ class LootboxService
     private Logger $logger;
     private UserService $userService;
     private ?AchievementTrackerService $achievementTracker;
+    private ?CollectionService $collectionService;
 
     // Конфигурация лутбоксов
     private const LOOTBOX_CONFIG = [
@@ -73,11 +74,17 @@ class LootboxService
         ],
     ];
 
-    public function __construct(Logger $logger, UserService $userService, ?AchievementTrackerService $achievementTracker = null)
+    public function __construct(
+        Logger $logger,
+        UserService $userService,
+        ?AchievementTrackerService $achievementTracker = null,
+        ?CollectionService $collectionService = null
+    )
     {
         $this->logger = $logger;
         $this->userService = $userService;
         $this->achievementTracker = $achievementTracker;
+        $this->collectionService = $collectionService;
     }
 
     /**
@@ -130,12 +137,22 @@ class LootboxService
         ]);
 
         // Трекинг достижений
+        $achievementUnlocks = [];
         if ($this->achievementTracker) {
             try {
                 $this->achievementTracker->incrementStat($user->getKey(), 'lootbox_openings');
-                $this->achievementTracker->checkAndUnlock($user->getKey(), ['context' => 'lootbox_open']);
+                $achievementUnlocks = $this->achievementTracker->checkAndUnlock($user->getKey(), ['context' => 'lootbox_open']);
             } catch (\Throwable $e) {
                 $this->logger->error('Error tracking lootbox achievements: ' . $e->getMessage());
+            }
+        }
+
+        $collectionDrops = [];
+        if ($this->collectionService) {
+            try {
+                $collectionDrops = $this->collectionService->awardDropsFromLootbox($user->getKey(), $lootboxType);
+            } catch (\Throwable $e) {
+                $this->logger->error('Error rolling collection drops from lootbox: ' . $e->getMessage());
             }
         }
 
@@ -143,6 +160,8 @@ class LootboxService
             'success' => true,
             'lootbox_type' => $lootboxType,
             'rewards' => $rewards,
+            'achievement_unlocks' => $achievementUnlocks,
+            'collection_drops' => $collectionDrops,
         ];
     }
 
@@ -285,4 +304,3 @@ class LootboxService
         })->toArray();
     }
 }
-

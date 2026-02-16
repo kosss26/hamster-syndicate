@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTelegram, showBackButton, hapticFeedback } from '../hooks/useTelegram'
 import api from '../api/client'
+import RewardNotifications from '../components/RewardNotifications'
 
 const QUESTION_TIME_LIMIT = 15
 const BREAK_STATE_MS = 3000
@@ -21,6 +22,7 @@ function TrueFalsePage() {
   const [timeLeft, setTimeLeft] = useState(QUESTION_TIME_LIMIT)
   const [phase, setPhase] = useState('playing')
   const [selectedChoice, setSelectedChoice] = useState(null)
+  const [rewardNotifications, setRewardNotifications] = useState([])
   const breakTimerRef = useRef(null)
 
   useEffect(() => {
@@ -88,6 +90,7 @@ function TrueFalsePage() {
 
       if (response.success) {
         const data = response.data
+        queueRewardNotifications(data)
         const previousStreak = streak
         setResult({
           isCorrect: false,
@@ -154,6 +157,7 @@ function TrueFalsePage() {
 
       if (response.success) {
         const data = response.data
+        queueRewardNotifications(data)
         setResult({
           isCorrect: data.is_correct,
           explanation: data.explanation,
@@ -176,6 +180,57 @@ function TrueFalsePage() {
       console.error('Failed to submit answer:', err)
       setError(`Ошибка: ${err.message}`)
     }
+  }
+
+  const dismissRewardNotification = (id) => {
+    setRewardNotifications((prev) => prev.filter((item) => item.id !== id))
+  }
+
+  const queueRewardNotifications = (payload) => {
+    if (!payload) return
+
+    const queue = []
+    const achievements = Array.isArray(payload.achievement_unlocks) ? payload.achievement_unlocks : []
+    const drops = Array.isArray(payload.collection_drops) ? payload.collection_drops : []
+
+    achievements.forEach((unlock, index) => {
+      const achievement = unlock?.achievement
+      if (!achievement?.title) return
+      queue.push({
+        id: `tf_ach_${Date.now()}_${index}_${achievement.id || achievement.key || 'x'}`,
+        type: 'achievement',
+        icon: achievement.icon || '🏆',
+        title: achievement.title,
+        subtitle: achievement.description || '',
+        rarity: achievement.rarity || 'common',
+      })
+    })
+
+    drops.forEach((drop, index) => {
+      const item = drop?.item
+      if (!item?.name) return
+      const isDuplicate = Boolean(drop?.is_duplicate)
+      const coins = isDuplicate
+        ? Number(drop?.duplicate_compensation?.coins || 0)
+        : Number(drop?.new_card_bonus?.coins || 0)
+      queue.push({
+        id: `tf_card_${Date.now()}_${index}_${item.id || item.key || 'x'}`,
+        type: 'card',
+        icon: isDuplicate ? '♻️' : '🃏',
+        title: isDuplicate ? `Дубликат: ${item.name}` : `Карточка: ${item.name}`,
+        subtitle: isDuplicate
+          ? `Обмен на +${coins} монет`
+          : `Редкость: ${item.rarity_label || drop.rarity_label || 'Обычная'}${coins > 0 ? ` · +${coins} монет` : ''}`,
+        rarity: item.rarity || 'common',
+      })
+    })
+
+    if (queue.length === 0) return
+
+    setRewardNotifications((prev) => [...prev, ...queue].slice(-5))
+    queue.forEach((entry) => {
+      setTimeout(() => dismissRewardNotification(entry.id), 4500)
+    })
   }
 
   if (loading) {
@@ -228,6 +283,7 @@ function TrueFalsePage() {
     <div className="min-h-dvh bg-aurora relative overflow-hidden flex flex-col">
       <div className="aurora-blob aurora-blob-3" style={{ opacity: 0.4 }} />
       <div className="noise-overlay" />
+      <RewardNotifications items={rewardNotifications} onDismiss={dismissRewardNotification} />
 
       {/* Confetti Effects */}
       <AnimatePresence>

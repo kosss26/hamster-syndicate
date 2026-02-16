@@ -221,7 +221,8 @@ final class AppBootstrap
                 return new \QuizBot\Application\Services\LootboxService(
                     $c->get(Logger::class),
                     $c->get(UserService::class),
-                    $c->get(AchievementTrackerService::class)
+                    $c->get(AchievementTrackerService::class),
+                    $c->get(CollectionService::class)
                 );
             },
             \QuizBot\Application\Services\InventoryService::class => function (Container $c) {
