@@ -6,6 +6,8 @@ import api from '../api/client'
 import AvatarWithFrame from '../components/AvatarWithFrame'
 import CoinIcon from '../components/CoinIcon'
 import TicketIcon from '../components/TicketIcon'
+import ModeDuelIcon from '../components/ModeDuelIcon'
+import ModeTrueFalseIcon from '../components/ModeTrueFalseIcon'
 import { getNotificationItems, subscribeNotifications } from '../utils/notificationInbox'
 
 function HomePage() {
@@ -226,7 +228,10 @@ function HomePage() {
               onClick={handlePlay}
               className="w-full rounded-2xl bg-white text-slate-900 font-black py-4 text-base active:scale-[0.99] transition-transform"
             >
-              ⚔️ Выбрать режим
+              <span className="inline-flex items-center gap-2">
+                <ModeDuelIcon className="w-5 h-5" />
+                Выбрать режим
+              </span>
             </button>
           </div>
 
@@ -273,7 +278,7 @@ function HomePage() {
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="text-2xl">🧠</span>
+                  <ModeTrueFalseIcon className="w-7 h-7" />
                   <div className="text-white font-semibold text-sm">Правда или ложь</div>
                 </div>
                 <div className="text-white/70 text-xs leading-relaxed">Быстрые факты, мгновенная проверка и серия без пауз</div>
