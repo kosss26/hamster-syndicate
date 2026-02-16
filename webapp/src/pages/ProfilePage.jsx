@@ -109,7 +109,6 @@ function ProfilePage() {
   const nextLevelExp = Number(progressData?.next_level_experience || 0)
   const levelSpan = Math.max(1, nextLevelExp - levelStart)
   const experienceProgress = Math.max(0, Math.min(100, Math.round((expIntoLevel / levelSpan) * 100)))
-  const expToNext = Number(progressData?.exp_to_next_level ?? 0)
   const avatarRingSize = 140
   const avatarStroke = 7
   const avatarRadius = (avatarRingSize - avatarStroke) / 2
@@ -199,9 +198,7 @@ function ProfilePage() {
               </div>
             </div>
 
-            <p className="mt-3 text-xs text-white/55">
-              {experienceProgress}% уровня пройдено, до следующего уровня: <span className="text-cyan-200 font-semibold">{expToNext} XP</span>
-            </p>
+            
           </div>
         </section>
 

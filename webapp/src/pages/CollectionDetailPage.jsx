@@ -186,6 +186,7 @@ export default function CollectionDetailPage() {
   const [collection, setCollection] = useState(null);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
@@ -196,18 +197,28 @@ export default function CollectionDetailPage() {
   const loadData = async () => {
     try {
       setLoading(true);
+      setError(null);
+      const parsedCollectionId = Number(collectionId);
+      if (!Number.isFinite(parsedCollectionId) || parsedCollectionId <= 0) {
+        throw new Error('Неверный ID коллекции');
+      }
+
       const [collectionsRes, itemsRes] = await Promise.all([
         api.getCollections(),
-        api.getCollectionItems(parseInt(collectionId))
+        api.getCollectionItems(parsedCollectionId)
       ]);
       
-      const currentCollection = collectionsRes.data.collections.find(
-        c => c.id === parseInt(collectionId)
+      const currentCollection = (collectionsRes?.data?.collections || []).find(
+        c => Number(c.id) === parsedCollectionId
       );
+      if (!currentCollection) {
+        throw new Error('Коллекция не найдена');
+      }
       setCollection(currentCollection);
-      setItems(itemsRes.data.items || []);
+      setItems(itemsRes?.data?.items || []);
     } catch (error) {
       console.error('Ошибка загрузки коллекции:', error);
+      setError(error.message || 'Не удалось загрузить коллекцию');
     } finally {
       setLoading(false);
     }
@@ -220,12 +231,26 @@ export default function CollectionDetailPage() {
     }
   };
 
-  if (loading || !collection) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-game-dark via-game-dark/95 to-game-dark flex items-center justify-center">
         <div className="text-center">
           <div className="text-6xl mb-4 animate-bounce">📚</div>
           <div className="text-gray-400">Загрузка коллекции...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!collection) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-game-dark via-game-dark/95 to-game-dark flex items-center justify-center px-6">
+        <div className="text-center">
+          <div className="text-4xl mb-3">⚠️</div>
+          <p className="text-gray-300 mb-3">{error || 'Коллекция недоступна'}</p>
+          <button onClick={() => navigate('/collections')} className="px-4 py-2 rounded-xl bg-white/10 border border-white/10 text-white">
+            Вернуться к коллекциям
+          </button>
         </div>
       </div>
     );
@@ -306,4 +331,3 @@ export default function CollectionDetailPage() {
     </div>
   );
 }
-
