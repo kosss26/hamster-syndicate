@@ -406,6 +406,23 @@ function HomePage() {
             </div>
           </motion.button>
 
+          <motion.button
+            whileTap={{ scale: 0.98 }}
+            onClick={() => navigate('/support')}
+            className="col-span-2 rounded-2xl border border-sky-300/25 bg-sky-500/10 p-4 text-left"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="text-base">🛟</div>
+                  <div className="text-white font-semibold text-sm">Поддержка</div>
+                </div>
+                <div className="text-white/55 text-xs">Сообщи об ошибке или оставь предложение</div>
+              </div>
+              <div className="text-sky-200 text-xs font-semibold whitespace-nowrap">Написать</div>
+            </div>
+          </motion.button>
+
           {isAdmin && (
             <motion.button
               whileTap={{ scale: 0.98 }}
