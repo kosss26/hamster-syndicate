@@ -148,6 +148,10 @@ export const api = {
 
   // Разное
   getOnline: () => request('/online'),
+  getAdminNotificationsFeed: (params = {}) => {
+    const query = new URLSearchParams(params).toString()
+    return request(`/notifications/admin${query ? `?${query}` : ''}`)
+  },
 
   // Админ
   getAdminStats: () => request('/admin/stats'),
@@ -163,6 +167,14 @@ export const api = {
     const query = new URLSearchParams(params).toString()
     return request(`/admin/facts${query ? `?${query}` : ''}`)
   },
+  getAdminNotifications: (params = {}) => {
+    const query = new URLSearchParams(params).toString()
+    return request(`/admin/notifications${query ? `?${query}` : ''}`)
+  },
+  adminBroadcastNotification: (title, message) => request('/admin/notifications/broadcast', {
+    method: 'POST',
+    body: JSON.stringify({ title, message })
+  }),
   isAdmin: () => request('/admin/check'),
   adminCancelDuel: (duelId) => request(`/admin/duel/${duelId}/cancel`, { method: 'POST' }),
   adminCancelDuelByCode: (code) => request('/admin/duel/by-code/cancel', {

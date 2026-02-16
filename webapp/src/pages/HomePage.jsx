@@ -126,34 +126,12 @@ function HomePage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => navigate('/notifications')}
-                className="relative w-9 h-9 rounded-full border border-white/10 bg-white/5 flex items-center justify-center text-white/70"
-                aria-label="Уведомления"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5" />
-                  <path d="M9 17a3 3 0 0 0 6 0" />
-                </svg>
-                {notifications.length > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold leading-4 text-center">
-                    {notifications.length > 99 ? '99+' : notifications.length}
-                  </span>
-                )}
-              </button>
-              <div className="flex items-center gap-1.5 rounded-full border border-emerald-300/30 bg-emerald-500/10 px-3 py-1.5">
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
-                </span>
-                <span className="text-white font-semibold text-sm">{onlineCount !== null ? onlineCount : '...'}</span>
-              </div>
-              <div className="flex items-center gap-1.5 rounded-full border border-amber-300/30 bg-amber-500/10 px-3 py-1.5">
+            <div className="flex items-center gap-2 flex-wrap justify-end max-w-[58%]">
+              <div className="flex items-center gap-1.5 rounded-full border border-amber-300/30 bg-amber-500/10 px-3 py-1.5 min-w-fit">
                 <CoinIcon className="w-4 h-4" />
                 <span className="text-white font-semibold text-sm">{profile?.coins ?? '...'}</span>
               </div>
-              <div className="flex items-center gap-1.5 rounded-full border border-cyan-300/30 bg-cyan-500/10 px-3 py-1.5">
+              <div className="flex items-center gap-1.5 rounded-full border border-cyan-300/30 bg-cyan-500/10 px-3 py-1.5 min-w-fit">
                 <span className="text-sm">💎</span>
                 <span className="text-white font-semibold text-sm">{profile?.gems ?? '...'}</span>
               </div>
@@ -173,6 +151,16 @@ function HomePage() {
           <div className="relative text-center">
             <h1 className="text-white text-3xl font-black leading-tight mb-2">Дуэль</h1>
             <p className="text-white/70 text-sm mb-4">Выбери формат и начни игру.</p>
+            <div className="flex justify-center mb-4">
+              <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/30 bg-emerald-500/10 px-3 py-1.5">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
+                </span>
+                <span className="text-white font-semibold text-sm">{onlineCount !== null ? onlineCount : '...'}</span>
+                <span className="text-white/60 text-xs">в сети</span>
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-2.5 mb-3">

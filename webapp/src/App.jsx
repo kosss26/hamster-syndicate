@@ -21,6 +21,7 @@ import CollectionDetailPage from './pages/CollectionDetailPage'
 import NotificationsPage from './pages/NotificationsPage'
 import AdminButton from './components/AdminButton'
 import TelegramBackButton from './components/TelegramBackButton'
+import { mergeAdminNotifications } from './utils/notificationInbox'
 
 function App() {
   const [tg, setTg] = useState(null)
@@ -81,6 +82,25 @@ function App() {
       console.log('Running in development mode')
     }
   }, [])
+
+  useEffect(() => {
+    if (!isReady) return undefined
+
+    const syncAdminNotifications = async () => {
+      try {
+        const response = await api.getAdminNotificationsFeed({ limit: 30 })
+        if (response.success) {
+          mergeAdminNotifications(response.data?.items || [])
+        }
+      } catch (_) {
+        // silent: не блокируем UI при сетевых ошибках
+      }
+    }
+
+    syncAdminNotifications()
+    const interval = setInterval(syncAdminNotifications, 60000)
+    return () => clearInterval(interval)
+  }, [isReady])
 
   if (!isReady) {
     return (

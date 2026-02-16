@@ -10,6 +10,7 @@ const TABS = [
   { id: 'duels', label: 'Дуэли' },
   { id: 'questions', label: 'Вопросы' },
   { id: 'facts', label: 'П/Л факты' },
+  { id: 'broadcast', label: 'Рассылка' },
 ]
 
 function AdminPage() {
@@ -27,6 +28,7 @@ function AdminPage() {
   const [users, setUsers] = useState([])
   const [duels, setDuels] = useState([])
   const [facts, setFacts] = useState([])
+  const [adminNotifications, setAdminNotifications] = useState([])
 
   const [userQuery, setUserQuery] = useState('')
   const [duelQuery, setDuelQuery] = useState('')
@@ -47,6 +49,10 @@ function AdminPage() {
     is_active: true,
   })
   const [duelCodeToCancel, setDuelCodeToCancel] = useState('')
+  const [broadcastForm, setBroadcastForm] = useState({
+    title: '',
+    message: '',
+  })
 
   useEffect(() => {
     showBackButton(true)
@@ -64,6 +70,8 @@ function AdminPage() {
         loadDuels()
       } else if (activeTab === 'facts') {
         loadFacts()
+      } else if (activeTab === 'broadcast') {
+        loadAdminNotifications()
       }
     }, 10000)
     return () => clearInterval(interval)
@@ -73,7 +81,7 @@ function AdminPage() {
     setLoading(true)
     setError(null)
     try {
-      await Promise.all([loadStats(), loadUsers(), loadDuels(), loadFacts()])
+      await Promise.all([loadStats(), loadUsers(), loadDuels(), loadFacts(), loadAdminNotifications()])
     } catch (e) {
       setError(e.message || 'Ошибка загрузки админки')
     } finally {
@@ -112,6 +120,11 @@ function AdminPage() {
       limit: 100,
     })
     if (res.success) setFacts(res.data.items || [])
+  }
+
+  const loadAdminNotifications = async () => {
+    const res = await api.getAdminNotifications({ limit: 30 })
+    if (res.success) setAdminNotifications(res.data.items || [])
   }
 
   const activeDuelsCount = useMemo(
@@ -223,6 +236,29 @@ function AdminPage() {
       const res = await api.adminToggleFact(factId, nextState)
       if (!res.success) throw new Error(res.error || 'Не удалось изменить активность факта')
     })
+  }
+
+  const handleBroadcast = async () => {
+    const title = broadcastForm.title.trim()
+    const message = broadcastForm.message.trim()
+    if (!title || !message) {
+      alert('Укажи заголовок и текст уведомления')
+      return
+    }
+
+    setActionLoading(true)
+    try {
+      const res = await api.adminBroadcastNotification(title, message)
+      if (!res.success) throw new Error(res.error || 'Не удалось отправить рассылку')
+
+      setBroadcastForm({ title: '', message: '' })
+      hapticFeedback('success')
+      await loadAdminNotifications()
+    } catch (e) {
+      alert(e.message || 'Ошибка')
+    } finally {
+      setActionLoading(false)
+    }
   }
 
   if (loading) {
@@ -510,6 +546,46 @@ function AdminPage() {
                   >
                     {f.is_active ? 'Выключить' : 'Включить'}
                   </button>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'broadcast' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+            <div className="rounded-2xl border border-white/10 bg-black/25 p-4 space-y-2">
+              <div className="text-sm text-white/70">Рассылка всем игрокам</div>
+              <input
+                value={broadcastForm.title}
+                onChange={(e) => setBroadcastForm((prev) => ({ ...prev, title: e.target.value }))}
+                placeholder="Заголовок уведомления"
+                maxLength={160}
+                className="w-full rounded-xl bg-black/30 border border-white/15 px-4 py-3 text-white"
+              />
+              <textarea
+                rows={4}
+                value={broadcastForm.message}
+                onChange={(e) => setBroadcastForm((prev) => ({ ...prev, message: e.target.value }))}
+                placeholder="Текст уведомления"
+                maxLength={3000}
+                className="w-full rounded-xl bg-black/30 border border-white/15 px-4 py-3 text-white"
+              />
+              <button
+                onClick={handleBroadcast}
+                disabled={actionLoading}
+                className="w-full rounded-xl bg-amber-500/20 border border-amber-400/30 text-amber-200 px-4 py-3 disabled:opacity-40"
+              >
+                Отправить рассылку
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {adminNotifications.map((item) => (
+                <div key={item.id} className="rounded-xl border border-white/10 bg-black/25 p-3">
+                  <div className="text-white font-semibold text-sm">{item.title}</div>
+                  <div className="text-white/70 text-xs mt-1 whitespace-pre-wrap">{item.message}</div>
+                  <div className="text-white/40 text-[11px] mt-2">{new Date(item.created_at).toLocaleString('ru-RU')}</div>
                 </div>
               ))}
             </div>

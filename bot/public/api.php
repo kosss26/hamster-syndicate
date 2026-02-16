@@ -252,6 +252,11 @@ try {
             handleGetOnline($container, $telegramUser);
             break;
 
+        // GET /notifications/admin - получить рассылки администрации для игроков
+        case $path === '/notifications/admin' && $requestMethod === 'GET':
+            handleGetAdminNotificationsFeed($container, $telegramUser, $_GET);
+            break;
+
         // POST /admin/duel/{id}/cancel - отменить дуэль
         case preg_match('#^/admin/duel/(\d+)/cancel$#', $path, $matches) && $requestMethod === 'POST':
             handleAdminCancelDuel($container, $telegramUser, (int) $matches[1]);
@@ -285,6 +290,16 @@ try {
         // POST /admin/fact/{id}/toggle - включить/выключить факт
         case preg_match('#^/admin/fact/(\d+)/toggle$#', $path, $matches) && $requestMethod === 'POST':
             handleAdminToggleFact($container, $telegramUser, (int) $matches[1], $body);
+            break;
+
+        // GET /admin/notifications - список рассылок для админки
+        case $path === '/admin/notifications' && $requestMethod === 'GET':
+            handleAdminNotificationsList($container, $telegramUser, $_GET);
+            break;
+
+        // POST /admin/notifications/broadcast - создать рассылку
+        case $path === '/admin/notifications/broadcast' && $requestMethod === 'POST':
+            handleAdminBroadcastNotification($container, $telegramUser, $body);
             break;
 
         // === SHOP SYSTEM ===
@@ -2002,6 +2017,138 @@ function handleGetOnline($container, ?array $telegramUser = null): void
         
     // Показываем реальное количество активных игроков за 15 минут
     jsonResponse(['online' => $onlineCount]);
+}
+
+/**
+ * GET /notifications/admin - активные уведомления от администрации для игроков
+ */
+function handleGetAdminNotificationsFeed($container, ?array $telegramUser, array $query): void
+{
+    if (!$telegramUser) {
+        jsonError('Не авторизован', 401);
+    }
+
+    $limit = max(1, min(50, (int) ($query['limit'] ?? 20)));
+    $sinceId = max(0, (int) ($query['since_id'] ?? 0));
+
+    $notificationsQuery = \Illuminate\Database\Capsule\Manager::table('admin_notifications')
+        ->where('is_active', true)
+        ->orderByDesc('id')
+        ->limit($limit);
+
+    if ($sinceId > 0) {
+        $notificationsQuery->where('id', '>', $sinceId);
+    }
+
+    $items = $notificationsQuery
+        ->get(['id', 'title', 'message', 'created_at'])
+        ->map(static function ($row): array {
+            return [
+                'id' => (int) $row->id,
+                'title' => (string) $row->title,
+                'message' => (string) $row->message,
+                'created_at' => (string) $row->created_at,
+                'type' => 'admin_broadcast',
+            ];
+        })
+        ->values();
+
+    jsonResponse([
+        'items' => $items,
+        'count' => $items->count(),
+    ]);
+}
+
+/**
+ * GET /admin/notifications - список уведомлений для админки
+ */
+function handleAdminNotificationsList($container, ?array $telegramUser, array $query): void
+{
+    if (!isAdmin($telegramUser, $container)) {
+        jsonError('Доступ запрещён', 403);
+    }
+
+    $limit = max(1, min(100, (int) ($query['limit'] ?? 30)));
+    $search = trim((string) ($query['q'] ?? ''));
+
+    $notificationsQuery = \Illuminate\Database\Capsule\Manager::table('admin_notifications')
+        ->orderByDesc('id')
+        ->limit($limit);
+
+    if ($search !== '') {
+        $notificationsQuery->where(function ($q) use ($search): void {
+            $q->where('title', 'like', '%' . $search . '%')
+                ->orWhere('message', 'like', '%' . $search . '%');
+        });
+    }
+
+    $items = $notificationsQuery
+        ->get(['id', 'title', 'message', 'is_active', 'created_by_user_id', 'created_at'])
+        ->map(static function ($row): array {
+            return [
+                'id' => (int) $row->id,
+                'title' => (string) $row->title,
+                'message' => (string) $row->message,
+                'is_active' => (bool) $row->is_active,
+                'created_by_user_id' => $row->created_by_user_id !== null ? (int) $row->created_by_user_id : null,
+                'created_at' => (string) $row->created_at,
+            ];
+        })
+        ->values();
+
+    jsonResponse([
+        'items' => $items,
+        'count' => $items->count(),
+    ]);
+}
+
+/**
+ * POST /admin/notifications/broadcast - отправить уведомление всем игрокам
+ */
+function handleAdminBroadcastNotification($container, ?array $telegramUser, array $body): void
+{
+    if (!isAdmin($telegramUser, $container)) {
+        jsonError('Доступ запрещён', 403);
+    }
+
+    $title = trim((string) ($body['title'] ?? ''));
+    $message = trim((string) ($body['message'] ?? ''));
+
+    if ($title === '' || $message === '') {
+        jsonError('Укажите заголовок и текст уведомления', 400);
+    }
+
+    if (mb_strlen($title) > 160) {
+        jsonError('Заголовок слишком длинный (макс. 160 символов)', 400);
+    }
+
+    if (mb_strlen($message) > 3000) {
+        jsonError('Текст слишком длинный (макс. 3000 символов)', 400);
+    }
+
+    $createdByUserId = null;
+    /** @var UserService $userService */
+    $userService = $container->get(UserService::class);
+    $adminUser = $userService->findByTelegramId((int) ($telegramUser['id'] ?? 0));
+    if ($adminUser) {
+        $createdByUserId = (int) $adminUser->getKey();
+    }
+
+    $id = (int) \Illuminate\Database\Capsule\Manager::table('admin_notifications')->insertGetId([
+        'title' => $title,
+        'message' => $message,
+        'is_active' => true,
+        'created_by_user_id' => $createdByUserId,
+        'created_at' => \Illuminate\Support\Carbon::now(),
+    ]);
+
+    jsonResponse([
+        'id' => $id,
+        'title' => $title,
+        'message' => $message,
+        'created_by_user_id' => $createdByUserId,
+        'message_text' => 'Рассылка отправлена',
+    ]);
 }
 
 /**
