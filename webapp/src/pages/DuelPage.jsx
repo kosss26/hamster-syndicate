@@ -925,8 +925,12 @@ function DuelPage() {
           return
         } else if (currentState === STATES.SHOWING_RESULT && Date.now() < roundResultUntilRef.current) {
           return
-        } else if (currentState === STATES.WAITING_OPPONENT && (data.opponent || data.status === 'in_progress')) {
-          // Соперник найден! Показываем экран FOUND
+        } else if (
+          (currentState === STATES.WAITING_OPPONENT || currentState === STATES.INVITE || currentState === STATES.SEARCHING) &&
+          (data.opponent || data.status === 'matched' || data.status === 'in_progress')
+        ) {
+          // Соперник найден/дуэль стартовала. Важно для режима INVITE:
+          // иначе создатель комнаты может запоздать к началу раунда.
           if (data.opponent) {
             setOpponent({
               name: data.opponent.name || 'Соперник',
@@ -936,9 +940,10 @@ function DuelPage() {
           }
           enterFoundState()
           hapticFeedback('success')
+          const loadDelay = data.status === 'in_progress' ? 250 : FOUND_SCREEN_MIN_MS
           setTimeout(() => {
             loadDuel(duelId)
-          }, FOUND_SCREEN_MIN_MS)
+          }, loadDelay)
         } else if (currentState === STATES.WAITING_OPPONENT_ANSWER) {
           const currentRoundId = data.round_status?.round_id
           const lastClosedRound = data.last_closed_round
