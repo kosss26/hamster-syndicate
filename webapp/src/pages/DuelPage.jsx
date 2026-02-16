@@ -90,6 +90,7 @@ function DuelPage() {
   const roundResultUntilRef = useRef(0)
   const finishedRewardsShownRef = useRef(new Set())
   const ghostPoolAvailableRef = useRef(null)
+  const waitWatchdogRef = useRef({ roundId: null, since: 0, lastSyncAt: 0 })
 
   const enterFoundState = useCallback(() => {
     foundScreenUntilRef.current = Date.now() + FOUND_SCREEN_MIN_MS
@@ -722,6 +723,46 @@ function DuelPage() {
     return () => clearInterval(checkInterval)
   }, [duel?.duel_id, state])
 
+  useEffect(() => {
+    if (state !== STATES.WAITING_OPPONENT_ANSWER || !duel?.duel_id) {
+      waitWatchdogRef.current = { roundId: null, since: 0, lastSyncAt: 0 }
+      return
+    }
+
+    const trackedRoundId = Number(roundStatus?.round_id || 0)
+    if (!trackedRoundId) return
+
+    const now = Date.now()
+    if (waitWatchdogRef.current.roundId !== trackedRoundId) {
+      waitWatchdogRef.current = { roundId: trackedRoundId, since: now, lastSyncAt: 0 }
+    }
+
+    const watchdog = setInterval(() => {
+      const snapshot = waitWatchdogRef.current
+      if (snapshot.roundId !== trackedRoundId || snapshot.since <= 0) return
+
+      const elapsedMs = Date.now() - snapshot.since
+      const canForceSync = Date.now() - snapshot.lastSyncAt >= 12000
+
+      // Если застряли в ожидании слишком долго, принудительно синхронизируемся.
+      if (elapsedMs >= 45000 && canForceSync) {
+        waitWatchdogRef.current.lastSyncAt = Date.now()
+        if (typeof loadDuelRef.current === 'function') {
+          loadDuelRef.current(duel.duel_id)
+        } else {
+          checkDuelStatus(duel.duel_id)
+        }
+      }
+
+      // Мягкий guardrail для пользователя.
+      if (elapsedMs >= 90000) {
+        setError('Синхронизация раунда потеряна. Попробуй переподключиться.')
+      }
+    }, 3000)
+
+    return () => clearInterval(watchdog)
+  }, [state, duel?.duel_id, roundStatus?.round_id, checkDuelStatus])
+
 
   useEffect(() => {
     if (!duel?.duel_id) return
@@ -976,6 +1017,11 @@ function DuelPage() {
       }
     } catch (err) {
       console.error('Failed to check duel status:', err)
+      const message = String(err?.message || '')
+      if (message.includes('Не авторизован')) {
+        setError('Сессия истекла. Открой игру через бота ещё раз.')
+        closeDuelSocket()
+      }
     }
   }
 
@@ -1079,6 +1125,11 @@ function DuelPage() {
       }
     } catch (err) {
       console.error('Failed to load duel:', err)
+      const message = String(err?.message || '')
+      if (message.includes('Не авторизован')) {
+        setError('Сессия истекла. Открой игру через бота ещё раз.')
+        closeDuelSocket()
+      }
     }
   }
 

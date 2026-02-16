@@ -999,7 +999,10 @@ class DuelService
 
     public function maybeCompleteDuel(Duel $duel): void
     {
-        $duel->loadMissing('rounds');
+        // Важно: всегда подгружаем раунды из БД заново.
+        // loadMissing здесь опасен, т.к. может оставить устаревшее состояние relation
+        // и не увидеть только что закрытый последний раунд.
+        $duel->load('rounds');
         $technicalDefeatUserId = $this->detectTechnicalTimeoutLoser($duel);
         if ($technicalDefeatUserId > 0) {
             $settings = is_array($duel->settings) ? $duel->settings : [];
@@ -1031,6 +1034,85 @@ class DuelService
         if ($initiatorWins >= $roundsToWin || $opponentWins >= $roundsToWin || $duel->rounds->every(fn (DuelRound $r) => $r->closed_at !== null)) {
             $this->finalizeDuel($duel);
         }
+    }
+
+    /**
+     * Глобальный watchdog: закрывает просроченные раунды и дофинализирует дуэли.
+     *
+     * @return array{processed:int, timed_out:int, round_closed:int, duels_finished:int}
+     */
+    public function processExpiredInProgressRounds(int $duelLimit = 200): array
+    {
+        $result = [
+            'processed' => 0,
+            'timed_out' => 0,
+            'round_closed' => 0,
+            'duels_finished' => 0,
+        ];
+
+        $duels = Duel::query()
+            ->where('status', 'in_progress')
+            ->whereHas('rounds', static function ($query): void {
+                $query->whereNull('closed_at');
+            })
+            ->with(['rounds'])
+            ->limit(max(1, $duelLimit))
+            ->get();
+
+        if ($duels->isEmpty()) {
+            return $result;
+        }
+
+        $now = Carbon::now();
+
+        foreach ($duels as $duel) {
+            $result['processed']++;
+            $beforeStatus = (string) $duel->status;
+
+            /** @var DuelRound|null $currentRound */
+            $currentRound = $duel->rounds
+                ->whereNull('closed_at')
+                ->sortBy('round_number')
+                ->first();
+
+            if (!$currentRound) {
+                $this->maybeCompleteDuel($duel);
+                $freshDuel = $duel->fresh();
+                if ($beforeStatus !== 'finished' && $freshDuel && $freshDuel->status === 'finished') {
+                    $result['duels_finished']++;
+                }
+                continue;
+            }
+
+            if ($currentRound->question_sent_at !== null) {
+                $timeLimit = max(1, (int) ($currentRound->time_limit ?? 30));
+                $elapsed = $currentRound->question_sent_at->diffInSeconds($now);
+
+                if ($elapsed > $timeLimit) {
+                    $timedOutInitiator = $this->applyTimeoutIfNeeded($currentRound, true, $now);
+                    $timedOutOpponent = $this->applyTimeoutIfNeeded($currentRound, false, $now);
+                    if ($timedOutInitiator || $timedOutOpponent) {
+                        $result['timed_out']++;
+                    }
+
+                    $beforeClosed = $currentRound->closed_at !== null;
+                    $this->maybeCompleteRound($currentRound);
+                    $currentRound->refresh();
+                    $afterClosed = $currentRound->closed_at !== null;
+                    if (!$beforeClosed && $afterClosed) {
+                        $result['round_closed']++;
+                    }
+                }
+            }
+
+            $this->maybeCompleteDuel($duel);
+            $freshDuel = $duel->fresh();
+            if ($beforeStatus !== 'finished' && $freshDuel && $freshDuel->status === 'finished') {
+                $result['duels_finished']++;
+            }
+        }
+
+        return $result;
     }
 
     private function detectTechnicalTimeoutLoser(Duel $duel): int
