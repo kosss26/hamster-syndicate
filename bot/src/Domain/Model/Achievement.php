@@ -11,6 +11,7 @@ class Achievement extends Model
     public $timestamps = false;
     
     protected $fillable = [
+        'code',
         'key',
         'title',
         'description',
@@ -23,6 +24,9 @@ class Achievement extends Model
         'reward_gems',
         'is_secret',
         'sort_order',
+        'points',
+        'conditions',
+        'is_active',
     ];
 
     protected $casts = [

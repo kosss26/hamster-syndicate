@@ -2,12 +2,18 @@
 
 namespace QuizBot\Database\Seeders;
 
+use Illuminate\Database\Capsule\Manager as Capsule;
 use QuizBot\Domain\Model\Achievement;
 
 class AchievementsSeeder
 {
     public function seed(): void
     {
+        $hasCodeColumn = Capsule::schema()->hasColumn('achievements', 'code');
+        $hasPointsColumn = Capsule::schema()->hasColumn('achievements', 'points');
+        $hasConditionsColumn = Capsule::schema()->hasColumn('achievements', 'conditions');
+        $hasIsActiveColumn = Capsule::schema()->hasColumn('achievements', 'is_active');
+
         $achievements = [
             // === ДУЭЛИ (15 достижений) ===
             [
@@ -721,13 +727,33 @@ class AchievementsSeeder
         ];
 
         foreach ($achievements as $achievementData) {
+            $payload = $achievementData;
+
+            if ($hasCodeColumn) {
+                $payload['code'] = $achievementData['key'];
+            }
+
+            if ($hasPointsColumn && !array_key_exists('points', $payload)) {
+                $payload['points'] = (int) ($achievementData['reward_coins'] ?? 0);
+            }
+
+            if ($hasConditionsColumn && !array_key_exists('conditions', $payload)) {
+                $payload['conditions'] = json_encode([
+                    'condition_type' => $achievementData['condition_type'] ?? 'counter',
+                    'condition_value' => $achievementData['condition_value'] ?? 1,
+                ], JSON_UNESCAPED_UNICODE);
+            }
+
+            if ($hasIsActiveColumn && !array_key_exists('is_active', $payload)) {
+                $payload['is_active'] = true;
+            }
+
             Achievement::updateOrCreate(
                 ['key' => $achievementData['key']],
-                $achievementData
+                $payload
             );
         }
 
         echo "✅ Создано " . count($achievements) . " достижений\n";
     }
 }
-
