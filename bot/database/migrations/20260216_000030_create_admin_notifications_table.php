@@ -6,8 +6,8 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
 use QuizBot\Infrastructure\Database\Migration;
 
-return new class extends Migration {
-    public function getName(): string
+return new class implements Migration {
+    public function name(): string
     {
         return '20260216_000030_create_admin_notifications_table';
     }
@@ -34,4 +34,3 @@ return new class extends Migration {
         $schema->dropIfExists('admin_notifications');
     }
 };
-
