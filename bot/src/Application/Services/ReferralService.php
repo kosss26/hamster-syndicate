@@ -12,6 +12,7 @@ use QuizBot\Domain\Model\UserProfile;
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Illuminate\Support\Str;
 use Illuminate\Support\Carbon;
+use DateTimeInterface;
 
 class ReferralService
 {
@@ -343,6 +344,18 @@ class ReferralService
             'referrals' => $referrals->filter(function (Referral $ref) {
                 return $ref->referred !== null;
             })->map(function (Referral $ref) {
+                $createdAt = $ref->created_at;
+                $createdAtFormatted = 'н/д';
+                if ($createdAt instanceof DateTimeInterface) {
+                    $createdAtFormatted = $createdAt->format('d.m.Y');
+                } elseif (is_string($createdAt) && trim($createdAt) !== '') {
+                    try {
+                        $createdAtFormatted = Carbon::parse($createdAt)->format('d.m.Y');
+                    } catch (\Throwable $e) {
+                        $createdAtFormatted = 'н/д';
+                    }
+                }
+
                 return [
                     'user' => [
                         'id' => $ref->referred->getKey(),
@@ -351,7 +364,7 @@ class ReferralService
                     ],
                     'status' => $ref->status,
                     'games_played' => $ref->referred_games_played ?? 0,
-                    'created_at' => $ref->created_at ? $ref->created_at->format('d.m.Y') : 'н/д',
+                    'created_at' => $createdAtFormatted,
                 ];
             })->values(),
             'next_milestone' => $nextMilestone ? [
