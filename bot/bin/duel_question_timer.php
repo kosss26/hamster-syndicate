@@ -221,6 +221,9 @@ function sendRoundResultsAndNextQuestion(Duel $duel, DuelRound $round, $telegram
                 $logger->info('Следующий раунд не найден, дуэль завершена', [
                     'duel_id' => $duelId,
                 ]);
+                // Страховка: если следующий раунд отсутствует, но статус не обновлён до finished,
+                // принудительно проверяем завершение матча.
+                $duelService->maybeCompleteDuel($duel);
             }
         }
     } catch (\Throwable $e) {
@@ -710,4 +713,3 @@ $logger->info('Таймер вопроса дуэли истёк', [
 ]);
 
 exit(0);
-

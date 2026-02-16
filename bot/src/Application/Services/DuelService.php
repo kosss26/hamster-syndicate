@@ -24,6 +24,7 @@ class DuelService
     private const GHOST_SEARCH_TIMEOUT_SECONDS = 30;
     private const GHOST_RATING_COEFFICIENT = 0.5;
     private const REMATCH_INVITE_TTL_SECONDS = 30;
+    private const TECHNICAL_TIMEOUT_STREAK = 3;
     public const REMATCH_REWARD_COEFFICIENT = 0.5;
 
     private Logger $logger;
@@ -399,13 +400,26 @@ class DuelService
 
         $winnerId = null;
         $resultStatus = 'draw';
+        $settings = is_array($duel->settings) ? $duel->settings : [];
+        $technicalDefeatUserId = isset($settings['technical_defeat_user_id']) ? (int) $settings['technical_defeat_user_id'] : 0;
+        $technicalDefeatReason = isset($settings['technical_defeat_reason']) ? (string) $settings['technical_defeat_reason'] : null;
 
-        if ($initiatorScore > $opponentScore) {
-            $winnerId = $duel->initiator_user_id;
-            $resultStatus = 'initiator_win';
-        } elseif ($opponentScore > $initiatorScore) {
-            $winnerId = $duel->opponent_user_id;
-            $resultStatus = 'opponent_win';
+        if ($technicalDefeatUserId > 0) {
+            if ((int) $duel->initiator_user_id === $technicalDefeatUserId) {
+                $winnerId = $duel->opponent_user_id;
+                $resultStatus = 'opponent_win';
+            } elseif ((int) $duel->opponent_user_id === $technicalDefeatUserId) {
+                $winnerId = $duel->initiator_user_id;
+                $resultStatus = 'initiator_win';
+            }
+        } else {
+            if ($initiatorScore > $opponentScore) {
+                $winnerId = $duel->initiator_user_id;
+                $resultStatus = 'initiator_win';
+            } elseif ($opponentScore > $initiatorScore) {
+                $winnerId = $duel->opponent_user_id;
+                $resultStatus = 'opponent_win';
+            }
         }
 
         $result = new DuelResult([
@@ -428,6 +442,13 @@ class DuelService
         // Сохраняем изменения рейтинга в метаданных результата
         $metadata = $result->metadata ?? [];
         $metadata['rating_changes'] = $ratingChanges;
+        if ($technicalDefeatUserId > 0) {
+            $metadata['technical_defeat'] = [
+                'loser_user_id' => $technicalDefeatUserId,
+                'reason' => $technicalDefeatReason ?: 'timeout_streak',
+                'timeout_streak' => self::TECHNICAL_TIMEOUT_STREAK,
+            ];
+        }
         $result->metadata = $metadata;
         $result->save();
 
@@ -979,6 +1000,16 @@ class DuelService
     public function maybeCompleteDuel(Duel $duel): void
     {
         $duel->loadMissing('rounds');
+        $technicalDefeatUserId = $this->detectTechnicalTimeoutLoser($duel);
+        if ($technicalDefeatUserId > 0) {
+            $settings = is_array($duel->settings) ? $duel->settings : [];
+            $settings['technical_defeat_user_id'] = $technicalDefeatUserId;
+            $settings['technical_defeat_reason'] = 'timeout_streak';
+            $duel->settings = $settings;
+            $duel->save();
+            $this->finalizeDuel($duel);
+            return;
+        }
 
         $roundsToWin = max(1, (int) $duel->rounds_to_win);
 
@@ -1000,6 +1031,51 @@ class DuelService
         if ($initiatorWins >= $roundsToWin || $opponentWins >= $roundsToWin || $duel->rounds->every(fn (DuelRound $r) => $r->closed_at !== null)) {
             $this->finalizeDuel($duel);
         }
+    }
+
+    private function detectTechnicalTimeoutLoser(Duel $duel): int
+    {
+        $closedRounds = $duel->rounds
+            ->filter(static fn (DuelRound $round): bool => $round->closed_at !== null)
+            ->sortBy('round_number')
+            ->values();
+
+        if ($closedRounds->isEmpty()) {
+            return 0;
+        }
+
+        $initiatorTimeoutStreak = 0;
+        $opponentTimeoutStreak = 0;
+
+        foreach ($closedRounds as $round) {
+            $initiatorPayload = is_array($round->initiator_payload) ? $round->initiator_payload : [];
+            $opponentPayload = is_array($round->opponent_payload) ? $round->opponent_payload : [];
+
+            $initiatorTimedOut = (($initiatorPayload['reason'] ?? null) === 'timeout');
+            $opponentTimedOut = (($opponentPayload['reason'] ?? null) === 'timeout');
+
+            if ($initiatorTimedOut && !$opponentTimedOut) {
+                $initiatorTimeoutStreak++;
+            } else {
+                $initiatorTimeoutStreak = 0;
+            }
+
+            if ($opponentTimedOut && !$initiatorTimedOut) {
+                $opponentTimeoutStreak++;
+            } else {
+                $opponentTimeoutStreak = 0;
+            }
+
+            if ($initiatorTimeoutStreak >= self::TECHNICAL_TIMEOUT_STREAK) {
+                return (int) $duel->initiator_user_id;
+            }
+
+            if ($opponentTimeoutStreak >= self::TECHNICAL_TIMEOUT_STREAK) {
+                return (int) $duel->opponent_user_id;
+            }
+        }
+
+        return 0;
     }
 
     /**

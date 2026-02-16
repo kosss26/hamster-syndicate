@@ -896,6 +896,13 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
             $currentRound = $duelService->getCurrentRound($duel);
         }
     }
+
+    // Страховка: если активных открытых раундов больше нет, но дуэль ещё in_progress,
+    // принудительно проверяем условия завершения (в т.ч. тех.поражение по таймаутам).
+    if ($duel->status === 'in_progress' && $currentRound === null) {
+        $duelService->maybeCompleteDuel($duel);
+        $duel->refresh();
+    }
     
     $question = null;
     $roundStatus = null;
