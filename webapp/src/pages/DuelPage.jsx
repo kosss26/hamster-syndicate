@@ -91,7 +91,6 @@ function DuelPage() {
   const finishedRewardsShownRef = useRef(new Set())
   const ghostPoolAvailableRef = useRef(null)
   const waitWatchdogRef = useRef({ roundId: null, since: 0, lastSyncAt: 0 })
-  const hydrationInFlightRef = useRef(false)
 
   const enterFoundState = useCallback(() => {
     foundScreenUntilRef.current = Date.now() + FOUND_SCREEN_MIN_MS
@@ -916,23 +915,6 @@ function DuelPage() {
           answeredRoundId: answeredRoundId.current,
         })
 
-        // Критично: при переходе из поиска/инвайта сервер уже может отдать вопрос,
-        // но локальный `question` еще пустой. Без гидратации UI может застрять на лоадере
-        // до ручного refresh. Принудительно догружаем полную дуэль один раз.
-        const shouldHydrateFromServerQuestion =
-          Boolean(data.question?.id) &&
-          (!question || currentQuestionId.current !== data.question.id)
-
-        if (shouldHydrateFromServerQuestion && typeof loadDuelRef.current === 'function' && !hydrationInFlightRef.current) {
-          hydrationInFlightRef.current = true
-          try {
-            await loadDuelRef.current(duelId)
-          } finally {
-            hydrationInFlightRef.current = false
-          }
-          return
-        }
-
         if (derivedState === STATES.FINISHED) {
           clearNextRoundTimers()
           queueFinishedRewardsIfNeeded(data)
@@ -956,10 +938,9 @@ function DuelPage() {
           }
           enterFoundState()
           hapticFeedback('success')
-          const loadDelay = data.status === 'in_progress' ? 250 : FOUND_SCREEN_MIN_MS
           setTimeout(() => {
             loadDuel(duelId)
-          }, loadDelay)
+          }, FOUND_SCREEN_MIN_MS)
         } else if (currentState === STATES.WAITING_OPPONENT_ANSWER) {
           const currentRoundId = data.round_status?.round_id
           const lastClosedRound = data.last_closed_round
