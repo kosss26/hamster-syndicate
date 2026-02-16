@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useTelegram, showBackButton, hapticFeedback } from '../hooks/useTelegram'
 import api, { getWsBaseUrl } from '../api/client'
 import AvatarWithFrame from '../components/AvatarWithFrame'
+import ReferralIcon from '../components/ReferralIcon'
 import { deriveDuelViewState } from './duelStateMachine'
 import { addNotificationItems } from '../utils/notificationInbox'
 
@@ -1256,7 +1257,7 @@ function DuelPage() {
              <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
             <div className="relative bg-[#0F172A]/40 backdrop-blur-sm rounded-[28px] p-6 flex items-center gap-5">
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-white/20 to-white/5 flex items-center justify-center text-3xl shadow-inner border border-white/10">
-                ⚔️
+                <ReferralIcon className="w-9 h-9" />
               </div>
               <div>
                 <h3 className="font-bold text-xl text-white mb-1">С другом</h3>

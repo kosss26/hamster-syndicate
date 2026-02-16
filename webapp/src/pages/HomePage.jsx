@@ -247,7 +247,10 @@ function HomePage() {
               onClick={handleQuickFriend}
               className="rounded-xl border border-cyan-300/45 bg-cyan-500/25 text-white py-3 text-sm font-semibold"
             >
-              👥 С другом
+              <span className="inline-flex items-center gap-1.5">
+                <ReferralIcon className="w-4 h-4" />
+                С другом
+              </span>
             </button>
           </div>
         </motion.div>
