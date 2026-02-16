@@ -62,6 +62,30 @@ function rewardName(type, amount) {
   return map[type] || `${value}`
 }
 
+function rewardPoolLabel(reward) {
+  const type = reward?.type || ''
+  const amountRaw = reward?.amount
+  const amountArray = Array.isArray(amountRaw) ? amountRaw : []
+  const min = Number(amountArray[0] ?? 0)
+  const max = Number(amountArray[1] ?? min)
+  const range = Number.isFinite(min) && Number.isFinite(max) ? (min === max ? `${min}` : `${min}-${max}`) : '0'
+
+  const map = {
+    coins: `${range} монет`,
+    exp: `${range} опыта`,
+    gems: `${range} кристаллов`,
+    hint: `${range} подсказок`,
+    life: `${range} билетов`,
+    boost_12h: 'Буст 12ч',
+    boost_24h: 'Буст 24ч',
+    boost_7d: 'Буст 7 дней',
+    cosmetic_epic: 'Эпическая косметика',
+    cosmetic_legendary: 'Легендарная косметика',
+  }
+
+  return map[type] || 'Награда'
+}
+
 function rewardIcon(type) {
   if (type === 'coins') return <CoinIcon size={28} />
   const map = {
@@ -86,7 +110,6 @@ const LootboxPage = () => {
   const [error, setError] = useState(null)
   const [config, setConfig] = useState([])
   const [rewardPool, setRewardPool] = useState({})
-  const [resources, setResources] = useState(null)
   const [result, setResult] = useState(null)
   const [rewardNotifications, setRewardNotifications] = useState([])
 
@@ -110,14 +133,10 @@ const LootboxPage = () => {
     setLoading(true)
     setError(null)
     try {
-      const [cfgResponse, invResponse] = await Promise.all([
-        api.getLootboxConfig(),
-        api.getInventory(),
-      ])
+      const cfgResponse = await api.getLootboxConfig()
 
       setConfig(cfgResponse?.data?.boxes || [])
       setRewardPool(cfgResponse?.data?.reward_pool || {})
-      setResources(invResponse?.data?.resources || null)
 
       if (!selectedType && (cfgResponse?.data?.boxes || []).length > 0) {
         setSelectedType(cfgResponse.data.boxes[0].type)
@@ -228,16 +247,6 @@ const LootboxPage = () => {
             <h1 className="text-white font-bold text-lg">Лутбоксы</h1>
             <div className="w-9" />
           </div>
-          <p className="text-white/65 text-sm">Гаранты редкости, защита от дублей и карточные дропы.</p>
-
-          {resources && (
-            <div className="grid grid-cols-4 gap-2 mt-3 text-center">
-              <div className="rounded-xl border border-white/10 bg-white/5 p-2 text-xs text-white/75"><CoinIcon size={16} /> {resources.coins}</div>
-              <div className="rounded-xl border border-white/10 bg-white/5 p-2 text-xs text-white/75">💎 {resources.gems}</div>
-              <div className="rounded-xl border border-white/10 bg-white/5 p-2 text-xs text-white/75">💡 {resources.hints}</div>
-              <div className="rounded-xl border border-white/10 bg-white/5 p-2 text-xs text-white/75">🎫 {resources.tickets ?? resources.lives}</div>
-            </div>
-          )}
         </section>
 
         {error && <div className="rounded-2xl border border-red-400/35 bg-red-500/12 p-3 text-red-100 text-sm">{error}</div>}
@@ -303,7 +312,7 @@ const LootboxPage = () => {
                   <div className="flex flex-wrap gap-1">
                     {(Array.isArray(rewards) ? rewards : []).slice(0, 6).map((r, idx) => (
                       <span key={`${rarity}-${idx}`} className="text-[11px] text-white/70 border border-white/10 rounded-md px-2 py-1">
-                        {rewardName(r.type, `${r.amount?.[0] || ''}-${r.amount?.[1] || ''}`)}
+                        {rewardPoolLabel(r)}
                       </span>
                     ))}
                   </div>
@@ -377,4 +386,3 @@ const LootboxPage = () => {
 }
 
 export default LootboxPage
-
