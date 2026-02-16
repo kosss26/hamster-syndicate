@@ -272,7 +272,7 @@ class ReferralService
         foreach ($milestones as $milestone) {
             // Проверяем, не получал ли уже эту награду
             $alreadyClaimed = $referrer->referralMilestones()
-                ->where('milestone_id', $milestone->getKey())
+                ->wherePivot('milestone_id', $milestone->getKey())
                 ->exists();
 
             if ($alreadyClaimed) {

@@ -39,8 +39,11 @@ class ReferralMilestone extends BaseModel
 
     public function users(): BelongsToMany
     {
-        return $this->belongsToMany(User::class, 'user_referral_milestones')
-            ->withPivot(['claimed_at'])
-            ->withTimestamps();
+        return $this->belongsToMany(
+            User::class,
+            'user_referral_milestones',
+            'milestone_id',
+            'user_id'
+        )->withPivot(['claimed_at']);
     }
 }
