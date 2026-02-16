@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
-import { useTelegram, showBackButton, hapticFeedback } from '../hooks/useTelegram'
+import { motion } from 'framer-motion'
+import { useTelegram, showBackButton } from '../hooks/useTelegram'
 import api from '../api/client'
 import AvatarWithFrame from '../components/AvatarWithFrame'
 
@@ -14,7 +14,6 @@ function ProfilePage() {
   const [showcasedAchievements, setShowcasedAchievements] = useState([])
   const [achievementStats, setAchievementStats] = useState(null)
   const [collections, setCollections] = useState([])
-  const [activeTab, setActiveTab] = useState('overview') // 'overview', 'stats', 'history'
 
   useEffect(() => {
     showBackButton(true)
@@ -123,18 +122,19 @@ function ProfilePage() {
       <div className="aurora-blob aurora-blob-3 opacity-50" />
       <div className="noise-overlay" />
 
-      {/* Hero Section */}
-      <div className="relative z-10 p-6 pb-0">
-        <div className="relative w-full rounded-[32px] overflow-hidden shadow-2xl mb-6">
-          {/* Card Background */}
-          <div className="absolute inset-0 bg-gradient-to-br from-[#1a1a2e] to-[#0f0f1a] z-0" />
-          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 z-0 mix-blend-overlay" />
-          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-game-primary/20 via-transparent to-purple-500/20 z-10" />
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.2 }}
+        className="relative z-10 p-6 space-y-4"
+      >
+        <section className="relative rounded-[32px] overflow-hidden shadow-2xl">
+          <div className="absolute inset-0 bg-gradient-to-br from-[#161625] to-[#0c101d]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_10%,rgba(56,189,248,0.2),transparent_45%),radial-gradient(circle_at_85%_90%,rgba(16,185,129,0.2),transparent_40%)]" />
 
-          {/* Content */}
-          <div className="relative z-20 flex flex-col items-center justify-center p-6 text-center">
-            <div className="relative mb-5 pt-5">
-              <div className="absolute left-1/2 -translate-x-1/2 -top-1 z-30 px-3 py-1 rounded-full border border-cyan-300/30 bg-black/45 backdrop-blur-md">
+          <div className="relative p-6 text-center">
+            <div className="relative mb-4 pt-6">
+              <div className="absolute left-1/2 -translate-x-1/2 top-0 z-30 px-3 py-1 rounded-full border border-cyan-300/35 bg-black/55 backdrop-blur-md">
                 <span className="text-xs font-black text-cyan-200 tracking-wide">LVL {level}</span>
               </div>
 
@@ -180,291 +180,141 @@ function ProfilePage() {
                   />
                 </div>
               </div>
+            </div>
 
-              <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-md border border-white/10 rounded-full px-3 py-1 flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full bg-game-success" />
-                <span className="text-[10px] font-bold text-white uppercase tracking-wider">В сети</span>
+            <h1 className="text-3xl font-black text-white tracking-tight">
+              {user?.first_name}
+              <span className="text-cyan-300">.</span>
+            </h1>
+            {user?.username && <p className="text-white/45 text-sm mt-1">@{user.username}</p>}
+
+            <div className="mt-4 grid grid-cols-2 gap-2 text-left">
+              <div className="rounded-xl border border-white/10 bg-black/25 px-3 py-2">
+                <p className="text-[10px] text-white/45 uppercase tracking-wider">Ранг</p>
+                <p className="text-sm font-bold text-white mt-0.5">{rankName}</p>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-black/25 px-3 py-2 text-right">
+                <p className="text-[10px] text-white/45 uppercase tracking-wider">Рейтинг</p>
+                <p className="text-sm font-bold text-cyan-200 mt-0.5">{profile.rating}</p>
               </div>
             </div>
 
-            <div>
-              <h1 className="text-3xl font-black text-white mb-1 tracking-tight drop-shadow-lg">
-                {user?.first_name}
-                <span className="text-game-primary">.</span>
-              </h1>
-              {user?.username && (
-                <p className="text-white/40 text-sm font-mono tracking-wider">@{user.username}</p>
-              )}
-            </div>
+            <p className="mt-3 text-xs text-white/55">
+              {experienceProgress}% уровня пройдено, до следующего уровня: <span className="text-cyan-200 font-semibold">{expToNext} XP</span>
+            </p>
+          </div>
+        </section>
 
-            {/* Rank Badge */}
-            <div className="mt-4 bg-white/5 border border-white/10 backdrop-blur-md rounded-xl px-4 py-2 flex items-center gap-2">
-              <span className="text-lg">🏆</span>
-              <div className="text-left">
-                <p className="text-[10px] text-white/40 uppercase font-bold tracking-widest leading-none">Ранг</p>
-                <p className="text-sm font-bold text-white leading-none mt-0.5">{rankName}</p>
-              </div>
-              <div className="w-px h-6 bg-white/10 mx-2" />
-              <div className="text-right">
-                <p className="text-[10px] text-white/40 uppercase font-bold tracking-widest leading-none">Рейтинг</p>
-                <p className="text-sm font-bold text-gradient-primary leading-none mt-0.5">{profile.rating}</p>
-              </div>
-            </div>
+        <section className="rounded-3xl border border-white/10 bg-black/20 backdrop-blur-xl p-4">
+          <h3 className="text-white text-sm font-bold mb-3">Быстрые действия</h3>
+          <div className="grid grid-cols-3 gap-2">
+            <Link to="/inventory" className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-3 text-center active:scale-95 transition-transform">
+              <div className="text-xl mb-1">🎒</div>
+              <p className="text-xs font-semibold text-white">Инвентарь</p>
+            </Link>
+            <Link to="/wheel" className="rounded-2xl border border-cyan-400/25 bg-cyan-500/10 p-3 text-center active:scale-95 transition-transform">
+              <div className="text-xl mb-1">🎡</div>
+              <p className="text-xs font-semibold text-white">Колесо</p>
+            </Link>
+            <Link to="/lootbox" className="rounded-2xl border border-amber-400/25 bg-amber-500/10 p-3 text-center active:scale-95 transition-transform">
+              <div className="text-xl mb-1">🎁</div>
+              <p className="text-xs font-semibold text-white">Лутбоксы</p>
+            </Link>
+          </div>
+        </section>
 
-            <div className="mt-4 w-full max-w-sm rounded-xl bg-black/25 border border-white/10 px-3 py-2">
-              <div className="flex items-center justify-between text-[11px] text-white/60 mb-1">
-                <span>Прогресс уровня</span>
-                <span className="text-cyan-200 font-semibold">{experienceProgress}%</span>
-              </div>
-              <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-cyan-300 via-indigo-300 to-emerald-300" style={{ width: `${experienceProgress}%` }} />
-              </div>
+        <section className="rounded-3xl border border-white/10 bg-black/20 backdrop-blur-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-white text-sm font-bold">Статистика</h3>
+            <button
+              onClick={() => navigate('/stats')}
+              className="text-[11px] text-cyan-200 border border-cyan-300/30 bg-cyan-500/10 rounded-full px-3 py-1 active:scale-95 transition-transform"
+            >
+              Детально
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+              <p className="text-[10px] text-white/45 uppercase tracking-wider">Победы</p>
+              <p className="text-xl font-black text-white mt-1">{profile.stats?.duel_wins || 0}</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+              <p className="text-[10px] text-white/45 uppercase tracking-wider">Поражения</p>
+              <p className="text-xl font-black text-white mt-1">{profile.stats?.duel_losses || 0}</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+              <p className="text-[10px] text-white/45 uppercase tracking-wider">Winrate</p>
+              <p className="text-xl font-black text-emerald-300 mt-1">{winRate}%</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+              <p className="text-[10px] text-white/45 uppercase tracking-wider">Рекорд П/Л</p>
+              <p className="text-xl font-black text-cyan-200 mt-1">{profile.true_false_record || 0}</p>
             </div>
           </div>
-        </div>
+          <p className="text-xs text-white/45 mt-2">Всего игр: {totalGames}</p>
+        </section>
 
-        {/* Tabs */}
-        <div className="flex p-1 bg-black/20 backdrop-blur-xl rounded-2xl mb-6 border border-white/5">
-          {['overview', 'stats', 'achievements'].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => {
-                setActiveTab(tab)
-                hapticFeedback('light')
-              }}
-              className="relative flex-1 py-3 text-sm font-medium transition-colors z-10"
-            >
-              {activeTab === tab && (
-                <motion.div
-                  layoutId="activeTabProfile"
-                  className="absolute inset-0 bg-white/10 rounded-xl border border-white/10 shadow-sm"
-                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                />
-              )}
-              <span className={activeTab === tab ? 'text-white' : 'text-white/40'}>
-                {tab === 'overview' ? 'Обзор' : tab === 'stats' ? 'Статистика' : 'Достижения'}
-              </span>
-            </button>
-          ))}
-        </div>
+        <section className="rounded-3xl border border-white/10 bg-black/20 backdrop-blur-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-white text-sm font-bold">Витрина достижений</h3>
+            <Link to="/achievements" className="text-[11px] text-cyan-200 border border-cyan-300/30 bg-cyan-500/10 rounded-full px-3 py-1">
+              Управлять
+            </Link>
+          </div>
 
-        <AnimatePresence mode="wait">
-          {activeTab === 'overview' && (
-            <motion.div
-              key="overview"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-              className="space-y-4"
-            >
-              {/* Quick Actions Grid */}
-              <div className="grid grid-cols-2 gap-3">
-                <Link to="/inventory" className="group">
-                  <div className="bg-gradient-to-br from-emerald-900/40 to-emerald-900/10 border border-emerald-500/20 rounded-3xl p-5 relative overflow-hidden transition-transform active:scale-95">
-                    <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-40 transition-opacity">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" className="text-emerald-400"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z"/></svg>
-                    </div>
-                    <div className="relative z-10">
-                      <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 flex items-center justify-center mb-3 text-emerald-400 text-xl">🎒</div>
-                      <h3 className="font-bold text-white text-lg">Инвентарь</h3>
-                      <p className="text-emerald-400/60 text-xs mt-1 font-medium">Скины и рамки</p>
-                    </div>
-                  </div>
-                </Link>
-
-                <Link to="/lootbox" className="group">
-                  <div className="bg-gradient-to-br from-amber-900/40 to-amber-900/10 border border-amber-500/20 rounded-3xl p-5 relative overflow-hidden transition-transform active:scale-95">
-                    <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-40 transition-opacity">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" className="text-amber-400"><path d="m21 8-2 2-1.5-3.7A2 2 0 0 0 15.646 5H8.4a2 2 0 0 0-1.903 1.257L5 10 3 8"/><path d="M7 12a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2Z"/><path d="M5 10a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2Z"/></svg>
-                    </div>
-                    <div className="relative z-10">
-                      <div className="w-10 h-10 rounded-2xl bg-amber-500/20 flex items-center justify-center mb-3 text-amber-400 text-xl">🎁</div>
-                      <h3 className="font-bold text-white text-lg">Лутбоксы</h3>
-                      <p className="text-amber-400/60 text-xs mt-1 font-medium">Испытай удачу</p>
-                    </div>
-                  </div>
-                </Link>
-
-                <Link to="/wheel" className="group col-span-2">
-                  <div className="bg-gradient-to-br from-cyan-900/35 to-cyan-900/10 border border-cyan-500/20 rounded-3xl p-5 relative overflow-hidden transition-transform active:scale-95">
-                    <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-40 transition-opacity text-cyan-300 text-4xl">
-                      🎡
-                    </div>
-                    <div className="relative z-10">
-                      <div className="w-10 h-10 rounded-2xl bg-cyan-500/20 flex items-center justify-center mb-3 text-cyan-300 text-xl">🎡</div>
-                      <h3 className="font-bold text-white text-lg">Колесо фортуны</h3>
-                      <p className="text-cyan-300/60 text-xs mt-1 font-medium">Ежедневные призы и бонусы</p>
-                    </div>
-                  </div>
-                </Link>
-              </div>
-
-              <div className="rounded-3xl border border-indigo-400/25 bg-gradient-to-br from-indigo-500/20 to-cyan-500/10 p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <p className="text-white/50 text-xs uppercase tracking-wider">Прогресс профиля</p>
-                    <h3 className="text-white font-black text-xl">Уровень {level}</h3>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-cyan-200 text-sm font-semibold">{experience} XP</p>
-                    <p className="text-white/50 text-xs">Всего опыта</p>
-                  </div>
-                </div>
-                <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${experienceProgress}%` }}
-                    transition={{ duration: 0.8, ease: 'easeOut' }}
-                    className="h-full bg-gradient-to-r from-indigo-300 via-cyan-300 to-emerald-300"
-                  />
-                </div>
-                <p className="text-white/60 text-xs mt-2">До следующего уровня: {expToNext} XP</p>
-              </div>
-
-              {/* Collections Preview */}
-              <div className="bento-card p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-bold text-white flex items-center gap-2">
-                    <span className="text-xl">📚</span> Коллекции
-                  </h3>
-                  <Link to="/collections" className="text-xs font-bold text-game-primary bg-game-primary/10 px-3 py-1 rounded-full">
-                    ВСЕ
-                  </Link>
-                </div>
-                {collections.length > 0 ? (
-                  <div className="grid grid-cols-3 gap-3">
-                    {collections.slice(0, 3).map((col) => (
-                      <Link 
-                        key={col.id} 
-                        to={`/collections/${col.id}`}
-                        className="bg-white/5 rounded-2xl p-3 flex flex-col items-center text-center hover:bg-white/10 transition-colors"
-                      >
-                        <div className="text-3xl mb-2">{col.icon}</div>
-                        <p className="text-xs font-bold text-white line-clamp-1 w-full">{col.title}</p>
-                        <div className="w-full h-1 bg-white/10 rounded-full mt-3 overflow-hidden">
-                          <div className="h-full bg-game-primary" style={{ width: `${col.progress_percent}%` }} />
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-white/30 text-xs text-center py-4">Нет активных коллекций</p>
-                )}
-              </div>
-            </motion.div>
+          {achievementStats && (
+            <p className="text-xs text-white/50 mb-3">
+              Открыто {achievementStats.completed}/{achievementStats.total} ({achievementStats.completion_percent}%)
+            </p>
           )}
 
-          {activeTab === 'stats' && (
-            <motion.div
-              key="stats"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-              className="space-y-4"
-            >
-              {/* Main Stats */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="glass rounded-3xl p-5 flex flex-col justify-between h-32">
-                  <div className="text-white/40 text-xs font-bold uppercase tracking-wider">% Побед</div>
-                  <div className="text-right">
-                    <span className="text-4xl font-black text-white">{winRate}</span>
-                    <span className="text-lg text-white/40">%</span>
+          {showcasedAchievements.length > 0 ? (
+            <div className="grid grid-cols-1 gap-2">
+              {showcasedAchievements.slice(0, 4).map((achievement) => (
+                <div key={achievement.id} className="rounded-2xl border border-white/10 bg-white/5 p-3 flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-xl">
+                    {achievement.icon}
                   </div>
-                  <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-                    <div className="h-full bg-game-success rounded-full" style={{ width: `${winRate}%` }} />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-white truncate">{achievement.title}</p>
+                    <p className="text-xs text-white/50 truncate">{achievement.description}</p>
                   </div>
                 </div>
-                <div className="glass rounded-3xl p-5 flex flex-col justify-between h-32">
-                  <div className="text-white/40 text-xs font-bold uppercase tracking-wider">Всего игр</div>
-                  <div className="text-right">
-                    <span className="text-4xl font-black text-white">{totalGames}</span>
-                  </div>
-                  <div className="flex justify-end gap-1">
-                    <span className="text-xs text-game-success font-bold">{profile.stats?.duel_wins}W</span>
-                    <span className="text-xs text-white/20">/</span>
-                    <span className="text-xs text-game-danger font-bold">{profile.stats?.duel_losses}L</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* T/F Stats */}
-              <div className="bento-card p-5 flex items-center justify-between">
-                <div>
-                  <div className="text-white/40 text-xs font-bold uppercase tracking-wider mb-1">Рекорд Правда/Ложь</div>
-                  <div className="text-2xl font-bold text-white">{profile.true_false_record}</div>
-                </div>
-                <div className="text-4xl">🧠</div>
-              </div>
-
-              <button 
-                onClick={() => navigate('/stats')}
-                className="w-full py-4 bg-white/5 border border-white/10 rounded-2xl text-white font-bold text-sm hover:bg-white/10 transition-colors"
-              >
-                ПОДРОБНАЯ СТАТИСТИКА
-              </button>
-            </motion.div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-white/45">Пока нет выбранных достижений для витрины.</p>
           )}
+        </section>
 
-          {activeTab === 'achievements' && (
-            <motion.div
-              key="achievements"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-              className="space-y-4"
-            >
-              {achievementStats && (
-                <div className="glass rounded-3xl p-6 text-center mb-4">
-                  <div className="relative w-32 h-32 mx-auto mb-4">
-                    <svg className="w-full h-full -rotate-90">
-                      <circle cx="64" cy="64" r="56" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="12" />
-                      <circle 
-                        cx="64" cy="64" r="56" 
-                        fill="none" 
-                        stroke="#6366f1" 
-                        strokeWidth="12" 
-                        strokeDasharray={351} 
-                        strokeDashoffset={351 - (351 * (achievementStats.completion_percent / 100))} 
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="text-3xl font-black text-white">{achievementStats.completion_percent}%</span>
-                    </div>
-                  </div>
-                  <p className="text-white/60 text-sm">
-                    Открыто <span className="text-white font-bold">{achievementStats.completed}</span> из <span className="text-white font-bold">{achievementStats.total}</span>
-                  </p>
-                </div>
-              )}
-
-              <div className="space-y-3">
-                {showcasedAchievements.map((achievement) => (
-                  <div key={achievement.id} className="bento-card p-4 flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-game-primary/20 to-purple-500/20 flex items-center justify-center text-2xl border border-white/10">
-                      {achievement.icon}
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="text-white font-bold text-sm">{achievement.title}</h4>
-                      <p className="text-white/40 text-xs">{achievement.description}</p>
-                    </div>
-                  </div>
-                ))}
-                
-                <Link 
-                  to="/achievements"
-                  className="block w-full py-4 text-center text-game-primary font-bold text-sm bg-game-primary/10 rounded-2xl mt-4"
+        <section className="rounded-3xl border border-white/10 bg-black/20 backdrop-blur-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-white text-sm font-bold">Коллекции</h3>
+            <Link to="/collections" className="text-[11px] text-cyan-200 border border-cyan-300/30 bg-cyan-500/10 rounded-full px-3 py-1">
+              Все
+            </Link>
+          </div>
+          {collections.length > 0 ? (
+            <div className="grid grid-cols-2 gap-2">
+              {collections.slice(0, 4).map((col) => (
+                <Link
+                  key={col.id}
+                  to={`/collections/${col.id}`}
+                  className="rounded-2xl border border-white/10 bg-white/5 p-3"
                 >
-                  ВСЕ ДОСТИЖЕНИЯ
+                  <div className="text-xl mb-1">{col.icon}</div>
+                  <p className="text-xs font-semibold text-white truncate">{col.title}</p>
+                  <div className="w-full h-1 bg-white/10 rounded-full mt-2 overflow-hidden">
+                    <div className="h-full bg-cyan-300" style={{ width: `${col.progress_percent}%` }} />
+                  </div>
                 </Link>
-              </div>
-            </motion.div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-white/45">Нет активных коллекций.</p>
           )}
-        </AnimatePresence>
-      </div>
+        </section>
+      </motion.div>
     </div>
   )
 }
