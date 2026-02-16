@@ -2028,6 +2028,14 @@ function handleGetAdminNotificationsFeed($container, ?array $telegramUser, array
         jsonError('Не авторизован', 401);
     }
 
+    $schema = \Illuminate\Database\Capsule\Manager::schema();
+    if (!$schema->hasTable('admin_notifications')) {
+        jsonResponse([
+            'items' => [],
+            'count' => 0,
+        ]);
+    }
+
     $limit = max(1, min(50, (int) ($query['limit'] ?? 20)));
     $sinceId = max(0, (int) ($query['since_id'] ?? 0));
 
@@ -2066,6 +2074,14 @@ function handleAdminNotificationsList($container, ?array $telegramUser, array $q
 {
     if (!isAdmin($telegramUser, $container)) {
         jsonError('Доступ запрещён', 403);
+    }
+
+    $schema = \Illuminate\Database\Capsule\Manager::schema();
+    if (!$schema->hasTable('admin_notifications')) {
+        jsonResponse([
+            'items' => [],
+            'count' => 0,
+        ]);
     }
 
     $limit = max(1, min(100, (int) ($query['limit'] ?? 30)));
@@ -2109,6 +2125,11 @@ function handleAdminBroadcastNotification($container, ?array $telegramUser, arra
 {
     if (!isAdmin($telegramUser, $container)) {
         jsonError('Доступ запрещён', 403);
+    }
+
+    $schema = \Illuminate\Database\Capsule\Manager::schema();
+    if (!$schema->hasTable('admin_notifications')) {
+        jsonError('Таблица уведомлений не создана. Выполните миграции.', 500);
     }
 
     $title = trim((string) ($body['title'] ?? ''));
