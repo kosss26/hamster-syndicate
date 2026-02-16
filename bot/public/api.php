@@ -2182,10 +2182,25 @@ function handleGetShopItems($container, ?array $telegramUser, ?string $category)
     }
 
     try {
+        $userService = $container->get(\QuizBot\Application\Services\UserService::class);
         $shopService = $container->get(\QuizBot\Application\Services\ShopService::class);
-        $items = $shopService->getItems($category);
+        $user = $userService->findByTelegramId((int) $telegramUser['id']);
+        if (!$user) {
+            jsonError('Пользователь не найден', 404);
+        }
+
+        $items = $shopService->getItemsForUser($category, $user);
+        $profile = $user->profile;
         
-        jsonResponse(['items' => $items]);
+        jsonResponse([
+            'items' => $items,
+            'balance' => [
+                'coins' => (int) ($profile->coins ?? 0),
+                'gems' => (int) ($profile->gems ?? 0),
+                'hints' => (int) ($profile->hints ?? 0),
+                'lives' => (int) ($profile->lives ?? 0),
+            ],
+        ]);
     } catch (\Throwable $e) {
         error_log('Ошибка получения товаров: ' . $e->getMessage());
         jsonError('Ошибка получения товаров', 500);
