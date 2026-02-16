@@ -749,8 +749,6 @@ function DuelPage() {
         waitWatchdogRef.current.lastSyncAt = Date.now()
         if (typeof loadDuelRef.current === 'function') {
           loadDuelRef.current(duel.duel_id)
-        } else {
-          checkDuelStatus(duel.duel_id)
         }
       }
 
@@ -761,7 +759,7 @@ function DuelPage() {
     }, 3000)
 
     return () => clearInterval(watchdog)
-  }, [state, duel?.duel_id, roundStatus?.round_id, checkDuelStatus])
+  }, [state, duel?.duel_id, roundStatus?.round_id])
 
 
   useEffect(() => {
