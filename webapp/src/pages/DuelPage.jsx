@@ -701,7 +701,7 @@ function DuelPage() {
         searchTimerRef.current = null
       }
     }
-  }, [state, duel])
+  }, [state, duel?.duel_id])
 
   const checkDuelStatus = async (duelId) => {
     try {
