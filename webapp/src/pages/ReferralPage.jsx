@@ -4,6 +4,7 @@ import { useTelegram, hapticFeedback } from '../hooks/useTelegram'
 import api from '../api/client'
 import CoinIcon from '../components/CoinIcon'
 import TicketIcon from '../components/TicketIcon'
+import ReferralIcon from '../components/ReferralIcon'
 
 function ReferralPage() {
   const { webApp } = useTelegram()
@@ -162,7 +163,7 @@ function ReferralPage() {
         </section>
 
         <section className="grid grid-cols-2 gap-2">
-          <StatCard icon="👥" label="Приглашено" value={stats.total_referrals} />
+          <StatCard icon={<ReferralIcon className="w-4 h-4" />} label="Приглашено" value={stats.total_referrals} />
           <StatCard icon="✅" label="Активных" value={stats.active_referrals} />
           <StatCard icon={<CoinIcon className="w-4 h-4" />} label="Монет получено" value={stats.total_coins_earned} />
           <StatCard icon={<TicketIcon className="w-4 h-4" />} label="Билетов получено" value={stats.total_tickets_earned || 0} />

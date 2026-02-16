@@ -8,6 +8,7 @@ import CoinIcon from '../components/CoinIcon'
 import TicketIcon from '../components/TicketIcon'
 import ModeDuelIcon from '../components/ModeDuelIcon'
 import ModeTrueFalseIcon from '../components/ModeTrueFalseIcon'
+import ReferralIcon from '../components/ReferralIcon'
 import { getNotificationItems, subscribeNotifications } from '../utils/notificationInbox'
 
 function HomePage() {
@@ -297,7 +298,10 @@ function HomePage() {
           >
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-white font-semibold text-sm mb-1">👥 Приглашай друзей</div>
+                <div className="flex items-center gap-2 mb-1">
+                  <ReferralIcon className="w-5 h-5" />
+                  <div className="text-white font-semibold text-sm">Приглашай друзей</div>
+                </div>
                 <div className="text-white/55 text-xs">Увеличивай награды и развивай аккаунт быстрее</div>
               </div>
               <div className="text-emerald-200 text-xs font-semibold whitespace-nowrap">Бонусы</div>
