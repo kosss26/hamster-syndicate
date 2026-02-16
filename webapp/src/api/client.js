@@ -127,6 +127,7 @@ export const api = {
     method: 'POST',
     body: JSON.stringify({ lootbox_type: lootboxType })
   }),
+  getLootboxConfig: () => request('/lootbox/config'),
   getLootboxHistory: () => request('/lootbox/history'),
 
   // Бусты

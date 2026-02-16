@@ -355,6 +355,11 @@ try {
             handleLootboxOpen($container, $telegramUser, $body);
             break;
 
+        // GET /lootbox/config - конфигурация и прогресс гарантов
+        case $path === '/lootbox/config' && $requestMethod === 'GET':
+            handleLootboxConfig($container, $telegramUser);
+            break;
+
         // GET /lootbox/history - история открытых лутбоксов
         case $path === '/lootbox/history' && $requestMethod === 'GET':
             handleLootboxHistory($container, $telegramUser);
@@ -2567,6 +2572,32 @@ function handleLootboxOpen($container, ?array $telegramUser, array $body): void
     } catch (\Throwable $e) {
         error_log('Ошибка открытия лутбокса: ' . $e->getMessage());
         jsonError('Ошибка открытия лутбокса', 500);
+    }
+}
+
+/**
+ * GET /lootbox/config - конфигурация лутбоксов и прогресс гарантов
+ */
+function handleLootboxConfig($container, ?array $telegramUser): void
+{
+    if (!$telegramUser) {
+        jsonError('Не авторизован', 401);
+    }
+
+    try {
+        $userService = $container->get(\QuizBot\Application\Services\UserService::class);
+        $lootboxService = $container->get(\QuizBot\Application\Services\LootboxService::class);
+
+        $user = $userService->findByTelegramId((int) $telegramUser['id']);
+        if (!$user) {
+            jsonError('Пользователь не найден', 404);
+        }
+
+        $config = $lootboxService->getConfig($user);
+        jsonResponse($config);
+    } catch (\Throwable $e) {
+        error_log('Ошибка получения конфига лутбоксов: ' . $e->getMessage());
+        jsonError('Ошибка получения конфигурации', 500);
     }
 }
 
