@@ -35,15 +35,6 @@ function rarityLabel(rarity) {
   }
 }
 
-function priceLabel(item, quantity) {
-  const q = Math.max(1, Number(quantity || 1))
-  const coins = Number(item.price_coins || 0) * q
-  const gems = Number(item.price_gems || 0) * q
-  if (coins > 0 && gems > 0) return `${coins} 🪙 + ${gems} 💎`
-  if (coins > 0) return `${coins} 🪙`
-  return `${gems} 💎`
-}
-
 const ShopPage = () => {
   const { webApp } = useTelegram()
   const [loading, setLoading] = useState(true)
@@ -333,7 +324,21 @@ const ShopPage = () => {
                           : 'border-cyan-300/35 bg-cyan-500/15 text-white active:scale-[0.98]'
                       }`}
                     >
-                      {busyItemId === item.id ? 'Покупка...' : `Купить • ${priceLabel(item, quantity)}`}
+                      {busyItemId === item.id ? (
+                        'Покупка...'
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5">
+                          Купить •
+                          {Number(item.price_coins || 0) > 0 ? (
+                            <>
+                              <CoinIcon className="w-4 h-4" />
+                              <span>{Number(item.price_coins || 0) * quantity}</span>
+                            </>
+                          ) : null}
+                          {Number(item.price_coins || 0) > 0 && Number(item.price_gems || 0) > 0 ? <span>+</span> : null}
+                          {Number(item.price_gems || 0) > 0 ? <span>{Number(item.price_gems || 0) * quantity} 💎</span> : null}
+                        </span>
+                      )}
                     </button>
                   </div>
                 </motion.div>
@@ -375,4 +380,3 @@ const ShopPage = () => {
 }
 
 export default ShopPage
-

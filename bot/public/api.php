@@ -303,6 +303,11 @@ try {
             handleAdminBroadcastNotification($container, $telegramUser, $body);
             break;
 
+        // POST /admin/lootbox/grant - выдать лутбоксы игроку
+        case $path === '/admin/lootbox/grant' && $requestMethod === 'POST':
+            handleAdminGrantLootbox($container, $telegramUser, $body);
+            break;
+
         // === SHOP SYSTEM ===
         
         // GET /shop/items - получить товары магазина
@@ -2270,6 +2275,78 @@ function handleAdminBroadcastNotification($container, ?array $telegramUser, arra
         'message' => $message,
         'created_by_user_id' => $createdByUserId,
         'message_text' => 'Рассылка отправлена',
+    ]);
+}
+
+/**
+ * POST /admin/lootbox/grant - выдать лутбоксы игроку
+ */
+function handleAdminGrantLootbox($container, ?array $telegramUser, array $body): void
+{
+    if (!isAdmin($telegramUser, $container)) {
+        jsonError('Доступ запрещён', 403);
+    }
+
+    $userId = (int) ($body['user_id'] ?? 0);
+    $telegramId = (int) ($body['telegram_id'] ?? 0);
+    $lootboxType = strtolower(trim((string) ($body['lootbox_type'] ?? '')));
+    $quantity = max(1, min(999, (int) ($body['quantity'] ?? 1)));
+
+    if ($userId <= 0 && $telegramId <= 0) {
+        jsonError('Укажите user_id или telegram_id', 400);
+    }
+
+    $allowedTypes = ['bronze', 'silver', 'gold', 'legendary'];
+    if (!in_array($lootboxType, $allowedTypes, true)) {
+        jsonError('Некорректный тип лутбокса', 400);
+    }
+
+    /** @var UserService $userService */
+    $userService = $container->get(UserService::class);
+
+    $targetUser = null;
+    if ($userId > 0) {
+        $targetUser = \QuizBot\Domain\Model\User::query()->find($userId);
+    } else {
+        $targetUser = $userService->findByTelegramId($telegramId);
+    }
+
+    if (!$targetUser) {
+        jsonError('Пользователь не найден', 404);
+    }
+
+    $existingItem = \QuizBot\Domain\Model\UserInventory::query()
+        ->where('user_id', $targetUser->getKey())
+        ->where('item_type', 'lootbox')
+        ->where('item_key', $lootboxType)
+        ->first();
+
+    if ($existingItem) {
+        $existingQuantity = (int) $existingItem->quantity;
+        $existingItem->quantity = $existingQuantity + $quantity;
+        $existingItem->acquired_at = \Illuminate\Support\Carbon::now();
+        $existingItem->save();
+        $totalQuantity = (int) $existingItem->quantity;
+    } else {
+        $created = \QuizBot\Domain\Model\UserInventory::query()->create([
+            'user_id' => $targetUser->getKey(),
+            'item_type' => 'lootbox',
+            'item_id' => null,
+            'item_key' => $lootboxType,
+            'quantity' => $quantity,
+            'expires_at' => null,
+            'acquired_at' => \Illuminate\Support\Carbon::now(),
+        ]);
+        $totalQuantity = (int) ($created->quantity ?? $quantity);
+    }
+
+    jsonResponse([
+        'message' => 'Лутбоксы выданы',
+        'user_id' => (int) $targetUser->getKey(),
+        'telegram_id' => (int) ($targetUser->telegram_id ?? 0),
+        'lootbox_type' => $lootboxType,
+        'added' => $quantity,
+        'total_quantity' => $totalQuantity,
     ]);
 }
 

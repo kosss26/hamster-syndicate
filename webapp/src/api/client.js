@@ -176,6 +176,10 @@ export const api = {
     method: 'POST',
     body: JSON.stringify({ title, message })
   }),
+  adminGrantLootbox: (payload) => request('/admin/lootbox/grant', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  }),
   isAdmin: () => request('/admin/check'),
   adminCancelDuel: (duelId) => request(`/admin/duel/${duelId}/cancel`, { method: 'POST' }),
   adminCancelDuelByCode: (code) => request('/admin/duel/by-code/cancel', {

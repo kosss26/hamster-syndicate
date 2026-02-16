@@ -10,6 +10,7 @@ const TABS = [
   { id: 'duels', label: 'Дуэли' },
   { id: 'questions', label: 'Вопросы' },
   { id: 'facts', label: 'П/Л факты' },
+  { id: 'lootboxes', label: 'Лутбоксы' },
   { id: 'broadcast', label: 'Рассылка' },
 ]
 
@@ -53,6 +54,13 @@ function AdminPage() {
     title: '',
     message: '',
   })
+  const [grantForm, setGrantForm] = useState({
+    target: '',
+    target_type: 'telegram_id',
+    lootbox_type: 'bronze',
+    quantity: 1,
+  })
+  const [grantResult, setGrantResult] = useState(null)
 
   useEffect(() => {
     showBackButton(true)
@@ -254,6 +262,47 @@ function AdminPage() {
       setBroadcastForm({ title: '', message: '' })
       hapticFeedback('success')
       await loadAdminNotifications()
+    } catch (e) {
+      alert(e.message || 'Ошибка')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleGrantLootbox = async () => {
+    const target = grantForm.target.trim()
+    const quantity = Math.max(1, Number(grantForm.quantity || 1))
+    if (!target) {
+      alert('Укажи ID пользователя')
+      return
+    }
+
+    setActionLoading(true)
+    setGrantResult(null)
+    try {
+      const payload = {
+        lootbox_type: grantForm.lootbox_type,
+        quantity,
+      }
+      if (grantForm.target_type === 'user_id') {
+        payload.user_id = Number(target)
+      } else {
+        payload.telegram_id = Number(target)
+      }
+
+      const res = await api.adminGrantLootbox(payload)
+      if (!res.success) throw new Error(res.error || 'Не удалось выдать лутбокс')
+
+      const data = res.data || {}
+      setGrantResult({
+        message: data.message || 'Лутбоксы выданы',
+        user_id: data.user_id,
+        telegram_id: data.telegram_id,
+        lootbox_type: data.lootbox_type,
+        added: data.added,
+        total: data.total_quantity,
+      })
+      hapticFeedback('success')
     } catch (e) {
       alert(e.message || 'Ошибка')
     } finally {
@@ -549,6 +598,73 @@ function AdminPage() {
                 </div>
               ))}
             </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'lootboxes' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+            <div className="rounded-2xl border border-white/10 bg-black/25 p-4 space-y-3">
+              <div className="text-sm text-white/70">Выдать лутбоксы конкретному игроку</div>
+              <div className="grid md:grid-cols-2 gap-2">
+                <select
+                  value={grantForm.target_type}
+                  onChange={(e) => setGrantForm((prev) => ({ ...prev, target_type: e.target.value }))}
+                  className="rounded-xl bg-black/30 border border-white/15 px-4 py-3 text-white"
+                >
+                  <option value="telegram_id">По Telegram ID</option>
+                  <option value="user_id">По внутреннему User ID</option>
+                </select>
+                <input
+                  value={grantForm.target}
+                  onChange={(e) => setGrantForm((prev) => ({ ...prev, target: e.target.value.replace(/\D+/g, '') }))}
+                  placeholder={grantForm.target_type === 'telegram_id' ? 'Telegram ID игрока' : 'User ID игрока'}
+                  className="rounded-xl bg-black/30 border border-white/15 px-4 py-3 text-white"
+                />
+              </div>
+
+              <div className="grid md:grid-cols-3 gap-2">
+                <select
+                  value={grantForm.lootbox_type}
+                  onChange={(e) => setGrantForm((prev) => ({ ...prev, lootbox_type: e.target.value }))}
+                  className="rounded-xl bg-black/30 border border-white/15 px-4 py-3 text-white"
+                >
+                  <option value="bronze">Бронзовый</option>
+                  <option value="silver">Серебряный</option>
+                  <option value="gold">Золотой</option>
+                  <option value="legendary">Легендарный</option>
+                </select>
+                <input
+                  type="number"
+                  min={1}
+                  max={999}
+                  value={grantForm.quantity}
+                  onChange={(e) => setGrantForm((prev) => ({ ...prev, quantity: e.target.value }))}
+                  className="rounded-xl bg-black/30 border border-white/15 px-4 py-3 text-white"
+                />
+                <button
+                  onClick={handleGrantLootbox}
+                  disabled={actionLoading}
+                  className="rounded-xl bg-violet-500/20 border border-violet-400/30 text-violet-200 px-4 py-3 disabled:opacity-40"
+                >
+                  Выдать
+                </button>
+              </div>
+              <div className="text-[11px] text-white/45">
+                Поддерживаются типы: bronze, silver, gold, legendary
+              </div>
+            </div>
+
+            {grantResult && (
+              <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4">
+                <div className="text-emerald-100 text-sm">{grantResult.message}</div>
+                <div className="text-emerald-200/80 text-xs mt-1">
+                  user_id: {grantResult.user_id} · tg: {grantResult.telegram_id}
+                </div>
+                <div className="text-emerald-200/80 text-xs mt-1">
+                  Тип: {grantResult.lootbox_type} · добавлено: {grantResult.added} · всего: {grantResult.total}
+                </div>
+              </div>
+            )}
           </motion.div>
         )}
 
