@@ -1762,10 +1762,11 @@ function DuelPage() {
                         setState(STATES.MENU)
                         setDuel(null)
                         setScore({ player: 0, opponent: 0 })
+                        navigate('/')
                     }} 
                     className="w-full py-3 border border-white/20 rounded-2xl text-white font-semibold text-base hover:bg-white/10 transition-colors"
                 >
-                    В меню дуэлей
+                    На главную
                 </button>
             </motion.div>
          </div>

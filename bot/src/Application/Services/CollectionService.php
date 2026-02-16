@@ -3,6 +3,7 @@
 namespace QuizBot\Application\Services;
 
 use Illuminate\Support\Collection as SupportCollection;
+use Illuminate\Support\Carbon;
 use QuizBot\Domain\Model\Collection;
 use QuizBot\Domain\Model\CollectionItem;
 use QuizBot\Domain\Model\UserCollectionItem;
@@ -192,7 +193,7 @@ class CollectionService
         $userItem = UserCollectionItem::create([
             'user_id' => $userId,
             'collection_item_id' => $itemId,
-            'obtained_at' => now(),
+            'obtained_at' => Carbon::now(),
             'obtained_from' => $source,
         ]);
         

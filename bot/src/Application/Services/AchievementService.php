@@ -2,6 +2,7 @@
 
 namespace QuizBot\Application\Services;
 
+use Illuminate\Support\Carbon;
 use QuizBot\Domain\Model\Achievement;
 use QuizBot\Domain\Model\UserAchievement;
 use QuizBot\Domain\Model\UserProfile;
@@ -154,8 +155,8 @@ class AchievementService
         // Разблокируем
         $userAchievement->current_value = $achievement->condition_value;
         $userAchievement->is_completed = true;
-        $userAchievement->completed_at = now();
-        $userAchievement->updated_at = now();
+        $userAchievement->completed_at = Carbon::now();
+        $userAchievement->updated_at = Carbon::now();
         $userAchievement->save();
         
         // Выдаём награды
@@ -207,7 +208,7 @@ class AchievementService
         
         // Обновляем значение
         $userAchievement->current_value = $newValue;
-        $userAchievement->updated_at = now();
+        $userAchievement->updated_at = Carbon::now();
         
         // Проверяем, достигнуто ли условие
         if ($newValue >= $achievement->condition_value) {

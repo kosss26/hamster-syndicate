@@ -2,6 +2,7 @@
 
 namespace QuizBot\Application\Services;
 
+use Illuminate\Support\Carbon;
 use QuizBot\Domain\Model\Achievement;
 use QuizBot\Domain\Model\AchievementStat;
 use QuizBot\Domain\Model\Category;
@@ -23,7 +24,7 @@ class AchievementTrackerService
     {
         AchievementStat::updateOrCreate(
             ['user_id' => $userId, 'stat_key' => $statKey],
-            ['stat_value' => $value, 'last_updated' => now()]
+            ['stat_value' => $value, 'last_updated' => Carbon::now()]
         );
     }
 
@@ -38,7 +39,7 @@ class AchievementTrackerService
         );
         
         $stat->stat_value += $amount;
-        $stat->last_updated = now();
+        $stat->last_updated = Carbon::now();
         $stat->save();
         
         return $stat->stat_value;
