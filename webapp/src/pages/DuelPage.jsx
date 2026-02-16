@@ -764,7 +764,7 @@ function DuelPage() {
           const currentDuelId = duel?.duel_id
           if (!currentDuelId) {
             setError(isRematchWaiting ? 'Соперник не принял реванш.' : 'Соперник не найден. Попробуйте ещё раз.')
-            setState(STATES.MENU)
+            navigate('/')
             hapticFeedback('error')
             return 0
           }
@@ -773,7 +773,7 @@ function DuelPage() {
             api.cancelRematch(currentDuelId).catch(() => api.cancelDuel(currentDuelId).catch(console.error))
             setError('Соперник не принял реванш за 30 секунд.')
             setDuel(null)
-            setState(STATES.MENU)
+            navigate('/')
             hapticFeedback('warning')
             return 0
           }
@@ -795,7 +795,7 @@ function DuelPage() {
                 setError(ghostPoolAvailableRef.current === false
                   ? 'Соперник не найден: пока нет записей призраков. Сыграйте несколько реальных дуэлей.'
                   : 'Соперник не найден. Попробуйте ещё раз.')
-                setState(STATES.MENU)
+                navigate('/')
                 hapticFeedback('error')
               })
             }, 3500)
@@ -805,7 +805,7 @@ function DuelPage() {
             }
             api.cancelDuel(currentDuelId).catch(console.error)
             setError('Соперник не найден. Попробуйте ещё раз.')
-            setState(STATES.MENU)
+            navigate('/')
             hapticFeedback('error')
           })
 
@@ -857,7 +857,7 @@ function DuelPage() {
           answeredRoundId.current = null
           currentQuestionId.current = null
           setError(mapCancelReason(data.cancel_reason))
-          setState(STATES.MENU)
+          navigate('/')
           return
         }
         
@@ -1003,7 +1003,7 @@ function DuelPage() {
           answeredRoundId.current = null
           currentQuestionId.current = null
           setError(mapCancelReason(data.cancel_reason))
-          setState(STATES.MENU)
+          navigate('/')
           return
         }
 
@@ -1102,7 +1102,7 @@ function DuelPage() {
         }
       } else {
         setError(response.error || 'Не удалось создать дуэль')
-        setState(STATES.MENU)
+        navigate('/')
       }
     } catch (err) {
       console.error('Failed to create duel:', err)
@@ -1110,7 +1110,7 @@ function DuelPage() {
         showNoTicketsModal()
       }
       setError(`Ошибка: ${err.message}`)
-      setState(STATES.MENU)
+      navigate('/')
     } finally {
       setLoading(false)
     }
@@ -1134,7 +1134,7 @@ function DuelPage() {
         setState(STATES.INVITE)
       } else {
         setError(response.error || 'Не удалось создать дуэль')
-        setState(STATES.MENU)
+        navigate('/')
       }
     } catch (err) {
       console.error('Failed to create invite duel:', err)
@@ -1142,7 +1142,7 @@ function DuelPage() {
         showNoTicketsModal()
       }
       setError(`Ошибка: ${err.message}`)
-      setState(STATES.MENU)
+      navigate('/')
     } finally {
       setLoading(false)
     }
@@ -1518,7 +1518,7 @@ function DuelPage() {
             </button>
             
             <button
-               onClick={() => setState(STATES.MENU)}
+               onClick={() => navigate('/')}
                className="w-full py-3 text-white/40 font-medium"
             >
                 Отмена
@@ -1613,7 +1613,7 @@ function DuelPage() {
                      setError('Приглашение на реванш отменено.')
                    }
                    setDuel(null)
-                   setState(STATES.MENU)
+                   navigate('/')
                 }}
                 className="text-white/40 text-sm hover:text-white"
              >

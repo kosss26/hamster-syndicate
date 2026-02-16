@@ -270,8 +270,10 @@ function HomePage() {
           <div className="absolute -top-20 -right-20 w-52 h-52 rounded-full bg-cyan-400/25 blur-3xl" />
           <div className="absolute -bottom-24 -left-16 w-56 h-56 rounded-full bg-emerald-400/20 blur-3xl" />
           <div className="relative text-center">
-            <h1 className="text-white text-3xl font-black leading-tight mb-2">Дуэль</h1>
-            <p className="text-white/70 text-sm mb-4">Выбери формат и начни игру.</p>
+            <div className="inline-flex items-center gap-2 rounded-2xl bg-white text-slate-900 px-4 py-2 mb-4">
+              <ModeDuelIcon className="w-5 h-5" />
+              <h1 className="text-xl font-black leading-tight">Дуэль</h1>
+            </div>
             <div className="flex justify-center mb-4">
               <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/30 bg-emerald-500/10 px-3 py-1.5 mr-2">
                 <span className="relative flex h-2.5 w-2.5">
@@ -294,28 +296,16 @@ function HomePage() {
             )}
           </div>
 
-          <div className="grid grid-cols-1 gap-2.5 mb-3">
-            <button
-              onClick={handlePlay}
-              className="w-full rounded-2xl bg-white text-slate-900 font-black py-4 text-base active:scale-[0.99] transition-transform"
-            >
-              <span className="inline-flex items-center gap-2">
-                <ModeDuelIcon className="w-5 h-5" />
-                Выбрать режим
-              </span>
-            </button>
-          </div>
-
           <div className="grid grid-cols-2 gap-2.5 relative">
             <button
               onClick={handleQuickRandom}
-              className="rounded-xl border border-indigo-300/45 bg-indigo-500/25 text-white py-3 text-sm font-semibold"
+              className="rounded-xl border border-indigo-300/45 bg-indigo-500/25 text-white py-4 text-sm font-semibold"
             >
               🎲 Случайный
             </button>
             <button
               onClick={handleQuickFriend}
-              className="rounded-xl border border-cyan-300/45 bg-cyan-500/25 text-white py-3 text-sm font-semibold"
+              className="rounded-xl border border-cyan-300/45 bg-cyan-500/25 text-white py-4 text-sm font-semibold"
             >
               <span className="inline-flex items-center gap-1.5">
                 <ReferralIcon className="w-4 h-4" />
