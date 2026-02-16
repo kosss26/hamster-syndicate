@@ -248,6 +248,11 @@ try {
             handleGetReferralStats($container, $telegramUser);
             break;
 
+        // POST /support/message - отправить сообщение в поддержку
+        case $path === '/support/message' && $requestMethod === 'POST':
+            handleSupportMessage($container, $telegramUser, $body);
+            break;
+
         // GET /admin/check - проверить права админа
         case $path === '/admin/check' && $requestMethod === 'GET':
             handleAdminCheck($container, $telegramUser);
@@ -3427,6 +3432,64 @@ function handleGetReferralStats($container, ?array $telegramUser): void
     } catch (\Throwable $e) {
         error_log('Ошибка получения реферальной статистики: ' . $e->getMessage());
         jsonError('Ошибка получения данных', 500);
+    }
+}
+
+/**
+ * POST /support/message - отправить сообщение в поддержку
+ */
+function handleSupportMessage($container, ?array $telegramUser, array $body): void
+{
+    if (!$telegramUser) {
+        jsonError('Не авторизован', 401);
+    }
+
+    $message = trim((string) ($body['message'] ?? ''));
+    $topic = trim((string) ($body['topic'] ?? ''));
+
+    if ($message === '') {
+        jsonError('Введите сообщение', 400);
+    }
+
+    if (mb_strlen($message) < 5) {
+        jsonError('Сообщение слишком короткое (минимум 5 символов)', 400);
+    }
+
+    if (mb_strlen($message) > 2000) {
+        jsonError('Сообщение слишком длинное (максимум 2000 символов)', 400);
+    }
+
+    $allowedTopics = [
+        'general' => 'Общий вопрос',
+        'bug' => 'Ошибка',
+        'idea' => 'Пожелание',
+        'payment' => 'Покупки',
+    ];
+    $topicKey = strtolower($topic);
+    if (!isset($allowedTopics[$topicKey])) {
+        $topicKey = 'general';
+    }
+    $topicLabel = $allowedTopics[$topicKey];
+
+    try {
+        /** @var UserService $userService */
+        $userService = $container->get(UserService::class);
+        $user = $userService->syncFromTelegram($telegramUser);
+        $userService->ensureProfile($user);
+
+        /** @var \QuizBot\Application\Services\AdminService $adminService */
+        $adminService = $container->get(\QuizBot\Application\Services\AdminService::class);
+        $adminService->sendFeedbackToAdmins(
+            $user,
+            sprintf("[WebApp][%s]\n%s", $topicLabel, $message)
+        );
+
+        jsonResponse([
+            'message' => 'Сообщение отправлено. Спасибо за обратную связь!',
+        ]);
+    } catch (\Throwable $e) {
+        error_log('Ошибка отправки сообщения в поддержку: ' . $e->getMessage());
+        jsonError('Не удалось отправить сообщение', 500);
     }
 }
 

@@ -107,6 +107,10 @@ export const api = {
 
   // Реферальная система
   getReferralStats: () => request('/referral/stats'),
+  sendSupportMessage: (message, topic = 'general') => request('/support/message', {
+    method: 'POST',
+    body: JSON.stringify({ message, topic })
+  }),
 
   // Магазин
   getShopItems: (category = null) => request(`/shop/items${category ? `?category=${category}` : ''}`),

@@ -10,6 +10,7 @@ import LeaderboardPage from './pages/LeaderboardPage'
 import StatsPage from './pages/StatsPage'
 import TrueFalsePage from './pages/TrueFalsePage'
 import ReferralPage from './pages/ReferralPage'
+import SupportPage from './pages/SupportPage'
 import AdminPage from './pages/AdminPage'
 import ShopPage from './pages/ShopPage'
 import InventoryPage from './pages/InventoryPage'
@@ -141,6 +142,7 @@ function App() {
               <Route path="/stats" element={<StatsPage />} />
               <Route path="/leaderboard" element={<LeaderboardPage />} />
               <Route path="/referral" element={<ReferralPage />} />
+              <Route path="/support" element={<SupportPage />} />
               <Route path="/shop" element={<ShopPage />} />
               <Route path="/inventory" element={<InventoryPage />} />
               <Route path="/wheel" element={<FortuneWheelPage />} />

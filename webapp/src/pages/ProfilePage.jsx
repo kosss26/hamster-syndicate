@@ -204,7 +204,7 @@ function ProfilePage() {
 
         <section className="rounded-3xl border border-white/10 bg-black/20 backdrop-blur-xl p-4">
           <h3 className="text-white text-sm font-bold mb-3">Быстрые действия</h3>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-4 gap-2">
             <Link to="/inventory" className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 p-3 text-center active:scale-95 transition-transform">
               <div className="text-xl mb-1">🎒</div>
               <p className="text-xs font-semibold text-white">Инвентарь</p>
@@ -216,6 +216,10 @@ function ProfilePage() {
             <Link to="/lootbox" className="rounded-2xl border border-amber-400/25 bg-amber-500/10 p-3 text-center active:scale-95 transition-transform">
               <div className="text-xl mb-1">🎁</div>
               <p className="text-xs font-semibold text-white">Лутбоксы</p>
+            </Link>
+            <Link to="/support" className="rounded-2xl border border-sky-400/25 bg-sky-500/10 p-3 text-center active:scale-95 transition-transform">
+              <div className="text-xl mb-1">🛟</div>
+              <p className="text-xs font-semibold text-white">Поддержка</p>
             </Link>
           </div>
         </section>
