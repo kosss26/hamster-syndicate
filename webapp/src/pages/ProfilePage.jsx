@@ -1,6 +1,6 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { motion, useMotionValue, useSpring, useTransform, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useTelegram, showBackButton, hapticFeedback } from '../hooks/useTelegram'
 import api from '../api/client'
 import AvatarWithFrame from '../components/AvatarWithFrame'
@@ -15,16 +15,6 @@ function ProfilePage() {
   const [achievementStats, setAchievementStats] = useState(null)
   const [collections, setCollections] = useState([])
   const [activeTab, setActiveTab] = useState('overview') // 'overview', 'stats', 'history'
-
-  // Parallax effect values
-  const x = useMotionValue(0)
-  const y = useMotionValue(0)
-  const rotateX = useTransform(y, [-100, 100], [10, -10])
-  const rotateY = useTransform(x, [-100, 100], [-10, 10])
-  
-  const springConfig = { damping: 25, stiffness: 150 }
-  const springRotateX = useSpring(rotateX, springConfig)
-  const springRotateY = useSpring(rotateY, springConfig)
 
   useEffect(() => {
     showBackButton(true)
@@ -75,19 +65,6 @@ function ProfilePage() {
     }
   }
 
-  const handleMouseMove = (event) => {
-    const rect = event.currentTarget.getBoundingClientRect()
-    const centerX = rect.left + rect.width / 2
-    const centerY = rect.top + rect.height / 2
-    x.set(event.clientX - centerX)
-    y.set(event.clientY - centerY)
-  }
-
-  const handleMouseLeave = () => {
-    x.set(0)
-    y.set(0)
-  }
-
   if (loading) {
     return (
       <div className="min-h-dvh bg-aurora relative overflow-hidden flex items-center justify-center">
@@ -134,6 +111,11 @@ function ProfilePage() {
   const levelSpan = Math.max(1, nextLevelExp - levelStart)
   const experienceProgress = Math.max(0, Math.min(100, Math.round((expIntoLevel / levelSpan) * 100)))
   const expToNext = Number(progressData?.exp_to_next_level ?? 0)
+  const avatarRingSize = 140
+  const avatarStroke = 7
+  const avatarRadius = (avatarRingSize - avatarStroke) / 2
+  const avatarCircumference = 2 * Math.PI * avatarRadius
+  const avatarProgressOffset = avatarCircumference * (1 - experienceProgress / 100)
 
   return (
     <div className="min-h-dvh bg-aurora relative overflow-hidden flex flex-col pb-24">
@@ -141,49 +123,71 @@ function ProfilePage() {
       <div className="aurora-blob aurora-blob-3 opacity-50" />
       <div className="noise-overlay" />
 
-      {/* Hero Section with Parallax */}
+      {/* Hero Section */}
       <div className="relative z-10 p-6 pb-0">
-        <motion.div
-          style={{ rotateX: springRotateX, rotateY: springRotateY, perspective: 1000 }}
-          onMouseMove={handleMouseMove}
-          onMouseLeave={handleMouseLeave}
-          className="relative w-full aspect-[4/3] rounded-[32px] overflow-hidden shadow-2xl mb-6 group cursor-grab active:cursor-grabbing"
-        >
+        <div className="relative w-full rounded-[32px] overflow-hidden shadow-2xl mb-6">
           {/* Card Background */}
           <div className="absolute inset-0 bg-gradient-to-br from-[#1a1a2e] to-[#0f0f1a] z-0" />
           <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 z-0 mix-blend-overlay" />
-          
-          {/* Animated Glow */}
-          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-game-primary/20 via-transparent to-purple-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10" />
+          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-game-primary/20 via-transparent to-purple-500/20 z-10" />
 
           {/* Content */}
-          <div className="relative z-20 h-full flex flex-col items-center justify-center p-6 text-center transform translate-z-10">
-            <motion.div 
-              initial={{ scale: 0.5, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: "spring", stiffness: 200, delay: 0.1 }}
-              className="relative mb-4"
-            >
-              <div className="absolute inset-0 bg-game-primary/30 blur-3xl rounded-full" />
-              <AvatarWithFrame
-                photoUrl={user?.photo_url}
-                name={user?.first_name}
-                frameKey={profile?.equipped_frame}
-                size={100}
-                animated={false}
-                showGlow={true}
-              />
-              <div className="absolute -bottom-2 -right-2 bg-black/50 backdrop-blur-md border border-white/10 rounded-full px-3 py-1 flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full bg-game-success animate-pulse" />
+          <div className="relative z-20 flex flex-col items-center justify-center p-6 text-center">
+            <div className="relative mb-5 pt-5">
+              <div className="absolute left-1/2 -translate-x-1/2 -top-1 z-30 px-3 py-1 rounded-full border border-cyan-300/30 bg-black/45 backdrop-blur-md">
+                <span className="text-xs font-black text-cyan-200 tracking-wide">LVL {level}</span>
+              </div>
+
+              <div className="relative mx-auto" style={{ width: avatarRingSize, height: avatarRingSize }}>
+                <svg className="absolute inset-0 -rotate-90" width={avatarRingSize} height={avatarRingSize}>
+                  <circle
+                    cx={avatarRingSize / 2}
+                    cy={avatarRingSize / 2}
+                    r={avatarRadius}
+                    fill="none"
+                    stroke="rgba(255,255,255,0.18)"
+                    strokeWidth={avatarStroke}
+                  />
+                  <circle
+                    cx={avatarRingSize / 2}
+                    cy={avatarRingSize / 2}
+                    r={avatarRadius}
+                    fill="none"
+                    stroke="url(#profileXpRing)"
+                    strokeWidth={avatarStroke}
+                    strokeLinecap="round"
+                    strokeDasharray={avatarCircumference}
+                    strokeDashoffset={avatarProgressOffset}
+                    style={{ transition: 'stroke-dashoffset 0.35s ease' }}
+                  />
+                  <defs>
+                    <linearGradient id="profileXpRing" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#67e8f9" />
+                      <stop offset="50%" stopColor="#818cf8" />
+                      <stop offset="100%" stopColor="#34d399" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+
+                <div className="absolute inset-[20px] rounded-full overflow-hidden">
+                  <AvatarWithFrame
+                    photoUrl={user?.photo_url}
+                    name={user?.first_name}
+                    frameKey={profile?.equipped_frame}
+                    size={100}
+                    animated={false}
+                    showGlow={false}
+                  />
+                </div>
+              </div>
+
+              <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-md border border-white/10 rounded-full px-3 py-1 flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full bg-game-success" />
                 <span className="text-[10px] font-bold text-white uppercase tracking-wider">В сети</span>
               </div>
-            </motion.div>
+            </div>
 
-            <motion.div
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.2 }}
-            >
+            <div>
               <h1 className="text-3xl font-black text-white mb-1 tracking-tight drop-shadow-lg">
                 {user?.first_name}
                 <span className="text-game-primary">.</span>
@@ -191,15 +195,10 @@ function ProfilePage() {
               {user?.username && (
                 <p className="text-white/40 text-sm font-mono tracking-wider">@{user.username}</p>
               )}
-            </motion.div>
+            </div>
 
             {/* Rank Badge */}
-            <motion.div 
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.3 }}
-              className="mt-4 bg-white/5 border border-white/10 backdrop-blur-md rounded-xl px-4 py-2 flex items-center gap-2"
-            >
+            <div className="mt-4 bg-white/5 border border-white/10 backdrop-blur-md rounded-xl px-4 py-2 flex items-center gap-2">
               <span className="text-lg">🏆</span>
               <div className="text-left">
                 <p className="text-[10px] text-white/40 uppercase font-bold tracking-widest leading-none">Ранг</p>
@@ -210,9 +209,19 @@ function ProfilePage() {
                 <p className="text-[10px] text-white/40 uppercase font-bold tracking-widest leading-none">Рейтинг</p>
                 <p className="text-sm font-bold text-gradient-primary leading-none mt-0.5">{profile.rating}</p>
               </div>
-            </motion.div>
+            </div>
+
+            <div className="mt-4 w-full max-w-sm rounded-xl bg-black/25 border border-white/10 px-3 py-2">
+              <div className="flex items-center justify-between text-[11px] text-white/60 mb-1">
+                <span>Прогресс уровня</span>
+                <span className="text-cyan-200 font-semibold">{experienceProgress}%</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-cyan-300 via-indigo-300 to-emerald-300" style={{ width: `${experienceProgress}%` }} />
+              </div>
+            </div>
           </div>
-        </motion.div>
+        </div>
 
         {/* Tabs */}
         <div className="flex p-1 bg-black/20 backdrop-blur-xl rounded-2xl mb-6 border border-white/5">
