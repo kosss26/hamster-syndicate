@@ -113,7 +113,7 @@ if ($rawBody !== false && trim($rawBody) !== '') {
 $initData = $_SERVER['HTTP_X_TELEGRAM_INIT_DATA'] ?? '';
 /** @var Config $config */
 $config = $container->get(Config::class);
-$initDataTtlSeconds = max(60, (int) $config->get('INIT_DATA_TTL_SECONDS', 300));
+$initDataTtlSeconds = max(3600, (int) $config->get('INIT_DATA_TTL_SECONDS', 86400));
 $telegramUser = verifyTelegramInitData($initData, $config->get('TELEGRAM_BOT_TOKEN', ''), $initDataTtlSeconds);
 $isDevEnv = in_array((string) $config->get('APP_ENV', 'production'), ['development', 'local'], true);
 
@@ -984,12 +984,14 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
             'round_id' => $currentRound->getKey(),
             'round_number' => $currentRound->round_number,
             'my_answered' => $myAnswered,
+            'my_answer_id' => $myAnswered && isset($myPayload['answer_id']) ? (int) $myPayload['answer_id'] : null,
             'my_correct' => $myAnswered ? ($myPayload['is_correct'] ?? false) : null,
             'my_time_taken' => $myAnswered && isset($myPayload['time_elapsed']) ? (int) $myPayload['time_elapsed'] : null,
             'my_answered_at' => $myAnswered && isset($myPayload['answered_at']) ? (string) $myPayload['answered_at'] : null,
             'my_reason' => $myAnswered && isset($myPayload['reason']) ? (string) $myPayload['reason'] : null,
             'my_timed_out' => $myAnswered && isset($myPayload['reason']) && $myPayload['reason'] === 'timeout',
             'opponent_answered' => $opponentAnswered,
+            'opponent_answer_id' => $opponentAnswered && isset($opponentPayload['answer_id']) ? (int) $opponentPayload['answer_id'] : null,
             'opponent_correct' => $opponentAnswered ? ($opponentPayload['is_correct'] ?? false) : null,
             'opponent_time_taken' => $opponentAnswered && isset($opponentPayload['time_elapsed']) ? (int) $opponentPayload['time_elapsed'] : null,
             'opponent_answered_at' => $opponentAnswered && isset($opponentPayload['answered_at']) ? (string) $opponentPayload['answered_at'] : null,
@@ -1176,6 +1178,7 @@ function handleDuelAnswer($container, ?array $telegramUser, array $body): void
     jsonResponse([
         'round_id' => $round->getKey(),
         'is_correct' => $payload['is_correct'] ?? false,
+        'my_answer_id' => isset($payload['answer_id']) ? (int) $payload['answer_id'] : null,
         'points_earned' => $payload['score'] ?? 0,
         'time_taken' => $myTimeTaken ?? 0,
         'my_time_taken' => $myTimeTaken,

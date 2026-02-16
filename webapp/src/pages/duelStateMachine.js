@@ -56,8 +56,11 @@ export function deriveDuelViewState(data, context = {}) {
   )
   const opponentAnswered = Boolean(roundStatus.opponent_answered)
 
+  if (!myAnswered && currentState === DUEL_STATES.WAITING_OPPONENT_ANSWER && selectedAnswer !== null) {
+    return DUEL_STATES.WAITING_OPPONENT_ANSWER
+  }
+
   if (myAnswered && opponentAnswered) return DUEL_STATES.SHOWING_RESULT
   if (myAnswered) return DUEL_STATES.WAITING_OPPONENT_ANSWER
   return DUEL_STATES.PLAYING
 }
-

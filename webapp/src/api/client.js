@@ -2,10 +2,31 @@
 // В продакшене используем относительный путь /api, который nginx проксирует на PHP
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
 const WS_BASE_URL = import.meta.env.VITE_WS_URL || ''
+const INIT_DATA_CACHE_KEY = 'quizbot_tg_init_data'
 
 // Получаем initData из Telegram для авторизации
 function getInitData() {
   const initData = window.Telegram?.WebApp?.initData || ''
+  if (initData) {
+    try {
+      window.sessionStorage?.setItem(INIT_DATA_CACHE_KEY, initData)
+    } catch (_) {
+      // noop
+    }
+    return initData
+  }
+
+  let cachedInitData = ''
+  try {
+    cachedInitData = window.sessionStorage?.getItem(INIT_DATA_CACHE_KEY) || ''
+  } catch (_) {
+    // noop
+  }
+
+  if (cachedInitData) {
+    return cachedInitData
+  }
+
   if (!initData) {
     console.warn('Telegram WebApp initData is missing; protected endpoints may return 401')
   }

@@ -837,7 +837,16 @@ function DuelPage() {
           setGhostFallbackPending(true)
         }
         const currentState = duelStateRef.current
-        setRoundStatus(data.round_status || null)
+        const serverRoundStatus = data.round_status || null
+        setRoundStatus(serverRoundStatus)
+
+        const serverMyAnswerId = Number(serverRoundStatus?.my_answer_id || 0)
+        if (serverRoundStatus?.my_answered) {
+          hasAnsweredRef.current = true
+          if (serverMyAnswerId > 0 && selectedAnswer === null) {
+            setSelectedAnswer(serverMyAnswerId)
+          }
+        }
         
         const isInitiator = data.is_initiator
         setScore({
@@ -977,7 +986,8 @@ function DuelPage() {
       if (response.success) {
         const data = response.data
         setDuel(data)
-        setRoundStatus(data.round_status || null)
+        const serverRoundStatus = data.round_status || null
+        setRoundStatus(serverRoundStatus)
         setRound(data.current_round)
         setTotalRounds(data.total_rounds)
 
@@ -1054,6 +1064,14 @@ function DuelPage() {
           } else if (derivedState !== duelStateRef.current && derivedState !== STATES.FOUND) {
             // Восстановление экрана без жесткого ресета UI при reconnect.
             setState(derivedState)
+          }
+
+          const serverMyAnswerId = Number(serverRoundStatus?.my_answer_id || 0)
+          if (serverRoundStatus?.my_answered) {
+            hasAnsweredRef.current = true
+            if (serverMyAnswerId > 0 && selectedAnswer === null) {
+              setSelectedAnswer(serverMyAnswerId)
+            }
           }
         } else if (derivedState !== duelStateRef.current && derivedState !== STATES.FOUND) {
           setState(derivedState)
@@ -1272,6 +1290,14 @@ function DuelPage() {
     
     setSelectedAnswer(answerId)
     hasAnsweredRef.current = true
+    setState(STATES.WAITING_OPPONENT_ANSWER)
+    setOpponentAnswer({
+      answered: false,
+      correct: null,
+      timedOut: null,
+      timeTaken: null,
+      reason: null
+    })
     hapticFeedback('light')
     
     // Не останавливаем таймер визуально, чтобы видеть, сколько времени осталось у соперника
@@ -1289,6 +1315,10 @@ function DuelPage() {
         
         if (data.round_id) {
           answeredRoundId.current = data.round_id
+        }
+
+        if (Number(data.my_answer_id || 0) > 0) {
+          setSelectedAnswer(Number(data.my_answer_id))
         }
         
         if (data.correct_answer_id) {
@@ -1314,23 +1344,14 @@ function DuelPage() {
           })
         
         enterRoundResultState(duel.duel_id)
-        } else {
-          setOpponentAnswer({
-            answered: false,
-            correct: null,
-            timedOut: null,
-            timeTaken: null,
-            reason: null
-          })
-          
-          setState(STATES.WAITING_OPPONENT_ANSWER)
         }
       }
     } catch (err) {
       console.error('Failed to submit answer:', err)
-      setSelectedAnswer(null)
-      hasAnsweredRef.current = false
-      setError(`Ошибка: ${err.message}`)
+      setError(`Ошибка отправки ответа: ${err.message}`)
+      if (duel?.duel_id) {
+        checkDuelStatus(duel.duel_id)
+      }
     }
   }
 
