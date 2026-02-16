@@ -650,7 +650,6 @@ function DuelPage() {
         searchTimerRef.current = null
       }
       setGhostFallbackPending(false)
-      setGhostPoolAvailable(null)
       ghostPoolAvailableRef.current = null
       return
     }
