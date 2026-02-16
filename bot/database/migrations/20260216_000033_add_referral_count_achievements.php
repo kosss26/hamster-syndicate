@@ -18,6 +18,7 @@ return new class implements Migration {
             return;
         }
 
+        $hasCodeColumn = $schema->hasColumn('achievements', 'code');
         $now = date('Y-m-d H:i:s');
         $rows = [
             [
@@ -51,16 +52,20 @@ return new class implements Migration {
         ];
 
         foreach ($rows as $row) {
+            $rowForUpdate = $row;
+            if ($hasCodeColumn) {
+                $rowForUpdate['code'] = $row['key'];
+            }
+
             $exists = Capsule::table('achievements')->where('key', $row['key'])->exists();
             if ($exists) {
-                Capsule::table('achievements')->where('key', $row['key'])->update($row);
+                Capsule::table('achievements')->where('key', $row['key'])->update($rowForUpdate);
                 continue;
             }
 
-            $insert = $row;
+            $insert = $rowForUpdate;
             $insert['created_at'] = $now;
             Capsule::table('achievements')->insert($insert);
         }
     }
 };
-
