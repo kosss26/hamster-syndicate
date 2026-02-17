@@ -1102,6 +1102,9 @@ function handleAdminFrameUpsert($container, ?array $telegramUser, array $body): 
         }
 
         [$width, $height] = adminDetectFrameDimensions($binary, $mime);
+        if ($mime === 'image/svg+xml' && ($width <= 0 || $height <= 0)) {
+            jsonError('Для SVG рамки укажите width/height или viewBox', 400);
+        }
         if ($width < 64 || $height < 64) {
             jsonError('Минимальный размер рамки 64x64', 400);
         }
@@ -1375,9 +1378,12 @@ function adminDecodeBase64FrameImagePayload(string $raw): ?array
     }
 
     $mimeHint = '';
-    if (preg_match('/^data:([^;]+);base64,(.+)$/i', $value, $matches)) {
+    if (preg_match('/^data:([^;,]+)(?:;[^,]*)?;base64,(.+)$/is', $value, $matches)) {
         $mimeHint = strtolower(trim((string) $matches[1]));
         $value = (string) $matches[2];
+    } elseif (preg_match('/^data:[^,]+,(.+)$/is', $value, $fallbackMatch)) {
+        // На случай, если data URL пришел без base64-маркера.
+        $value = (string) $fallbackMatch[1];
     }
 
     $value = str_replace(["\r", "\n", ' '], '', $value);
