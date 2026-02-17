@@ -3,6 +3,11 @@
 
 declare(strict_types=1);
 
+if (PHP_VERSION_ID < 80100) {
+    fwrite(STDERR, "Smoke duel requires PHP >= 8.1. Current: " . PHP_VERSION . PHP_EOL);
+    exit(1);
+}
+
 use Illuminate\Support\Carbon;
 use QuizBot\Application\Services\DuelService;
 use QuizBot\Application\Services\UserService;
@@ -60,13 +65,33 @@ function cleanupUserDuels(User $user): void
         ]);
 }
 
+function cleanupUsers(User $userA, User $userB): void
+{
+    cleanupUserDuels($userA);
+    cleanupUserDuels($userB);
+}
+
+function findCorrectAnswerId(DuelService $duelService, Duel $duel): ?int
+{
+    $round = $duelService->getCurrentRound($duel);
+    if (!$round) {
+        return null;
+    }
+
+    $round->loadMissing('question.answers');
+    $correct = $round->question && $round->question->answers
+        ? $round->question->answers->firstWhere('is_correct', true)
+        : null;
+
+    return $correct ? (int) $correct->getKey() : null;
+}
+
 try {
     $seed = random_int(1000, 9999);
     $userA = makeUser($userService, 90000000 + $seed, 'SmokeA');
     $userB = makeUser($userService, 91000000 + $seed, 'SmokeB');
 
-    cleanupUserDuels($userA);
-    cleanupUserDuels($userB);
+    cleanupUsers($userA, $userB);
 
     fwrite(STDOUT, "== Scenario 1: Random duel matchmaking ==\n");
     $ticket = $duelService->createMatchmakingTicket($userA);
@@ -100,6 +125,7 @@ try {
     }
 
     fwrite(STDOUT, "== Scenario 4: Reconnect recovery semantics ==\n");
+    cleanupUsers($userA, $userB);
     $recoveryDuel = $duelService->createDuel($userA, $userB);
     $recoveryDuel = $duelService->startDuel($recoveryDuel);
     $recoveryRound = $duelService->getCurrentRound($recoveryDuel);
@@ -124,6 +150,70 @@ try {
             assertTrue($sameRound !== null && $sameRound->getKey() === $updated->getKey(), 'Current round remains same for reconnect recovery', $errors);
         }
     }
+
+    fwrite(STDOUT, "== Scenario 5: Rematch lifecycle (decline/cancel/accept) ==\n");
+    cleanupUsers($userA, $userB);
+
+    $rematchDeclined = $duelService->createRematchInvite($userA, $userB, null);
+    $incomingDeclined = $duelService->getIncomingRematchInvite($userB);
+    assertTrue($incomingDeclined !== null, 'Target user sees incoming rematch invite', $errors);
+    $declined = $duelService->declineRematchInvite($rematchDeclined, $userB);
+    $declinedSettings = is_array($declined->settings) ? $declined->settings : [];
+    assertTrue($declined->status === 'cancelled', 'Declined rematch is cancelled', $errors);
+    assertTrue(($declinedSettings['cancel_reason'] ?? null) === 'rematch_declined', 'Declined rematch has proper cancel reason', $errors);
+
+    $rematchCancelled = $duelService->createRematchInvite($userA, $userB, null);
+    $incomingCancelled = $duelService->getIncomingRematchInvite($userB);
+    assertTrue($incomingCancelled !== null, 'Target user sees second rematch invite', $errors);
+    $cancelled = $duelService->cancelRematchInvite($rematchCancelled, $userA);
+    $cancelledSettings = is_array($cancelled->settings) ? $cancelled->settings : [];
+    assertTrue($cancelled->status === 'cancelled', 'Cancelled rematch is cancelled by initiator', $errors);
+    assertTrue(($cancelledSettings['cancel_reason'] ?? null) === 'rematch_cancelled_by_initiator', 'Cancelled rematch has proper cancel reason', $errors);
+
+    $rematchAccepted = $duelService->createRematchInvite($userA, $userB, null);
+    $incomingAccepted = $duelService->getIncomingRematchInvite($userB);
+    assertTrue($incomingAccepted !== null, 'Target user sees third rematch invite', $errors);
+    $accepted = $duelService->acceptRematchInvite($rematchAccepted, $userB);
+    assertTrue($accepted->status === 'matched', 'Accepted rematch transitions to matched', $errors);
+    assertTrue((int) ($accepted->opponent_user_id ?? 0) === (int) $userB->getKey(), 'Accepted rematch has correct opponent', $errors);
+
+    fwrite(STDOUT, "== Scenario 6: Technical defeat after 3 timeout rounds ==\n");
+    cleanupUsers($userA, $userB);
+    $techDuel = $duelService->createDuel($userA, $userB, null, ['rounds_to_win' => 5]);
+    $techDuel = $duelService->startDuel($techDuel);
+
+    for ($i = 0; $i < 3; $i++) {
+        $techDuel = $techDuel->fresh();
+        $round = $duelService->getCurrentRound($techDuel);
+        assertTrue($round !== null, 'Technical defeat round exists at step ' . ($i + 1), $errors);
+        if (!$round) {
+            break;
+        }
+
+        $correctAnswerId = findCorrectAnswerId($duelService, $techDuel);
+        assertTrue($correctAnswerId !== null, 'Technical defeat scenario has correct answer at step ' . ($i + 1), $errors);
+        if ($correctAnswerId === null) {
+            break;
+        }
+
+        // A times out, B answers correctly -> timeout streak for A.
+        $duelService->submitAnswer($round, $userA, null);
+        $round = $round->fresh();
+        $duelService->submitAnswer($round, $userB, $correctAnswerId);
+    }
+
+    $techDuel = $techDuel->fresh(['result']);
+    assertTrue($techDuel->status === 'finished', 'Duel is finished after timeout streak', $errors);
+    if ($techDuel->result) {
+        $metadata = is_array($techDuel->result->metadata) ? $techDuel->result->metadata : [];
+        $technical = is_array($metadata['technical_defeat'] ?? null) ? $metadata['technical_defeat'] : [];
+        assertTrue(($techDuel->result->result ?? '') === 'opponent_win', 'Technical defeat result winner is opponent', $errors);
+        assertTrue((int) ($techDuel->result->winner_user_id ?? 0) === (int) $userB->getKey(), 'Technical defeat winner_user_id is user B', $errors);
+        assertTrue((int) ($technical['loser_user_id'] ?? 0) === (int) $userA->getKey(), 'Technical defeat loser_user_id is user A', $errors);
+        assertTrue((string) ($technical['reason'] ?? '') === 'timeout_streak', 'Technical defeat reason is timeout_streak', $errors);
+    } else {
+        assertTrue(false, 'Technical defeat duel has result row', $errors);
+    }
 } catch (Throwable $e) {
     $errors[] = $e->getMessage();
     fwrite(STDERR, "[EXCEPTION] {$e->getMessage()}\n");
@@ -136,4 +226,3 @@ if ($errors !== []) {
 
 fwrite(STDOUT, "\nSmoke duel passed.\n");
 exit(0);
-

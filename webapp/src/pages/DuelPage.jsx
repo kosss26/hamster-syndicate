@@ -1,36 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
 import { useTelegram, showBackButton, hapticFeedback } from '../hooks/useTelegram'
 import api, { getWsBaseUrl } from '../api/client'
-import AvatarWithFrame from '../components/AvatarWithFrame'
-import ReferralIcon from '../components/ReferralIcon'
 import { deriveDuelViewState } from './duelStateMachine'
 import { addNotificationItems } from '../utils/notificationInbox'
-
-const WS_STATUS = {
-  OFFLINE: 'offline',
-  CONNECTING: 'connecting',
-  CONNECTED: 'connected',
-  DISABLED: 'disabled'
-}
-
-const FOUND_SCREEN_MIN_MS = 2000
-const ROUND_RESULT_MIN_MS = 3000
-
-// Состояния дуэли
-const STATES = {
-  MENU: 'menu',
-  SEARCHING: 'searching',
-  INVITE: 'invite', // Приглашение друга
-  ENTER_CODE: 'enter_code', // Ввод кода дуэли
-  FOUND: 'found',
-  PLAYING: 'playing',
-  WAITING_OPPONENT: 'waiting_opponent',
-  WAITING_OPPONENT_ANSWER: 'waiting_opponent_answer',
-  SHOWING_RESULT: 'showing_result',
-  FINISHED: 'finished'
-}
+import { WS_STATUS, FOUND_SCREEN_MIN_MS, ROUND_RESULT_MIN_MS, STATES } from './duel/constants'
+import { DuelMenuView, DuelEnterCodeView, DuelWaitingView, DuelFoundView } from './duel/DuelLobbyViews'
+import { DuelPlayingView, DuelFinishedView } from './duel/DuelGameViews'
 
 function DuelPage() {
   const navigate = useNavigate()
@@ -1444,695 +1420,126 @@ function DuelPage() {
   // Меню выбора режима
   if (state === STATES.MENU) {
     return (
-      <div className="min-h-dvh bg-aurora relative overflow-hidden flex flex-col p-4">
-        <div className="aurora-blob aurora-blob-1 opacity-50" />
-        <div className="aurora-blob aurora-blob-2 opacity-50" />
-        <div className="noise-overlay" />
-
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="relative z-10 pt-8 mb-8"
-        >
-          <button 
-             onClick={() => navigate('/')}
-             className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center mb-6 hover:bg-white/20 transition-colors"
-          >
-             <span className="text-xl">←</span>
-          </button>
-          <h1 className="text-4xl font-black text-white italic tracking-tight mb-2 uppercase">Дуэли</h1>
-          <p className="text-white/60 text-lg">Сразись за рейтинг и монеты</p>
-          <div className="mt-3">{renderRealtimeBadge()}</div>
-        </motion.div>
-
-        {error && (
-          <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="relative z-10 bg-red-500/10 border border-red-500/20 rounded-2xl p-4 mb-4 backdrop-blur-md"
-          >
-            <p className="text-red-400 text-sm font-medium">{error}</p>
-          </motion.div>
-        )}
-
-        {incomingRematch && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="relative z-10 bg-cyan-500/10 border border-cyan-400/30 rounded-2xl p-4 mb-4 backdrop-blur-md"
-          >
-            <p className="text-cyan-100 font-semibold text-sm mb-1">Входящий реванш</p>
-            <p className="text-white/75 text-xs mb-3">
-              {incomingRematch?.initiator?.name || 'Соперник'} зовёт сыграть ещё раз
-              {Number.isFinite(incomingRematch?.expires_in) ? ` · ${Math.max(0, Number(incomingRematch.expires_in))}с` : ''}
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={acceptIncomingRematch}
-                disabled={loading}
-                className="py-2.5 rounded-xl bg-emerald-400 text-slate-900 font-bold disabled:opacity-60"
-              >
-                Принять
-              </button>
-              <button
-                onClick={declineIncomingRematch}
-                disabled={loading}
-                className="py-2.5 rounded-xl border border-white/20 text-white font-semibold disabled:opacity-60"
-              >
-                Отказаться
-              </button>
-            </div>
-          </motion.div>
-        )}
-
-        <div className="relative z-10 flex-1 flex flex-col gap-4 justify-end pb-8">
-          <motion.button
-            initial={{ opacity: 0, x: -30 }}
-            animate={{ opacity: 1, x: 0 }}
-            onClick={startSearch}
-            disabled={loading}
-            className="group relative overflow-hidden rounded-[32px] bg-gradient-to-br from-[#4F46E5] to-[#7C3AED] p-1 disabled:opacity-50 transition-transform active:scale-95"
-          >
-            <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-            <div className="relative bg-[#0F172A]/40 backdrop-blur-sm rounded-[28px] p-6 flex items-center gap-5">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-white/20 to-white/5 flex items-center justify-center text-3xl shadow-inner border border-white/10">
-                  🎲
-                </div>
-                <div>
-                  <h3 className="font-bold text-xl text-white mb-1">Случайный бой</h3>
-                  <p className="text-white/60 text-sm">Поиск по рейтингу</p>
-                </div>
-            </div>
-          </motion.button>
-
-          <motion.button
-            initial={{ opacity: 0, x: 30 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.1 }}
-            onClick={inviteFriend}
-            disabled={loading}
-            className="group relative overflow-hidden rounded-[32px] bg-gradient-to-br from-[#06B6D4] to-[#3B82F6] p-1 disabled:opacity-50 transition-transform active:scale-95"
-          >
-             <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-            <div className="relative bg-[#0F172A]/40 backdrop-blur-sm rounded-[28px] p-6 flex items-center gap-5">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-white/20 to-white/5 flex items-center justify-center text-3xl shadow-inner border border-white/10">
-                <ReferralIcon className="w-9 h-9" />
-              </div>
-              <div>
-                <h3 className="font-bold text-xl text-white mb-1">С другом</h3>
-                <p className="text-white/60 text-sm">Создать приватную игру</p>
-              </div>
-            </div>
-          </motion.button>
-
-          <motion.button
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            onClick={() => setState(STATES.ENTER_CODE)}
-            className="w-full py-4 text-center text-white/40 font-medium hover:text-white transition-colors"
-          >
-            Ввести код приглашения
-          </motion.button>
-        </div>
-      </div>
+      <DuelMenuView
+        navigate={navigate}
+        error={error}
+        incomingRematch={incomingRematch}
+        loading={loading}
+        startSearch={startSearch}
+        inviteFriend={inviteFriend}
+        onEnterCode={() => setState(STATES.ENTER_CODE)}
+        acceptIncomingRematch={acceptIncomingRematch}
+        declineIncomingRematch={declineIncomingRematch}
+        renderRealtimeBadge={renderRealtimeBadge}
+      />
     )
   }
 
   // Экран ввода кода
   if (state === STATES.ENTER_CODE) {
     return (
-      <div className="min-h-dvh bg-aurora relative overflow-hidden flex flex-col items-center justify-center p-6">
-        <div className="noise-overlay" />
-        
-        <motion.div 
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="relative z-10 w-full max-w-sm"
-        >
-            <h2 className="text-3xl font-bold text-white text-center mb-8">Ввод кода</h2>
-            
-            <input
-              type="tel"
-              value={inviteCode}
-              onChange={(e) => setInviteCode(e.target.value.replace(/\D+/g, '').slice(0, 5))}
-              placeholder="12345"
-              maxLength={5}
-              inputMode="numeric"
-              className="w-full bg-white/5 border border-white/10 rounded-2xl py-6 text-center text-4xl font-mono font-bold text-white placeholder-white/20 outline-none focus:border-game-primary transition-colors mb-6 tracking-widest"
-              autoFocus
-            />
-            
-            <button
-              onClick={joinByCode}
-              disabled={loading || !/^\d{5}$/.test(inviteCode)}
-              className="w-full py-4 bg-game-primary rounded-xl font-bold text-white shadow-lg shadow-game-primary/30 disabled:opacity-50 disabled:shadow-none transition-all active:scale-95 mb-4"
-            >
-              {loading ? 'Поиск...' : 'Присоединиться'}
-            </button>
-            
-            <button
-               onClick={() => navigate('/')}
-               className="w-full py-3 text-white/40 font-medium"
-            >
-                Отмена
-            </button>
-        </motion.div>
-      </div>
+      <DuelEnterCodeView
+        inviteCode={inviteCode}
+        setInviteCode={setInviteCode}
+        joinByCode={joinByCode}
+        loading={loading}
+        navigate={navigate}
+      />
     )
   }
 
   // Экраны ожидания/поиска
   if (state === STATES.SEARCHING || state === STATES.WAITING_OPPONENT || state === STATES.INVITE) {
-     const isInvite = state === STATES.INVITE
-     const isSearching = state === STATES.SEARCHING
-     const isRematchWaiting = Boolean(!isInvite && (duel?.is_rematch || duel?.mode === 'rematch'))
-     
-     return (
-       <div className="min-h-dvh bg-aurora relative overflow-hidden flex flex-col items-center justify-center p-6 text-center">
-         <div className="noise-overlay" />
-         
-         <div className="relative z-10 w-full max-w-sm">
-             {/* Radar Animation */}
-             <div className="relative w-64 h-64 mx-auto mb-12 flex items-center justify-center">
-                 <motion.div 
-                    animate={{ scale: [1, 2], opacity: [0.5, 0] }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
-                    className="absolute inset-0 border border-game-primary/30 rounded-full"
-                 />
-                 <motion.div 
-                    animate={{ scale: [1, 2], opacity: [0.5, 0] }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "easeOut", delay: 0.5 }}
-                    className="absolute inset-0 border border-game-primary/30 rounded-full"
-                 />
-                 
-                 <div className="w-32 h-32 bg-white/5 backdrop-blur-xl rounded-full border border-white/10 flex items-center justify-center relative overflow-hidden">
-                     <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                        className="absolute inset-0 bg-gradient-to-t from-game-primary/20 to-transparent w-full h-1/2 origin-bottom"
-                     />
-                     <div className="text-4xl relative z-10">
-                        {isInvite ? '📨' : isRematchWaiting ? '♻️' : '🔭'}
-                     </div>
-                 </div>
-             </div>
-             
-             <h2 className="text-2xl font-bold text-white mb-2">
-                 {isInvite ? 'Ожидание друга' : isRematchWaiting ? 'Ожидание реванша' : isSearching ? 'Поиск оппонента' : 'Ожидание...'}
-             </h2>
-             
-             {isInvite ? (
-                 <div className="mb-8">
-                     <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-4">
-                        <p className="text-white/40 text-xs uppercase mb-1">Код комнаты</p>
-                        <p className="text-3xl font-mono font-bold text-white tracking-widest">{duel?.code}</p>
-                     </div>
-                     <button onClick={shareInvite} className="w-full py-3 bg-white/10 rounded-xl text-white font-medium mb-2">
-                        Поделиться ссылкой
-                     </button>
-                 </div>
-             ) : (
-                 <p className="text-white/40 mb-8 font-mono">
-                    {isRematchWaiting
-                      ? (searchTimeLeft > 0 ? `00:${searchTimeLeft.toString().padStart(2, '0')}` : 'Истекло')
-                      : ghostFallbackPending
-                      ? 'Подбираю призрака...'
-                      : searchTimeLeft > 0
-                        ? `00:${searchTimeLeft.toString().padStart(2, '0')}`
-                        : 'Отмена...'}
-                 </p>
-             )}
-             {!isInvite && !isRematchWaiting && ghostFallbackPending && (
-               <p className="text-cyan-200/80 text-xs mb-5 text-center">
-                 Ищем асинхронного соперника из реальных матчей
-               </p>
-             )}
-             {isRematchWaiting && (
-               <p className="text-cyan-200/80 text-xs mb-5 text-center">
-                 Приглашение отправлено. Награды за этот матч будут с коэффициентом 0.5
-               </p>
-             )}
-             
-             <button 
-                onClick={async () => {
-                   if (duel) {
-                     if (isRematchWaiting) {
-                       await api.cancelRematch(duel.duel_id).catch(() => api.cancelDuel(duel.duel_id).catch(console.error))
-                     } else {
-                       await api.cancelDuel(duel.duel_id).catch(console.error)
-                     }
-                   }
-                   if (isRematchWaiting) {
-                     setError('Приглашение на реванш отменено.')
-                   }
-                   setDuel(null)
-                   navigate('/')
-                }}
-                className="text-white/40 text-sm hover:text-white"
-             >
-                {isRematchWaiting ? 'Отменить приглашение' : 'Отменить поиск'}
-             </button>
-         </div>
-       </div>
-     )
+    return (
+      <DuelWaitingView
+        state={state}
+        duel={duel}
+        searchTimeLeft={searchTimeLeft}
+        ghostFallbackPending={ghostFallbackPending}
+        shareInvite={shareInvite}
+        onCancel={async () => {
+          const isRematchWaiting = Boolean(state !== STATES.INVITE && (duel?.is_rematch || duel?.mode === 'rematch'))
+          if (duel) {
+            if (isRematchWaiting) {
+              await api.cancelRematch(duel.duel_id).catch(() => api.cancelDuel(duel.duel_id).catch(console.error))
+            } else {
+              await api.cancelDuel(duel.duel_id).catch(console.error)
+            }
+          }
+          if (isRematchWaiting) {
+            setError('Приглашение на реванш отменено.')
+          }
+          setDuel(null)
+          navigate('/')
+        }}
+      />
+    )
   }
 
   // Соперник найден
   if (state === STATES.FOUND) {
-      return (
-        <div className="min-h-dvh bg-aurora relative overflow-hidden flex flex-col items-center justify-center p-6">
-            <div className="noise-overlay" />
-            
-            <div className="relative z-10 w-full flex flex-col items-center gap-8">
-                <motion.div
-                   initial={{ x: -100, opacity: 0 }}
-                   animate={{ x: 0, opacity: 1 }}
-                   transition={{ type: "spring", stiffness: 100 }}
-                   className="flex flex-col items-center"
-                >
-                    <AvatarWithFrame user={user} size={96} showGlow />
-                    <p className="mt-4 font-bold text-xl text-white">{user?.first_name || 'Вы'}</p>
-                    <div className="px-3 py-1 bg-white/10 rounded-full text-xs font-mono mt-2 text-white/60">
-                        {myRating} MMR
-                    </div>
-                </motion.div>
-                
-                <motion.div
-                    initial={{ scale: 0, rotate: -180 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                    transition={{ delay: 0.3, type: "spring" }}
-                    className="text-6xl font-black italic text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-orange-500"
-                >
-                    VS
-                </motion.div>
-                
-                <motion.div
-                   initial={{ x: 100, opacity: 0 }}
-                   animate={{ x: 0, opacity: 1 }}
-                   transition={{ type: "spring", stiffness: 100, delay: 0.1 }}
-                   className="flex flex-col items-center"
-                >
-                     <div className="w-24 h-24 rounded-full bg-gradient-to-br from-red-500 to-orange-600 p-1 shadow-[0_0_30px_rgba(239,68,68,0.4)]">
-                        <div className="w-full h-full rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-4xl overflow-hidden">
-                            {opponent?.photo_url ? (
-                                <img src={opponent.photo_url} alt="Аватар соперника" className="w-full h-full object-cover" />
-                            ) : (
-                                <span>{opponent?.name?.[0] || '?'}</span>
-                            )}
-                        </div>
-                    </div>
-                    <p className="mt-4 font-bold text-xl text-white">{opponent?.name || 'Соперник'}</p>
-                    {duel?.is_ghost_match && (
-                      <p className="mt-1 text-[11px] uppercase tracking-wide text-cyan-200/90">Асинхронный призрак</p>
-                    )}
-                    <div className="px-3 py-1 bg-white/10 rounded-full text-xs font-mono mt-2 text-white/60">
-                        {opponent?.rating || '???'} MMR
-                    </div>
-                </motion.div>
-            </div>
-        </div>
-      )
+    return (
+      <DuelFoundView
+        user={user}
+        myRating={myRating}
+        opponent={opponent}
+        duel={duel}
+      />
+    )
   }
   
   // ИГРОВОЙ ПРОЦЕСС
   if ((state === STATES.PLAYING || state === STATES.WAITING_OPPONENT_ANSWER || state === STATES.SHOWING_RESULT) && question) {
-      const isCorrect = lastResult?.is_correct === true
-      const isTimeout = Boolean(lastResult?.timeout || lastResult?.my_timed_out || lastResult?.my_reason === 'timeout')
-      const isAnswerLocked = selectedAnswer !== null
-      const isReveal = state === STATES.SHOWING_RESULT
-      const correctAnswerText = question.answers.find((answer) => answer.id === correctAnswer)?.text ?? null
-      const myTimeTaken = Number.isFinite(lastResult?.my_time_taken) ? Number(lastResult?.my_time_taken) : null
-      const opponentTimeTaken = Number.isFinite(opponentAnswer?.timeTaken) ? Number(opponentAnswer?.timeTaken) : null
-      const speedDelta = Number.isFinite(lastResult?.speed_delta_seconds)
-        ? Number(lastResult.speed_delta_seconds)
-        : (myTimeTaken !== null && opponentTimeTaken !== null ? opponentTimeTaken - myTimeTaken : null)
-
-      const myResultLabel = isCorrect ? 'Верно' : isTimeout ? 'Таймаут' : 'Ошибка'
-      const myResultClass = isCorrect ? 'text-emerald-300' : 'text-red-300'
-      const opponentResultLabel = opponentAnswer?.answered
-        ? (opponentAnswer.timedOut ? 'Таймаут' : opponentAnswer.correct ? 'Верно' : 'Ошибка')
-        : 'Ожидаем'
-      const opponentResultClass = opponentAnswer?.answered
-        ? (opponentAnswer.timedOut ? 'text-red-200' : opponentAnswer.correct ? 'text-emerald-300' : 'text-red-300')
-        : 'text-amber-200'
-      const speedLabel = speedDelta === null
-        ? null
-        : speedDelta > 0
-          ? `Вы быстрее на ${speedDelta.toFixed(1)}с`
-          : speedDelta < 0
-            ? `Соперник быстрее на ${Math.abs(speedDelta).toFixed(1)}с`
-            : 'Одинаковая скорость ответа'
-
-      const opponentLiveStatus = state === STATES.WAITING_OPPONENT_ANSWER
-        ? 'Соперник думает'
-        : opponentAnswer?.answered
-          ? (opponentAnswer.timedOut ? 'Таймаут соперника' : opponentAnswer.correct ? 'Ответил верно' : 'Ответил неверно')
-          : roundStatus?.opponent_answered
-            ? (roundStatus?.opponent_timed_out ? 'Таймаут соперника' : roundStatus?.opponent_correct ? 'Ответил верно' : 'Ответил неверно')
-            : 'Соперник думает'
-      
-      return (
-        <div className="min-h-dvh bg-aurora relative overflow-hidden flex flex-col">
-            <div className="noise-overlay" />
-            
-            {/* Header VS */}
-            <div className="relative z-20 pt-4 px-4 pb-2 bg-gradient-to-b from-black/40 to-transparent">
-                <div className="flex justify-between items-center max-w-md mx-auto w-full">
-                    {/* Player */}
-                    <div className="flex items-center gap-3">
-                         <div className="relative">
-                             <AvatarWithFrame user={user} size={48} />
-                             <div className="absolute -bottom-1 -right-1 bg-game-primary text-white text-[10px] font-bold px-1.5 py-0.5 rounded-md">
-                                 YOU
-                             </div>
-                         </div>
-                         <div className="flex flex-col">
-                             <span className="text-2xl font-black text-white">{score.player}</span>
-                         </div>
-                    </div>
-                    
-                    {/* Timer */}
-                    <div className="relative flex flex-col items-center">
-                        <div className="relative w-14 h-14 flex items-center justify-center">
-                            <svg className="w-full h-full -rotate-90 absolute inset-0">
-                               <circle cx="28" cy="28" r="26" stroke="rgba(255,255,255,0.1)" strokeWidth="4" fill="none" />
-                               <motion.circle 
-                                  cx="28" cy="28" r="26" 
-                                  stroke={timeLeft <= 10 ? '#EF4444' : '#6366F1'} 
-                                  strokeWidth="4" 
-                                  fill="none" 
-                                  strokeDasharray={163}
-                                  strokeDashoffset={163 - (163 * (timeLeft / 30))}
-                                  strokeLinecap="round"
-                                  initial={{ strokeDashoffset: 163 }}
-                                  animate={{ strokeDashoffset: 163 - (163 * (timeLeft / 30)) }}
-                                  transition={{ duration: 0.5 }}
-                               />
-                            </svg>
-                            <span className={`relative z-10 font-bold ${timeLeft <= 10 ? 'text-red-500' : 'text-white'}`}>
-                                {timeLeft}
-                            </span>
-                        </div>
-                        <div className="mt-1 text-[10px] font-mono text-white/40 font-bold">R{round}/{totalRounds}</div>
-                        <div className="mt-2">{renderRealtimeBadge(true)}</div>
-                        {isAnswerLocked && (
-                          <div className={`mt-2 px-2 py-1 rounded-full border text-[10px] font-semibold ${
-                            state === STATES.WAITING_OPPONENT_ANSWER
-                              ? 'border-amber-300/40 bg-amber-500/10 text-amber-100'
-                              : 'border-emerald-300/40 bg-emerald-500/10 text-emerald-100'
-                          }`}>
-                            {state === STATES.WAITING_OPPONENT_ANSWER ? 'Ответ зафиксирован' : 'Раунд закрыт'}
-                          </div>
-                        )}
-                    </div>
-                    
-                    {/* Opponent */}
-                    <div className="flex items-center gap-3 flex-row-reverse">
-                         <div className="relative">
-                             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-500 to-orange-600 p-0.5 shadow-lg">
-                                <div className="w-full h-full rounded-full bg-black/40 backdrop-blur-sm overflow-hidden flex items-center justify-center text-lg">
-                                    {opponent?.photo_url ? (
-                                        <img src={opponent.photo_url} alt="Аватар соперника" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <span>{opponent?.name?.[0] || '?'}</span>
-                                    )}
-                                </div>
-                             </div>
-                         </div>
-                         <div className="flex flex-col items-end">
-                             <span className="text-2xl font-black text-white">{score.opponent}</span>
-                             <span className="text-[10px] text-white/60 uppercase tracking-wide">{opponentLiveStatus}</span>
-                         </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Question Area */}
-            <div className="flex-1 flex flex-col justify-start pt-12 p-4 relative z-10">
-                <AnimatePresence mode="wait">
-                    <motion.div
-                        key={question.id}
-                        initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                        className="w-full max-w-md"
-                    >
-                         <div className="mb-4 flex justify-center">
-                            <span className="px-3 py-1 rounded-full bg-white/10 text-xs font-medium text-white/60 backdrop-blur-md">
-                                {question.category || 'Вопрос'}
-                            </span>
-                         </div>
-                         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[32px] p-8 text-center shadow-2xl relative overflow-hidden">
-                             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-                             <p className="text-xl md:text-2xl font-bold text-white leading-relaxed">
-                                 {question.text}
-                             </p>
-                         </div>
-                    </motion.div>
-                </AnimatePresence>
-            </div>
-
-            <AnimatePresence>
-              {state === STATES.WAITING_OPPONENT_ANSWER && (
-                <motion.div
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  className="relative z-20 mx-auto mb-2 bg-black/70 backdrop-blur-md px-5 py-2 rounded-full border border-white/10 text-white/90 text-sm font-medium flex items-center gap-3"
-                >
-                  <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
-                  Ожидаем соперника...
-                </motion.div>
-              )}
-            </AnimatePresence>
-            
-            {/* Answers Grid */}
-            <div className="p-4 relative z-10 pb-8">
-                 <div className="grid grid-cols-2 gap-3 max-w-md mx-auto mb-4">
-                     {question.answers
-                        .filter(answer => !hiddenAnswers.includes(answer.id))
-                        .map((answer, idx) => {
-                            const isSelected = selectedAnswer === answer.id
-                            const isCorrectAnswer = correctAnswer === answer.id
-                            
-                            let statusClass = "bg-white/5 border-white/10 text-white"
-                            if (isSelected) statusClass = "bg-indigo-500/20 border-indigo-300/60 text-white shadow-[0_0_18px_rgba(99,102,241,0.3)]"
-                            if (isCorrectAnswer) statusClass = "bg-emerald-500/20 border-emerald-400 text-emerald-100"
-                            if (isSelected && lastResult && !lastResult.is_correct) statusClass = "bg-red-500/20 border-red-400 text-red-100"
-                            if (selectedAnswer !== null && !isSelected && !isCorrectAnswer) statusClass = "opacity-70 bg-white/5 border-white/10 text-white/70"
-
-                            return (
-                                <motion.button
-                                    key={answer.id}
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: idx * 0.1 }}
-                                    onClick={() => handleAnswerSelect(answer.id)}
-                                    disabled={selectedAnswer !== null}
-                                    className={`relative min-h-[104px] rounded-2xl p-4 flex flex-col items-center justify-center text-center text-sm font-semibold border backdrop-blur-md transition-all active:scale-95 ${statusClass}`}
-                                >
-                                    {answer.text}
-                                    
-                                    {isCorrectAnswer && (
-                                        <div className="absolute top-2 right-2 text-emerald-300">✓</div>
-                                    )}
-                                    {isSelected && lastResult && !lastResult.is_correct && (
-                                        <div className="absolute top-2 right-2 text-red-300">✗</div>
-                                    )}
-                                </motion.button>
-                            )
-                        })}
-                 </div>
-
-                 {/* Hint Button */}
-                 {state === STATES.PLAYING && !selectedAnswer && !hintUsed && (
-                     <div className="flex justify-center">
-                         <button
-                            onClick={useHint}
-                            disabled={coins < 10}
-                            className={`px-6 py-2 rounded-full text-xs font-bold flex items-center gap-2 transition-all ${
-                                coins >= 10 ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-white/5 text-white/30'
-                            }`}
-                         >
-                            <span>💡 50/50</span>
-                            <span className="opacity-50">10 💰</span>
-                         </button>
-                     </div>
-                 )}
-            </div>
-            
-            {/* Round Result Overlay */}
-            <AnimatePresence>
-                {isReveal && (
-                   <motion.div 
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-                   >
-                       <motion.div 
-                          initial={{ scale: 0.5, y: 50 }}
-                          animate={{ scale: 1, y: 0 }}
-                          className="bg-[#0F172A] border border-white/10 rounded-3xl p-6 text-left shadow-2xl w-[92%] max-w-sm"
-                       >
-                           <div className="flex items-center justify-between mb-4">
-                             <div className="text-white font-bold text-lg">Итог раунда</div>
-                             <div className="text-xs text-white/50">R{round}/{totalRounds}</div>
-                           </div>
-                           <div className="grid grid-cols-2 gap-3 mb-4">
-                              <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                                <div className="text-[11px] text-white/60 uppercase tracking-wide mb-1">Вы</div>
-                                <div className={`text-sm font-semibold ${myResultClass}`}>{myResultLabel}</div>
-                                <div className="text-[11px] text-white/50 mt-1">
-                                  {myTimeTaken !== null ? `${myTimeTaken.toFixed(1)}с` : '—'}
-                                </div>
-                              </div>
-                              <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                                <div className="text-[11px] text-white/60 uppercase tracking-wide mb-1">Соперник</div>
-                                <div className={`text-sm font-semibold ${opponentResultClass}`}>{opponentResultLabel}</div>
-                                <div className="text-[11px] text-white/50 mt-1">
-                                  {opponentTimeTaken !== null ? `${opponentTimeTaken.toFixed(1)}с` : '—'}
-                                </div>
-                              </div>
-                           </div>
-                           <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 mb-4">
-                              <div className="text-[11px] text-emerald-100/80 uppercase tracking-wide mb-1">Правильный ответ</div>
-                              <div className="text-sm text-emerald-100 font-medium">{correctAnswerText ?? 'Загружаем...'}</div>
-                           </div>
-                           {speedLabel && (
-                             <div className="rounded-xl border border-indigo-400/30 bg-indigo-500/10 p-3 mb-4">
-                               <div className="text-xs text-indigo-100/90">{speedLabel}</div>
-                             </div>
-                           )}
-                           <div className="text-xs text-white/55">
-                             {nextRoundCountdown ? `Следующий раунд через ${nextRoundCountdown}с` : 'Переход к следующему раунду...'}
-                           </div>
-                       </motion.div>
-                   </motion.div>
-                )}
-            </AnimatePresence>
-            
-        </div>
-      )
+    return (
+      <DuelPlayingView
+        state={state}
+        question={question}
+        lastResult={lastResult}
+        selectedAnswer={selectedAnswer}
+        correctAnswer={correctAnswer}
+        opponentAnswer={opponentAnswer}
+        roundStatus={roundStatus}
+        timeLeft={timeLeft}
+        round={round}
+        totalRounds={totalRounds}
+        score={score}
+        user={user}
+        opponent={opponent}
+        duel={duel}
+        hiddenAnswers={hiddenAnswers}
+        hintUsed={hintUsed}
+        coins={coins}
+        nextRoundCountdown={nextRoundCountdown}
+        renderRealtimeBadge={renderRealtimeBadge}
+        onAnswerSelect={handleAnswerSelect}
+        onUseHint={useHint}
+      />
+    )
   }
   
   // FINISH SCREEN
   if (state === STATES.FINISHED) {
-      const isWin = score.player > score.opponent
-      const isDraw = score.player === score.opponent
-      // Используем значение с сервера или фоллбэк
-      const ratingChangeVal = duel?.rating_change ?? (isWin ? 10 : isDraw ? 0 : -10)
-      const ratingChange = ratingChangeVal > 0 ? `+${ratingChangeVal}` : `${ratingChangeVal}`
-      const ratingClass = ratingChangeVal > 0 ? 'text-emerald-300' : ratingChangeVal < 0 ? 'text-red-300' : 'text-white'
-      const roundPills = Array.from({ length: totalRounds }, (_, index) => {
-        const roundNumber = index + 1
-        const historyItem = roundHistory.find((item) => item.round_number === roundNumber)
-
-        if (!historyItem) {
-          return { roundNumber, state: 'pending' }
-        }
-
-        if (historyItem.my_correct === historyItem.opponent_correct) {
-          return { roundNumber, state: 'draw' }
-        }
-
-        return {
-          roundNumber,
-          state: historyItem.my_correct ? 'win' : 'lose'
-        }
-      })
-      
-      return (
-         <div className="min-h-dvh bg-aurora relative overflow-hidden flex flex-col items-center justify-center p-6 text-center">
-            <div className="noise-overlay" />
-            
-            {isWin && (
-                <>
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-game-primary/20 blur-[100px] rounded-full" />
-                  {/* Confetti particles could go here */}
-                </>
-            )}
-            
-            <motion.div
-               initial={{ scale: 0.8, opacity: 0 }}
-               animate={{ scale: 1, opacity: 1 }}
-               className="relative z-10 bg-black/40 backdrop-blur-xl border border-white/10 rounded-[40px] p-7 w-full max-w-sm"
-            >
-                <div className="text-7xl mb-6">{isWin ? '🏆' : isDraw ? '🤝' : '💀'}</div>
-                
-                <h1 className={`text-4xl font-black uppercase italic mb-2 ${isWin ? 'text-gradient-gold' : 'text-white'}`}>
-                    {isWin ? 'Победа' : isDraw ? 'Ничья' : 'Поражение'}
-                </h1>
-                
-                <div className="flex items-center justify-center gap-6 my-8">
-                     <div className="text-center">
-                         <AvatarWithFrame user={user} size={64} />
-                         <div className="text-3xl font-bold text-white mt-2">{score.player}</div>
-                     </div>
-                     <div className="text-white/20 font-black text-2xl">VS</div>
-                     <div className="text-center">
-                        <div className="w-16 h-16 rounded-full bg-white/10 mx-auto flex items-center justify-center text-2xl border-2 border-white/10">
-                            {opponent?.photo_url ? <img src={opponent.photo_url} className="w-full h-full rounded-full object-cover"/> : (opponent?.name?.[0] || '?')}
-                        </div>
-                        <div className="text-3xl font-bold text-white/60 mt-2">{score.opponent}</div>
-                     </div>
-                </div>
-                
-                <div className="bg-white/5 rounded-2xl p-4 mb-6">
-                    <div className="text-sm text-white/40 uppercase font-bold tracking-wider mb-1">Рейтинг</div>
-                    <div className={`text-2xl font-bold ${ratingClass}`}>
-                        {ratingChange} <span className="text-sm font-normal text-white/40">MMR</span>
-                    </div>
-                </div>
-
-                <div className="bg-white/5 rounded-2xl p-4 mb-6 text-left">
-                  <div className="text-sm text-white/40 uppercase font-bold tracking-wider mb-3 text-center">Ход дуэли</div>
-                  <div className="grid grid-cols-5 gap-2">
-                    {roundPills.map((pill) => (
-                      <div
-                        key={`round-pill-${pill.roundNumber}`}
-                        className={`h-7 rounded-lg border flex items-center justify-center text-[11px] font-semibold ${
-                          pill.state === 'win'
-                            ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-200'
-                            : pill.state === 'lose'
-                              ? 'bg-red-500/20 border-red-400/50 text-red-200'
-                              : pill.state === 'draw'
-                                ? 'bg-amber-500/15 border-amber-300/40 text-amber-100'
-                                : 'bg-white/5 border-white/10 text-white/40'
-                        }`}
-                      >
-                        {pill.state === 'win' ? '✓' : pill.state === 'lose' ? '✕' : pill.state === 'draw' ? '•' : '·'}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                
-                <button
-                    onClick={() => {
-                        setRoundHistory([])
-                        sendRematchInvite()
-                    }} 
-                    className="w-full py-4 bg-white rounded-2xl text-black font-bold text-lg mb-3 hover:bg-white/90 transition-colors"
-                >
-                    Реванш
-                </button>
-
-                <button
-                    onClick={() => {
-                        setRoundHistory([])
-                        setState(STATES.MENU)
-                        setDuel(null)
-                        setScore({ player: 0, opponent: 0 })
-                        navigate('/')
-                    }} 
-                    className="w-full py-3 border border-white/20 rounded-2xl text-white font-semibold text-base hover:bg-white/10 transition-colors"
-                >
-                    На главную
-                </button>
-            </motion.div>
-         </div>
-      )
+    return (
+      <DuelFinishedView
+        score={score}
+        totalRounds={totalRounds}
+        duel={duel}
+        user={user}
+        opponent={opponent}
+        roundHistory={roundHistory}
+        onRematch={() => {
+          setRoundHistory([])
+          sendRematchInvite()
+        }}
+        onGoHome={() => {
+          setRoundHistory([])
+          setState(STATES.MENU)
+          setDuel(null)
+          setScore({ player: 0, opponent: 0 })
+          navigate('/')
+        }}
+      />
+    )
   }
 
   return (
