@@ -37,6 +37,18 @@ const FRAME_STYLES = {
   },
 }
 
+const EXTERNAL_FRAME_DEFAULTS = {
+  avatarInsetPercent: 12,
+  frameScale: 1.2,
+}
+
+const EXTERNAL_FRAME_OVERRIDES = {
+  frame_test: {
+    avatarInsetPercent: 14,
+    frameScale: 1.28,
+  },
+}
+
 function resolveFrameAssetUrl(frameKey) {
   const normalized = String(frameKey || '').trim()
   if (!normalized || normalized === 'default' || FRAME_STYLES[normalized]) return null
@@ -55,6 +67,12 @@ function resolveDisplayName(name, user) {
   return '?'
 }
 
+function resolveExternalFrameMeta(frameKey) {
+  const normalized = String(frameKey || '').trim()
+  if (!normalized) return EXTERNAL_FRAME_DEFAULTS
+  return EXTERNAL_FRAME_OVERRIDES[normalized] || EXTERNAL_FRAME_DEFAULTS
+}
+
 function AvatarWithFrame({
   user = null,
   photoUrl,
@@ -70,6 +88,7 @@ function AvatarWithFrame({
   const frameStyle = FRAME_STYLES[resolvedFrameKey] || FRAME_STYLES.default
   const initial = resolveDisplayName(name, user)[0]?.toUpperCase() || '?'
   const frameAssetUrl = useMemo(() => resolveFrameAssetUrl(resolvedFrameKey), [resolvedFrameKey])
+  const externalFrameMeta = useMemo(() => resolveExternalFrameMeta(resolvedFrameKey), [resolvedFrameKey])
   const [avatarBroken, setAvatarBroken] = useState(false)
   const [frameBroken, setFrameBroken] = useState(false)
   const hasFrameAsset = Boolean(frameAssetUrl && !frameBroken)
@@ -100,7 +119,10 @@ function AvatarWithFrame({
       >
         {hasFrameAsset ? (
           <>
-            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-game-primary to-purple-700 overflow-hidden flex items-center justify-center">
+            <div
+              className="absolute rounded-full bg-gradient-to-br from-game-primary to-purple-700 overflow-hidden flex items-center justify-center"
+              style={{ inset: `${externalFrameMeta.avatarInsetPercent}%` }}
+            >
               {resolvedPhotoUrl && !avatarBroken ? (
                 <img
                   src={resolvedPhotoUrl}
@@ -124,6 +146,10 @@ function AvatarWithFrame({
               alt=""
               aria-hidden="true"
               className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+              style={{
+                transform: `scale(${externalFrameMeta.frameScale})`,
+                transformOrigin: 'center',
+              }}
               onError={() => setFrameBroken(true)}
             />
           </>
