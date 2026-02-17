@@ -236,6 +236,14 @@ export const api = {
     method: 'POST',
     body: JSON.stringify(payload)
   }),
+  adminUpdateFrameShopItem: (payload) => request('/admin/frames/shop/update', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  }),
+  adminRemoveFrameShopItem: (payload) => request('/admin/frames/shop/remove', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  }),
   isAdmin: () => request('/admin/check'),
   adminCancelDuel: (duelId) => request(`/admin/duel/${duelId}/cancel`, { method: 'POST' }),
   adminCancelDuelByCode: (code) => request('/admin/duel/by-code/cancel', {

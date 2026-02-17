@@ -43,15 +43,21 @@ const EXTERNAL_FRAME_FALLBACK = {
 }
 
 const frameMetricsCache = new Map()
+const FRAME_EXTENSIONS = ['png', 'webp', 'gif', 'svg']
 
-function resolveFrameAssetUrl(frameKey) {
+function resolveFrameAssetUrls(frameKey) {
   const normalized = String(frameKey || '').trim()
-  if (!normalized || normalized === 'default' || FRAME_STYLES[normalized]) return null
+  if (!normalized || normalized === 'default' || FRAME_STYLES[normalized]) return []
 
-  const filename = normalized.replace(/\.png$/i, '')
-  if (!/^[a-z0-9._-]+$/i.test(filename)) return null
+  const hasExtension = /\.[a-z0-9]+$/i.test(normalized)
+  const filename = normalized.replace(/\.(png|webp|gif|svg)$/i, '')
+  if (!/^[a-z0-9._-]+$/i.test(filename)) return []
 
-  return `/api/images/cosmetics/${filename}.png`
+  if (hasExtension) {
+    return [`/api/images/cosmetics/${normalized}`]
+  }
+
+  return FRAME_EXTENSIONS.map((ext) => `/api/images/cosmetics/${filename}.${ext}`)
 }
 
 function resolveDisplayName(name, user) {
@@ -74,6 +80,17 @@ function median(values) {
     return (sorted[mid - 1] + sorted[mid]) / 2
   }
   return sorted[mid]
+}
+
+function quantile(values, q) {
+  if (!Array.isArray(values) || values.length === 0) return 0
+  const sorted = [...values].sort((a, b) => a - b)
+  const clampedQ = clamp(q, 0, 1)
+  const pos = (sorted.length - 1) * clampedQ
+  const base = Math.floor(pos)
+  const rest = pos - base
+  const next = sorted[base + 1] ?? sorted[base]
+  return sorted[base] + rest * (next - sorted[base])
 }
 
 function detectExternalFrameMetrics(imageData, width, height) {
@@ -103,8 +120,10 @@ function detectExternalFrameMetrics(imageData, width, height) {
     return EXTERNAL_FRAME_FALLBACK
   }
 
-  const centerX = (minX + maxX) / 2
-  const centerY = (minY + maxY) / 2
+  // Центр всегда берём из центра изображения, а не по opaque-boundary:
+  // это защищает от смещения при асимметричных "хвостах" рамок (огонь/блики и т.д.).
+  const centerX = (width - 1) / 2
+  const centerY = (height - 1) / 2
   const maxRadius = minSide / 2
   const anglesCount = 84
   const innerSamples = []
@@ -139,8 +158,9 @@ function detectExternalFrameMetrics(imageData, width, height) {
     return EXTERNAL_FRAME_FALLBACK
   }
 
-  const innerRadius = median(innerSamples)
-  const outerRadius = median(outerSamples)
+  const innerRadius = quantile(innerSamples, 0.5)
+  // Для внешнего радиуса берём lower-quantile, чтобы игнорировать длинные "шипы".
+  const outerRadius = quantile(outerSamples, 0.3)
   if (innerRadius <= 0 || outerRadius <= 0 || innerRadius >= outerRadius) {
     return EXTERNAL_FRAME_FALLBACK
   }
@@ -153,7 +173,7 @@ function detectExternalFrameMetrics(imageData, width, height) {
 
   const frameScale = clamp(1 / outerNorm, 1, 2.4)
   const avatarRadiusRatio = clamp((innerNorm / outerNorm) * 0.97, 0.5, 0.92)
-  const avatarInsetPercent = clamp((1 - avatarRadiusRatio) * 50, 4, 26)
+  const avatarInsetPercent = clamp((1 - avatarRadiusRatio) * 50, 4, 16)
 
   return {
     avatarInsetPercent: Number(avatarInsetPercent.toFixed(2)),
@@ -219,7 +239,9 @@ function AvatarWithFrame({
   const resolvedFrameKey = frameKey ?? user?.equipped_frame ?? user?.equippedFrame ?? 'default'
   const frameStyle = FRAME_STYLES[resolvedFrameKey] || FRAME_STYLES.default
   const initial = resolveDisplayName(name, user)[0]?.toUpperCase() || '?'
-  const frameAssetUrl = useMemo(() => resolveFrameAssetUrl(resolvedFrameKey), [resolvedFrameKey])
+  const frameAssetUrls = useMemo(() => resolveFrameAssetUrls(resolvedFrameKey), [resolvedFrameKey])
+  const [frameCandidateIndex, setFrameCandidateIndex] = useState(0)
+  const frameAssetUrl = frameAssetUrls[frameCandidateIndex] || null
   const [externalFrameMeta, setExternalFrameMeta] = useState(EXTERNAL_FRAME_FALLBACK)
   const [avatarBroken, setAvatarBroken] = useState(false)
   const [frameBroken, setFrameBroken] = useState(false)
@@ -229,6 +251,11 @@ function AvatarWithFrame({
   useEffect(() => {
     setAvatarBroken(false)
   }, [resolvedPhotoUrl])
+
+  useEffect(() => {
+    setFrameBroken(false)
+    setFrameCandidateIndex(0)
+  }, [resolvedFrameKey])
 
   useEffect(() => {
     setFrameBroken(false)
@@ -309,7 +336,13 @@ function AvatarWithFrame({
                 transform: `scale(${externalFrameMeta.frameScale})`,
                 transformOrigin: 'center',
               }}
-              onError={() => setFrameBroken(true)}
+              onError={() => {
+                if (frameCandidateIndex < frameAssetUrls.length - 1) {
+                  setFrameCandidateIndex((prev) => prev + 1)
+                  return
+                }
+                setFrameBroken(true)
+              }}
             />
           </>
         ) : (

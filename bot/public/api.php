@@ -371,6 +371,16 @@ try {
             handleAdminGrantFrame($container, $telegramUser, $body);
             break;
 
+        // POST /admin/frames/shop/update - обновить товар рамки в магазине
+        case $path === '/admin/frames/shop/update' && $requestMethod === 'POST':
+            handleAdminUpdateFrameShopItem($container, $telegramUser, $body);
+            break;
+
+        // POST /admin/frames/shop/remove - удалить рамку из магазина
+        case $path === '/admin/frames/shop/remove' && $requestMethod === 'POST':
+            handleAdminRemoveFrameShopItem($container, $telegramUser, $body);
+            break;
+
         // === SHOP SYSTEM ===
         
         // GET /shop/items - получить товары магазина

@@ -101,6 +101,7 @@ function AdminPage() {
     rarity: 'rare',
   })
   const [frameActionResult, setFrameActionResult] = useState(null)
+  const [frameShopDrafts, setFrameShopDrafts] = useState({})
 
   useEffect(() => {
     showBackButton(true)
@@ -250,7 +251,25 @@ function AdminPage() {
 
   const loadFrames = async () => {
     const res = await api.getAdminFrames()
-    if (res.success) setFrames(res.data.items || [])
+    if (res.success) {
+      const items = res.data.items || []
+      setFrames(items)
+      setFrameShopDrafts((prev) => {
+        const next = { ...prev }
+        for (const frame of items) {
+          const key = frame.frame_key
+          if (!key) continue
+          if (!next[key]) {
+            next[key] = {
+              price_coins: frame.shop_item?.price_coins ?? 0,
+              price_gems: frame.shop_item?.price_gems ?? 0,
+              is_active: frame.shop_item?.is_active ?? true,
+            }
+          }
+        }
+        return next
+      })
+    }
   }
 
   const activeDuelsCount = useMemo(
@@ -261,7 +280,7 @@ function AdminPage() {
   const normalizeFrameKey = (value) => {
     return String(value || '')
       .toLowerCase()
-      .replace(/\.png$/i, '')
+      .replace(/\.(png|svg|gif|webp)$/i, '')
       .replace(/[^a-z0-9_-]+/g, '_')
       .replace(/^_+|_+$/g, '')
       .slice(0, 64)
@@ -519,8 +538,10 @@ function AdminPage() {
 
   const handleFrameFileChange = (file) => {
     if (!file) return
-    if (file.type !== 'image/png') {
-      alert('Поддерживается только PNG')
+    const allowed = ['image/png', 'image/svg+xml', 'image/gif', 'image/webp']
+    const extensionAllowed = /\.(png|svg|gif|webp)$/i.test(file.name || '')
+    if (!allowed.includes(file.type) && !extensionAllowed) {
+      alert('Поддерживаются только PNG, SVG, GIF, WEBP')
       return
     }
 
@@ -546,7 +567,7 @@ function AdminPage() {
     }
     const existingFrame = frames.find((item) => item.frame_key === frameKey)
     if (!frameForm.image_base64 && !existingFrame) {
-      alert('Загрузи PNG файл рамки')
+      alert('Загрузи файл рамки (PNG/SVG/GIF/WEBP)')
       return
     }
 
@@ -627,6 +648,68 @@ function AdminPage() {
         telegram_id: data.telegram_id,
         already_owned: Boolean(data.already_owned),
       })
+      hapticFeedback('success')
+    } catch (e) {
+      alert(e.message || 'Ошибка')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const updateFrameShopDraft = (frameKey, patch) => {
+    if (!frameKey) return
+    setFrameShopDrafts((prev) => ({
+      ...prev,
+      [frameKey]: {
+        ...prev[frameKey],
+        ...patch,
+      },
+    }))
+  }
+
+  const handleUpdateFrameShopItem = async (frameKey) => {
+    if (!frameKey) return
+    const draft = frameShopDrafts[frameKey] || {}
+    setActionLoading(true)
+    setFrameActionResult(null)
+    try {
+      const res = await api.adminUpdateFrameShopItem({
+        frame_key: frameKey,
+        price_coins: Math.max(0, Number(draft.price_coins || 0)),
+        price_gems: Math.max(0, Number(draft.price_gems || 0)),
+        is_active: Boolean(draft.is_active),
+      })
+      if (!res.success) throw new Error(res.error || 'Не удалось обновить товар рамки')
+      setFrameActionResult({
+        type: 'shop_update',
+        message: res.data?.message || 'Товар рамки обновлён',
+        frame_key: frameKey,
+      })
+      await loadFrames()
+      hapticFeedback('success')
+    } catch (e) {
+      alert(e.message || 'Ошибка')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleRemoveFrameShopItem = async (frameKey) => {
+    if (!frameKey) return
+    const confirmed = window.confirm(`Удалить рамку ${frameKey} из магазина?`)
+    if (!confirmed) return
+
+    setActionLoading(true)
+    setFrameActionResult(null)
+    try {
+      const res = await api.adminRemoveFrameShopItem({ frame_key: frameKey })
+      if (!res.success) throw new Error(res.error || 'Не удалось удалить рамку из магазина')
+      setFrameActionResult({
+        type: 'shop_remove',
+        message: res.data?.message || 'Рамка удалена из магазина',
+        frame_key: frameKey,
+      })
+      await loadFrames()
       hapticFeedback('success')
     } catch (e) {
       alert(e.message || 'Ошибка')
@@ -1135,7 +1218,7 @@ function AdminPage() {
         {activeTab === 'frames' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
             <div className="rounded-2xl border border-white/10 bg-black/25 p-4 space-y-3">
-              <div className="text-sm text-white/70">Загрузка рамки (PNG) + публикация в магазин</div>
+              <div className="text-sm text-white/70">Загрузка рамки (PNG/SVG/GIF/WEBP) + публикация в магазин</div>
               <div className="grid md:grid-cols-2 gap-2">
                 <input
                   value={frameForm.frame_key}
@@ -1164,7 +1247,7 @@ function AdminPage() {
                 </select>
                 <input
                   type="file"
-                  accept="image/png"
+                  accept="image/png,image/svg+xml,image/gif,image/webp"
                   onChange={(e) => handleFrameFileChange(e.target.files?.[0])}
                   className="rounded-xl bg-black/30 border border-white/15 px-4 py-3 text-white file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:text-white"
                 />
@@ -1235,7 +1318,7 @@ function AdminPage() {
                 <div className="rounded-xl border border-white/10 bg-black/25 p-3 flex items-center gap-3">
                   <img src={frameForm.preview_url} alt="preview" className="w-16 h-16 object-contain rounded-lg bg-black/30" />
                   <div className="text-xs text-white/70">
-                    Предпросмотр PNG (автоподгонка аватара в игре будет рассчитана автоматически)
+                    Предпросмотр рамки (автоподгонка аватара в игре рассчитывается автоматически)
                   </div>
                 </div>
               )}
@@ -1304,7 +1387,7 @@ function AdminPage() {
                     <div className="min-w-0 flex-1">
                       <div className="text-white text-sm font-semibold truncate">{frame.frame_key}</div>
                       <div className="text-white/50 text-[11px]">
-                        {frame.width}x{frame.height} · {Math.round((Number(frame.size_bytes || 0) / 1024) || 0)} KB
+                        {frame.width}x{frame.height} · {Math.round((Number(frame.size_bytes || 0) / 1024) || 0)} KB · {(frame.extension || 'png').toUpperCase()}
                       </div>
                       <div className="text-[11px] mt-1">
                         {frame.shop_item ? (
@@ -1313,29 +1396,77 @@ function AdminPage() {
                           <span className="text-amber-200">Не привязана к магазину</span>
                         )}
                       </div>
+                      {frame.shop_item ? (
+                        <div className="mt-2 grid grid-cols-3 gap-2">
+                          <input
+                            type="number"
+                            min={0}
+                            value={frameShopDrafts[frame.frame_key]?.price_coins ?? frame.shop_item.price_coins}
+                            onChange={(e) => updateFrameShopDraft(frame.frame_key, { price_coins: e.target.value })}
+                            className="rounded-lg bg-black/30 border border-white/15 px-2 py-1.5 text-white text-xs"
+                            placeholder="Монеты"
+                          />
+                          <input
+                            type="number"
+                            min={0}
+                            value={frameShopDrafts[frame.frame_key]?.price_gems ?? frame.shop_item.price_gems}
+                            onChange={(e) => updateFrameShopDraft(frame.frame_key, { price_gems: e.target.value })}
+                            className="rounded-lg bg-black/30 border border-white/15 px-2 py-1.5 text-white text-xs"
+                            placeholder="Кристаллы"
+                          />
+                          <label className="inline-flex items-center justify-center gap-1 rounded-lg border border-white/15 bg-black/30 px-2 py-1.5 text-[11px] text-white/80">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(frameShopDrafts[frame.frame_key]?.is_active ?? frame.shop_item.is_active)}
+                              onChange={(e) => updateFrameShopDraft(frame.frame_key, { is_active: e.target.checked })}
+                            />
+                            Активен
+                          </label>
+                        </div>
+                      ) : null}
                     </div>
-                    <button
-                      onClick={() => {
-                        setFrameForm((prev) => ({
-                          ...prev,
-                          frame_key: frame.frame_key,
-                          name: frame.shop_item?.name || prev.name,
-                          rarity: frame.shop_item?.rarity || prev.rarity,
-                          description: frame.shop_item?.description || prev.description,
-                          price_coins: frame.shop_item?.price_coins ?? prev.price_coins,
-                          price_gems: frame.shop_item?.price_gems ?? prev.price_gems,
-                          sort_order: frame.shop_item?.sort_order ?? prev.sort_order,
-                          is_active: frame.shop_item?.is_active ?? prev.is_active,
-                          create_shop_item: true,
-                          image_base64: '',
-                          preview_url: frame.url,
-                        }))
-                        setFrameGrantForm((prev) => ({ ...prev, frame_key: frame.frame_key }))
-                      }}
-                      className="px-2.5 py-2 rounded-lg bg-white/10 text-white/70 text-xs"
-                    >
-                      Выбрать
-                    </button>
+                    <div className="flex flex-col gap-2">
+                      <button
+                        onClick={() => {
+                          setFrameForm((prev) => ({
+                            ...prev,
+                            frame_key: frame.frame_key,
+                            name: frame.shop_item?.name || prev.name,
+                            rarity: frame.shop_item?.rarity || prev.rarity,
+                            description: frame.shop_item?.description || prev.description,
+                            price_coins: frame.shop_item?.price_coins ?? prev.price_coins,
+                            price_gems: frame.shop_item?.price_gems ?? prev.price_gems,
+                            sort_order: frame.shop_item?.sort_order ?? prev.sort_order,
+                            is_active: frame.shop_item?.is_active ?? prev.is_active,
+                            create_shop_item: true,
+                            image_base64: '',
+                            preview_url: frame.url,
+                          }))
+                          setFrameGrantForm((prev) => ({ ...prev, frame_key: frame.frame_key }))
+                        }}
+                        className="px-2.5 py-2 rounded-lg bg-white/10 text-white/70 text-xs"
+                      >
+                        Выбрать
+                      </button>
+                      {frame.shop_item ? (
+                        <>
+                          <button
+                            onClick={() => handleUpdateFrameShopItem(frame.frame_key)}
+                            disabled={actionLoading}
+                            className="px-2.5 py-2 rounded-lg bg-cyan-500/20 border border-cyan-400/30 text-cyan-200 text-xs disabled:opacity-40"
+                          >
+                            Цена/статус
+                          </button>
+                          <button
+                            onClick={() => handleRemoveFrameShopItem(frame.frame_key)}
+                            disabled={actionLoading}
+                            className="px-2.5 py-2 rounded-lg bg-red-500/20 border border-red-400/30 text-red-200 text-xs disabled:opacity-40"
+                          >
+                            Убрать
+                          </button>
+                        </>
+                      ) : null}
+                    </div>
                   </div>
                 ))}
               </div>

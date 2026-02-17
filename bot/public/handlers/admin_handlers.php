@@ -1023,63 +1023,28 @@ function handleAdminFramesList($container, ?array $telegramUser): void
         jsonError('Доступ запрещён', 403);
     }
 
-    $framesDir = adminFrameStorageDir();
-    $files = is_dir($framesDir) ? glob($framesDir . '/*.png') : [];
-    if (!is_array($files)) {
-        $files = [];
-    }
-
-    /** @var \Illuminate\Support\Collection<int, \QuizBot\Domain\Model\ShopItem> $shopItems */
-    $shopItems = \QuizBot\Domain\Model\ShopItem::query()
-        ->where('type', \QuizBot\Domain\Model\ShopItem::TYPE_COSMETIC)
-        ->orderByDesc('id')
-        ->get();
-
-    $shopByCosmeticId = [];
-    foreach ($shopItems as $item) {
-        $metadata = is_array($item->metadata) ? $item->metadata : [];
-        $cosmeticType = (string) ($metadata['cosmetic_type'] ?? '');
-        $cosmeticId = (string) ($metadata['cosmetic_id'] ?? '');
-        if ($cosmeticType !== 'frame' || $cosmeticId === '') {
-            continue;
-        }
-        if (!isset($shopByCosmeticId[$cosmeticId])) {
-            $shopByCosmeticId[$cosmeticId] = $item;
-        }
-    }
+    $files = adminFrameCollectAssets();
+    $shopByCosmeticId = adminFrameShopIndexByCosmeticId();
 
     $items = [];
-    foreach ($files as $fullPath) {
-        $basename = basename((string) $fullPath);
-        $frameKey = preg_replace('/\.png$/i', '', $basename) ?: '';
+    foreach ($files as $asset) {
+        $frameKey = (string) ($asset['frame_key'] ?? '');
         if ($frameKey === '') {
             continue;
         }
 
-        $size = @getimagesize((string) $fullPath);
-        $width = is_array($size) ? (int) ($size[0] ?? 0) : 0;
-        $height = is_array($size) ? (int) ($size[1] ?? 0) : 0;
         $shopItem = $shopByCosmeticId[$frameKey] ?? null;
-
         $items[] = [
             'frame_key' => $frameKey,
-            'filename' => $basename,
-            'url' => '/api/images/cosmetics/' . rawurlencode($basename),
-            'size_bytes' => (int) @filesize((string) $fullPath),
-            'width' => $width,
-            'height' => $height,
-            'updated_at' => @filemtime((string) $fullPath) ? date(DATE_ATOM, (int) filemtime((string) $fullPath)) : null,
-            'shop_item' => $shopItem ? [
-                'id' => (int) $shopItem->id,
-                'name' => (string) $shopItem->name,
-                'description' => $shopItem->description !== null ? (string) $shopItem->description : '',
-                'rarity' => (string) $shopItem->rarity,
-                'price_coins' => (int) $shopItem->price_coins,
-                'price_gems' => (int) $shopItem->price_gems,
-                'is_active' => (bool) $shopItem->is_active,
-                'sort_order' => (int) $shopItem->sort_order,
-                'metadata' => is_array($shopItem->metadata) ? $shopItem->metadata : [],
-            ] : null,
+            'filename' => (string) ($asset['filename'] ?? ''),
+            'extension' => (string) ($asset['extension'] ?? ''),
+            'mime' => (string) ($asset['mime'] ?? ''),
+            'url' => (string) ($asset['url'] ?? ''),
+            'size_bytes' => (int) ($asset['size_bytes'] ?? 0),
+            'width' => (int) ($asset['width'] ?? 0),
+            'height' => (int) ($asset['height'] ?? 0),
+            'updated_at' => $asset['updated_at'] ?? null,
+            'shop_item' => $shopItem ? adminMapFrameShopItem($shopItem) : null,
         ];
     }
 
@@ -1092,7 +1057,7 @@ function handleAdminFramesList($container, ?array $telegramUser): void
 }
 
 /**
- * POST /admin/frames/upsert - загрузить/обновить PNG рамки и (опционально) создать товар магазина
+ * POST /admin/frames/upsert - загрузить/обновить рамку и (опционально) создать товар магазина
  */
 function handleAdminFrameUpsert($container, ?array $telegramUser, array $body): void
 {
@@ -1111,34 +1076,32 @@ function handleAdminFrameUpsert($container, ?array $telegramUser, array $body): 
         jsonError('Не удалось создать директорию для рамок', 500);
     }
 
-    $targetPath = $framesDir . '/' . $frameKey . '.png';
+    $existingAsset = adminFindFrameAssetByKey($frameKey);
     $imageBase64 = (string) ($body['image_base64'] ?? '');
     $binary = null;
+    $extension = $existingAsset['extension'] ?? 'png';
+    $mime = $existingAsset['mime'] ?? 'image/png';
+    $filename = $existingAsset['filename'] ?? ($frameKey . '.png');
+    $targetPath = $existingAsset['path'] ?? ($framesDir . '/' . $filename);
     $width = 0;
     $height = 0;
 
     if ($imageBase64 !== '') {
-        $binary = adminDecodeBase64Image($imageBase64);
-        if ($binary === null) {
-            jsonError('Не удалось декодировать изображение (ожидается base64 PNG)', 400);
+        $decoded = adminDecodeBase64FrameImagePayload($imageBase64);
+        if ($decoded === null) {
+            jsonError('Не удалось декодировать изображение (ожидается base64 PNG/SVG/GIF/WEBP)', 400);
         }
+        $binary = (string) $decoded['binary'];
+        $extension = (string) $decoded['extension'];
+        $mime = (string) $decoded['mime'];
+        $filename = $frameKey . '.' . $extension;
+        $targetPath = $framesDir . '/' . $filename;
 
         if (strlen($binary) > 5 * 1024 * 1024) {
             jsonError('Размер файла слишком большой (максимум 5MB)', 400);
         }
 
-        $imageInfo = @getimagesizefromstring($binary);
-        if (!is_array($imageInfo)) {
-            jsonError('Файл не распознан как изображение', 400);
-        }
-
-        $mime = (string) ($imageInfo['mime'] ?? '');
-        if ($mime !== 'image/png') {
-            jsonError('Поддерживается только PNG', 400);
-        }
-
-        $width = (int) ($imageInfo[0] ?? 0);
-        $height = (int) ($imageInfo[1] ?? 0);
+        [$width, $height] = adminDetectFrameDimensions($binary, $mime);
         if ($width < 64 || $height < 64) {
             jsonError('Минимальный размер рамки 64x64', 400);
         }
@@ -1150,23 +1113,33 @@ function handleAdminFrameUpsert($container, ?array $telegramUser, array $body): 
             jsonError('Нет прав записи в директорию рамок. Проверь владельца/права на bot/storage/images/cosmetics', 500);
         }
 
+        foreach (adminFramePathsByKey($frameKey) as $pathToRemove) {
+            if ($pathToRemove !== $targetPath && is_file($pathToRemove)) {
+                @unlink($pathToRemove);
+            }
+        }
+
         if (@file_put_contents($targetPath, $binary, LOCK_EX) === false) {
             jsonError('Не удалось сохранить файл рамки', 500);
         }
     } elseif (!is_file($targetPath)) {
-        jsonError('Рамка не найдена. Загрузите PNG файл', 400);
+        jsonError('Рамка не найдена. Загрузите файл', 400);
     } else {
-        $imageInfo = @getimagesize($targetPath);
-        if (is_array($imageInfo)) {
-            $width = (int) ($imageInfo[0] ?? 0);
-            $height = (int) ($imageInfo[1] ?? 0);
+        $fileData = @file_get_contents($targetPath);
+        if ($fileData !== false) {
+            [$width, $height] = adminDetectFrameDimensions($fileData, $mime);
         }
     }
 
     // Для обратной совместимости поддерживаем legacy-путь.
     $legacyDir = adminFrameLegacyStorageDir();
     if ($binary !== null && (is_dir($legacyDir) || @mkdir($legacyDir, 0775, true))) {
-        @file_put_contents($legacyDir . '/' . $frameKey . '.png', $binary, LOCK_EX);
+        foreach (adminFramePathsByKey($frameKey, $legacyDir) as $legacyPathToRemove) {
+            if ($legacyPathToRemove !== ($legacyDir . '/' . $filename) && is_file($legacyPathToRemove)) {
+                @unlink($legacyPathToRemove);
+            }
+        }
+        @file_put_contents($legacyDir . '/' . $filename, $binary, LOCK_EX);
     }
 
     $createdShopItem = null;
@@ -1210,30 +1183,110 @@ function handleAdminFrameUpsert($container, ?array $telegramUser, array $body): 
                 'cosmetic_type' => 'frame',
                 'cosmetic_id' => $frameKey,
                 'frame_key' => $frameKey,
+                'frame_ext' => $extension,
+                'frame_filename' => $filename,
                 'source' => 'admin_upload',
             ]
         );
         $shopItem->save();
 
-        $createdShopItem = [
-            'id' => (int) $shopItem->id,
-            'name' => (string) $shopItem->name,
-            'rarity' => (string) $shopItem->rarity,
-            'price_coins' => (int) $shopItem->price_coins,
-            'price_gems' => (int) $shopItem->price_gems,
-            'is_active' => (bool) $shopItem->is_active,
-            'sort_order' => (int) $shopItem->sort_order,
-        ];
+        $createdShopItem = adminMapFrameShopItem($shopItem);
     }
 
     jsonResponse([
         'message' => 'Рамка сохранена',
         'frame_key' => $frameKey,
-        'url' => '/api/images/cosmetics/' . rawurlencode($frameKey . '.png'),
+        'filename' => $filename,
+        'extension' => $extension,
+        'mime' => $mime,
+        'url' => '/api/images/cosmetics/' . rawurlencode($filename),
         'width' => $width,
         'height' => $height,
         'size_bytes' => is_file($targetPath) ? (int) @filesize($targetPath) : 0,
         'shop_item' => $createdShopItem,
+    ]);
+}
+
+/**
+ * POST /admin/frames/shop/update - обновить товар рамки в магазине
+ */
+function handleAdminUpdateFrameShopItem($container, ?array $telegramUser, array $body): void
+{
+    if (!isAdmin($telegramUser, $container)) {
+        jsonError('Доступ запрещён', 403);
+    }
+
+    $frameKey = adminNormalizeFrameKey((string) ($body['frame_key'] ?? ''));
+    if ($frameKey === '') {
+        jsonError('Не указан frame_key', 400);
+    }
+
+    $shopItem = adminFindFrameShopItemByCosmeticId($frameKey);
+    if (!$shopItem) {
+        jsonError('Товар рамки не найден в магазине', 404);
+    }
+
+    if (array_key_exists('price_coins', $body)) {
+        $shopItem->price_coins = max(0, (int) $body['price_coins']);
+    }
+    if (array_key_exists('price_gems', $body)) {
+        $shopItem->price_gems = max(0, (int) $body['price_gems']);
+    }
+    if (array_key_exists('is_active', $body)) {
+        $shopItem->is_active = (bool) $body['is_active'];
+    }
+    if (array_key_exists('name', $body)) {
+        $name = trim((string) $body['name']);
+        if ($name !== '') {
+            $shopItem->name = $name;
+        }
+    }
+    if (array_key_exists('description', $body)) {
+        $description = trim((string) $body['description']);
+        $shopItem->description = $description !== '' ? $description : null;
+    }
+    if (array_key_exists('rarity', $body)) {
+        $rarity = strtolower(trim((string) $body['rarity']));
+        if (in_array($rarity, ['common', 'rare', 'epic', 'legendary'], true)) {
+            $shopItem->rarity = $rarity;
+        }
+    }
+
+    $shopItem->save();
+
+    jsonResponse([
+        'message' => 'Товар рамки обновлён',
+        'frame_key' => $frameKey,
+        'shop_item' => adminMapFrameShopItem($shopItem),
+    ]);
+}
+
+/**
+ * POST /admin/frames/shop/remove - удалить рамку из магазина
+ */
+function handleAdminRemoveFrameShopItem($container, ?array $telegramUser, array $body): void
+{
+    if (!isAdmin($telegramUser, $container)) {
+        jsonError('Доступ запрещён', 403);
+    }
+
+    $frameKey = adminNormalizeFrameKey((string) ($body['frame_key'] ?? ''));
+    if ($frameKey === '') {
+        jsonError('Не указан frame_key', 400);
+    }
+
+    $shopItem = adminFindFrameShopItemByCosmeticId($frameKey);
+    if (!$shopItem) {
+        jsonError('Товар рамки не найден в магазине', 404);
+    }
+
+    $shopItemId = (int) $shopItem->id;
+    $shopItem->delete();
+
+    jsonResponse([
+        'message' => 'Рамка удалена из магазина',
+        'frame_key' => $frameKey,
+        'removed_shop_item_id' => $shopItemId,
     ]);
 }
 
@@ -1258,8 +1311,8 @@ function handleAdminGrantFrame($container, ?array $telegramUser, array $body): v
         jsonError('Не указан frame_key', 400);
     }
 
-    $framePath = adminFrameStorageDir() . '/' . $frameKey . '.png';
-    if (!is_file($framePath)) {
+    $frameAsset = adminFindFrameAssetByKey($frameKey);
+    if (!$frameAsset || !is_file((string) $frameAsset['path'])) {
         jsonError('Файл рамки не найден', 404);
     }
 
@@ -1303,7 +1356,7 @@ function handleAdminGrantFrame($container, ?array $telegramUser, array $body): v
 function adminNormalizeFrameKey(string $raw): string
 {
     $value = strtolower(trim($raw));
-    $value = preg_replace('/\.png$/i', '', $value) ?? '';
+    $value = preg_replace('/\.(png|webp|gif|svg)$/i', '', $value) ?? '';
     if ($value === '') {
         return '';
     }
@@ -1314,15 +1367,17 @@ function adminNormalizeFrameKey(string $raw): string
     return $value;
 }
 
-function adminDecodeBase64Image(string $raw): ?string
+function adminDecodeBase64FrameImagePayload(string $raw): ?array
 {
     $value = trim($raw);
     if ($value === '') {
         return null;
     }
 
-    if (preg_match('/^data:image\/png;base64,(.+)$/i', $value, $matches)) {
-        $value = (string) $matches[1];
+    $mimeHint = '';
+    if (preg_match('/^data:([^;]+);base64,(.+)$/i', $value, $matches)) {
+        $mimeHint = strtolower(trim((string) $matches[1]));
+        $value = (string) $matches[2];
     }
 
     $value = str_replace(["\r", "\n", ' '], '', $value);
@@ -1331,7 +1386,100 @@ function adminDecodeBase64Image(string $raw): ?string
         return null;
     }
 
-    return $decoded;
+    $mime = $mimeHint;
+    if ($mime === '') {
+        $finfo = @finfo_open(FILEINFO_MIME_TYPE);
+        $detected = $finfo ? @finfo_buffer($finfo, $decoded) : false;
+        if ($finfo) {
+            @finfo_close($finfo);
+        }
+        $mime = is_string($detected) ? strtolower($detected) : '';
+    }
+
+    if ($mime === 'text/plain' || $mime === 'text/xml' || $mime === 'application/xml' || $mime === '') {
+        if (preg_match('/<svg[\s>]/i', $decoded) === 1) {
+            $mime = 'image/svg+xml';
+        }
+    }
+
+    $allowed = adminFrameMimeToExtensionMap();
+    $extension = $allowed[$mime] ?? null;
+    if ($extension === null) {
+        return null;
+    }
+
+    if ($mime === 'image/svg+xml' && !adminValidateSvgFramePayload($decoded)) {
+        return null;
+    }
+
+    return [
+        'binary' => $decoded,
+        'mime' => $mime,
+        'extension' => $extension,
+    ];
+}
+
+function adminDetectFrameDimensions(string $binary, string $mime): array
+{
+    if ($mime === 'image/svg+xml') {
+        return adminDetectSvgDimensions($binary);
+    }
+
+    $imageInfo = @getimagesizefromstring($binary);
+    if (!is_array($imageInfo)) {
+        return [0, 0];
+    }
+
+    return [
+        (int) ($imageInfo[0] ?? 0),
+        (int) ($imageInfo[1] ?? 0),
+    ];
+}
+
+function adminDetectSvgDimensions(string $svgRaw): array
+{
+    $svg = trim($svgRaw);
+    if ($svg === '') {
+        return [0, 0];
+    }
+
+    $width = 0;
+    $height = 0;
+
+    if (preg_match('/\bwidth=["\']?\s*([0-9.]+)(px)?\s*["\']?/i', $svg, $widthMatch)) {
+        $width = (int) round((float) ($widthMatch[1] ?? 0));
+    }
+    if (preg_match('/\bheight=["\']?\s*([0-9.]+)(px)?\s*["\']?/i', $svg, $heightMatch)) {
+        $height = (int) round((float) ($heightMatch[1] ?? 0));
+    }
+
+    if (($width <= 0 || $height <= 0) && preg_match('/\bviewBox=["\']\s*([0-9.+-]+)\s+([0-9.+-]+)\s+([0-9.+-]+)\s+([0-9.+-]+)\s*["\']/i', $svg, $vbMatch)) {
+        $vbWidth = (float) ($vbMatch[3] ?? 0);
+        $vbHeight = (float) ($vbMatch[4] ?? 0);
+        if ($width <= 0 && $vbWidth > 0) {
+            $width = (int) round($vbWidth);
+        }
+        if ($height <= 0 && $vbHeight > 0) {
+            $height = (int) round($vbHeight);
+        }
+    }
+
+    return [$width, $height];
+}
+
+function adminValidateSvgFramePayload(string $svg): bool
+{
+    if (preg_match('/<script\b/i', $svg) === 1) {
+        return false;
+    }
+    if (preg_match('/<foreignObject\b/i', $svg) === 1) {
+        return false;
+    }
+    if (preg_match('/\son[a-z]+\s*=/i', $svg) === 1) {
+        return false;
+    }
+
+    return preg_match('/<svg[\s>]/i', $svg) === 1;
 }
 
 function adminFrameStorageDir(): string
@@ -1342,6 +1490,153 @@ function adminFrameStorageDir(): string
 function adminFrameLegacyStorageDir(): string
 {
     return dirname(__DIR__) . '/storage/images/cosmetics';
+}
+
+function adminFrameMimeToExtensionMap(): array
+{
+    return [
+        'image/png' => 'png',
+        'image/webp' => 'webp',
+        'image/gif' => 'gif',
+        'image/svg+xml' => 'svg',
+    ];
+}
+
+function adminFrameAllowedExtensions(): array
+{
+    return array_values(array_unique(array_values(adminFrameMimeToExtensionMap())));
+}
+
+function adminFramePathsByKey(string $frameKey, ?string $dir = null): array
+{
+    $baseDir = $dir ?? adminFrameStorageDir();
+    $paths = [];
+    foreach (adminFrameAllowedExtensions() as $ext) {
+        $paths[] = $baseDir . '/' . $frameKey . '.' . $ext;
+    }
+
+    return $paths;
+}
+
+function adminFindFrameAssetByKey(string $frameKey, ?string $dir = null): ?array
+{
+    $baseDir = $dir ?? adminFrameStorageDir();
+    $latest = null;
+    foreach (adminFrameAllowedExtensions() as $ext) {
+        $path = $baseDir . '/' . $frameKey . '.' . $ext;
+        if (!is_file($path)) {
+            continue;
+        }
+        $mtime = @filemtime($path) ?: 0;
+        if ($latest === null || $mtime > (int) ($latest['mtime'] ?? 0)) {
+            $mime = array_search($ext, adminFrameMimeToExtensionMap(), true);
+            $latest = [
+                'frame_key' => $frameKey,
+                'extension' => $ext,
+                'filename' => $frameKey . '.' . $ext,
+                'path' => $path,
+                'mime' => is_string($mime) ? $mime : ('image/' . $ext),
+                'mtime' => $mtime,
+            ];
+        }
+    }
+
+    return $latest;
+}
+
+function adminFrameCollectAssets(): array
+{
+    $dir = adminFrameStorageDir();
+    if (!is_dir($dir)) {
+        return [];
+    }
+
+    $files = @scandir($dir);
+    if (!is_array($files)) {
+        return [];
+    }
+
+    $assetsByKey = [];
+    foreach ($files as $basename) {
+        if (!is_string($basename) || $basename === '.' || $basename === '..') {
+            continue;
+        }
+
+        if (!preg_match('/^([a-z0-9][a-z0-9_-]{1,63})\.(png|webp|gif|svg)$/i', $basename, $matches)) {
+            continue;
+        }
+
+        $frameKey = strtolower((string) $matches[1]);
+        $extension = strtolower((string) $matches[2]);
+        $fullPath = $dir . '/' . $basename;
+        if (!is_file($fullPath)) {
+            continue;
+        }
+
+        $mtime = (int) (@filemtime($fullPath) ?: 0);
+        if (isset($assetsByKey[$frameKey]) && (int) ($assetsByKey[$frameKey]['mtime'] ?? 0) > $mtime) {
+            continue;
+        }
+
+        $mime = array_search($extension, adminFrameMimeToExtensionMap(), true);
+        $fileRaw = @file_get_contents($fullPath);
+        [$width, $height] = is_string($fileRaw) ? adminDetectFrameDimensions($fileRaw, is_string($mime) ? $mime : ('image/' . $extension)) : [0, 0];
+
+        $assetsByKey[$frameKey] = [
+            'frame_key' => $frameKey,
+            'filename' => $basename,
+            'extension' => $extension,
+            'mime' => is_string($mime) ? $mime : ('image/' . $extension),
+            'path' => $fullPath,
+            'size_bytes' => (int) (@filesize($fullPath) ?: 0),
+            'width' => $width,
+            'height' => $height,
+            'updated_at' => $mtime > 0 ? date(DATE_ATOM, $mtime) : null,
+            'mtime' => $mtime,
+            'url' => '/api/images/cosmetics/' . rawurlencode($basename),
+        ];
+    }
+
+    return array_values($assetsByKey);
+}
+
+function adminFrameShopIndexByCosmeticId(): array
+{
+    /** @var \Illuminate\Support\Collection<int, \QuizBot\Domain\Model\ShopItem> $shopItems */
+    $shopItems = \QuizBot\Domain\Model\ShopItem::query()
+        ->where('type', \QuizBot\Domain\Model\ShopItem::TYPE_COSMETIC)
+        ->orderByDesc('id')
+        ->get();
+
+    $shopByCosmeticId = [];
+    foreach ($shopItems as $item) {
+        $metadata = is_array($item->metadata) ? $item->metadata : [];
+        $cosmeticType = (string) ($metadata['cosmetic_type'] ?? '');
+        $cosmeticId = (string) ($metadata['cosmetic_id'] ?? '');
+        if ($cosmeticType !== 'frame' || $cosmeticId === '') {
+            continue;
+        }
+        if (!isset($shopByCosmeticId[$cosmeticId])) {
+            $shopByCosmeticId[$cosmeticId] = $item;
+        }
+    }
+
+    return $shopByCosmeticId;
+}
+
+function adminMapFrameShopItem(\QuizBot\Domain\Model\ShopItem $shopItem): array
+{
+    return [
+        'id' => (int) $shopItem->id,
+        'name' => (string) $shopItem->name,
+        'description' => $shopItem->description !== null ? (string) $shopItem->description : '',
+        'rarity' => (string) $shopItem->rarity,
+        'price_coins' => (int) $shopItem->price_coins,
+        'price_gems' => (int) $shopItem->price_gems,
+        'is_active' => (bool) $shopItem->is_active,
+        'sort_order' => (int) $shopItem->sort_order,
+        'metadata' => is_array($shopItem->metadata) ? $shopItem->metadata : [],
+    ];
 }
 
 function adminFindFrameShopItemByCosmeticId(string $cosmeticId): ?\QuizBot\Domain\Model\ShopItem
