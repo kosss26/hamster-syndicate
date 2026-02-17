@@ -6,6 +6,7 @@ import { hapticFeedback, showBackButton } from '../hooks/useTelegram'
 
 const TABS = [
   { id: 'overview', label: 'Обзор' },
+  { id: 'analytics', label: 'Аналитика' },
   { id: 'users', label: 'Игроки' },
   { id: 'duels', label: 'Дуэли' },
   { id: 'questions', label: 'Вопросы' },
@@ -26,6 +27,9 @@ function AdminPage() {
   const [autoRefresh, setAutoRefresh] = useState(true)
 
   const [stats, setStats] = useState(null)
+  const [categoryAnalytics, setCategoryAnalytics] = useState([])
+  const [questionAnalytics, setQuestionAnalytics] = useState([])
+  const [analyticsSummary, setAnalyticsSummary] = useState(null)
   const [users, setUsers] = useState([])
   const [duels, setDuels] = useState([])
   const [facts, setFacts] = useState([])
@@ -36,6 +40,13 @@ function AdminPage() {
   const [duelStatus, setDuelStatus] = useState('all')
   const [factQuery, setFactQuery] = useState('')
   const [factTruth, setFactTruth] = useState('all')
+  const [analyticsDays, setAnalyticsDays] = useState(30)
+  const [analyticsMode, setAnalyticsMode] = useState('duel')
+  const [analyticsMinAttempts, setAnalyticsMinAttempts] = useState(3)
+  const [analyticsCategoryId, setAnalyticsCategoryId] = useState('all')
+  const [analyticsQuestionSort, setAnalyticsQuestionSort] = useState('attempts')
+  const [analyticsQuestionOrder, setAnalyticsQuestionOrder] = useState('desc')
+  const [analyticsQuestionQuery, setAnalyticsQuestionQuery] = useState('')
 
   const [questionForm, setQuestionForm] = useState({
     category_id: '',
@@ -72,6 +83,8 @@ function AdminPage() {
     const interval = setInterval(() => {
       if (activeTab === 'overview') {
         loadStats()
+      } else if (activeTab === 'analytics') {
+        loadAnalytics()
       } else if (activeTab === 'users') {
         loadUsers()
       } else if (activeTab === 'duels') {
@@ -83,13 +96,13 @@ function AdminPage() {
       }
     }, 10000)
     return () => clearInterval(interval)
-  }, [autoRefresh, activeTab, userQuery, duelQuery, duelStatus, factQuery, factTruth])
+  }, [autoRefresh, activeTab, userQuery, duelQuery, duelStatus, factQuery, factTruth, analyticsDays, analyticsMode, analyticsMinAttempts, analyticsCategoryId, analyticsQuestionSort, analyticsQuestionOrder, analyticsQuestionQuery])
 
   const loadAll = async () => {
     setLoading(true)
     setError(null)
     try {
-      await Promise.all([loadStats(), loadUsers(), loadDuels(), loadFacts(), loadAdminNotifications()])
+      await Promise.all([loadStats(), loadAnalytics(), loadUsers(), loadDuels(), loadFacts(), loadAdminNotifications()])
     } catch (e) {
       setError(e.message || 'Ошибка загрузки админки')
     } finally {
@@ -100,6 +113,36 @@ function AdminPage() {
   const loadStats = async () => {
     const res = await api.getAdminStats()
     if (res.success) setStats(res.data)
+  }
+
+  const loadAnalytics = async () => {
+    const categoryId = analyticsCategoryId === 'all' ? undefined : Number(analyticsCategoryId)
+    const [categoryRes, questionRes] = await Promise.all([
+      api.getAdminCategoryAnalytics({
+        days: analyticsDays,
+        mode: analyticsMode,
+        min_attempts: Math.max(1, analyticsMinAttempts),
+      }),
+      api.getAdminQuestionAnalytics({
+        days: analyticsDays,
+        mode: analyticsMode,
+        min_attempts: Math.max(1, analyticsMinAttempts),
+        category_id: categoryId,
+        sort: analyticsQuestionSort,
+        order: analyticsQuestionOrder,
+        q: analyticsQuestionQuery,
+        limit: 200,
+      }),
+    ])
+
+    if (categoryRes.success) {
+      setCategoryAnalytics(categoryRes.data.items || [])
+    }
+
+    if (questionRes.success) {
+      setQuestionAnalytics(questionRes.data.items || [])
+      setAnalyticsSummary(questionRes.data.summary || null)
+    }
   }
 
   const loadUsers = async () => {
@@ -382,6 +425,142 @@ function AdminPage() {
             <Kpi title="Факты П/Л" value={stats.total_facts} />
             <Kpi title="Новых 24ч" value={stats.new_users_today} />
             <Kpi title="Дуэлей 24ч" value={stats.duels_today} />
+          </motion.div>
+        )}
+
+        {activeTab === 'analytics' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+            <div className="rounded-2xl border border-white/10 bg-black/25 p-4 space-y-3">
+              <div className="text-sm text-white/70">Фильтры аналитики</div>
+              <div className="grid md:grid-cols-3 gap-2">
+                <select
+                  value={analyticsDays}
+                  onChange={(e) => setAnalyticsDays(Number(e.target.value))}
+                  className="rounded-xl bg-black/30 border border-white/15 px-4 py-3 text-white"
+                >
+                  <option value={7}>За 7 дней</option>
+                  <option value={14}>За 14 дней</option>
+                  <option value={30}>За 30 дней</option>
+                  <option value={90}>За 90 дней</option>
+                </select>
+                <select
+                  value={analyticsMode}
+                  onChange={(e) => setAnalyticsMode(e.target.value)}
+                  className="rounded-xl bg-black/30 border border-white/15 px-4 py-3 text-white"
+                >
+                  <option value="duel">Только дуэли</option>
+                  <option value="all">Все режимы</option>
+                  <option value="quiz">Обычная игра</option>
+                  <option value="story">Сюжет</option>
+                </select>
+                <input
+                  type="number"
+                  min={1}
+                  max={5000}
+                  value={analyticsMinAttempts}
+                  onChange={(e) => setAnalyticsMinAttempts(Number(e.target.value || 1))}
+                  className="rounded-xl bg-black/30 border border-white/15 px-4 py-3 text-white"
+                  placeholder="Мин. попыток"
+                />
+              </div>
+
+              <div className="grid md:grid-cols-5 gap-2">
+                <select
+                  value={analyticsCategoryId}
+                  onChange={(e) => setAnalyticsCategoryId(e.target.value)}
+                  className="rounded-xl bg-black/30 border border-white/15 px-4 py-3 text-white"
+                >
+                  <option value="all">Все категории</option>
+                  {(stats?.categories || []).map((c) => (
+                    <option key={c.id} value={c.id}>{c.title}</option>
+                  ))}
+                </select>
+                <select
+                  value={analyticsQuestionSort}
+                  onChange={(e) => setAnalyticsQuestionSort(e.target.value)}
+                  className="rounded-xl bg-black/30 border border-white/15 px-4 py-3 text-white"
+                >
+                  <option value="attempts">Сорт: попытки</option>
+                  <option value="accuracy">Сорт: точность</option>
+                  <option value="avg_time">Сорт: время</option>
+                  <option value="players">Сорт: игроки</option>
+                  <option value="question_id">Сорт: ID</option>
+                </select>
+                <select
+                  value={analyticsQuestionOrder}
+                  onChange={(e) => setAnalyticsQuestionOrder(e.target.value)}
+                  className="rounded-xl bg-black/30 border border-white/15 px-4 py-3 text-white"
+                >
+                  <option value="desc">По убыванию</option>
+                  <option value="asc">По возрастанию</option>
+                </select>
+                <input
+                  value={analyticsQuestionQuery}
+                  onChange={(e) => setAnalyticsQuestionQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && loadAnalytics()}
+                  placeholder="Поиск по вопросу"
+                  className="rounded-xl bg-black/30 border border-white/15 px-4 py-3 text-white"
+                />
+                <button onClick={loadAnalytics} className="rounded-xl bg-white/10 text-white/80 px-4 py-3">
+                  Применить
+                </button>
+              </div>
+            </div>
+
+            {analyticsSummary && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <Kpi title="Вопросов в отчёте" value={analyticsSummary.questions} />
+                <Kpi title="Попыток" value={analyticsSummary.attempts} />
+                <Kpi title="Точность (%)" value={analyticsSummary.accuracy} />
+                <Kpi title="Верных ответов" value={analyticsSummary.correct_answers} />
+              </div>
+            )}
+
+            <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
+              <div className="text-white text-sm font-semibold mb-3">Категории: точность и покрытие</div>
+              <div className="space-y-2">
+                {categoryAnalytics.map((item) => (
+                  <div key={item.category_id} className="rounded-xl border border-white/10 bg-black/20 p-3 grid grid-cols-1 md:grid-cols-6 gap-2 text-xs">
+                    <div className="text-white">
+                      <div className="font-semibold">{item.category_icon} {item.category_title}</div>
+                      <div className="text-white/50">Сложность: {item.difficulty_band}</div>
+                    </div>
+                    <div className="text-white/70">Попытки: <span className="text-white">{item.attempts}</span></div>
+                    <div className="text-white/70">Точность: <span className="text-white">{item.accuracy}%</span></div>
+                    <div className="text-white/70">Ср. время: <span className="text-white">{item.avg_time_seconds}с</span></div>
+                    <div className="text-white/70">Игроков: <span className="text-white">{item.unique_players}</span></div>
+                    <div className="text-white/70">Покрытие: <span className="text-white">{item.questions_seen}/{item.total_questions} ({item.coverage_percent}%)</span></div>
+                  </div>
+                ))}
+                {categoryAnalytics.length === 0 && (
+                  <div className="text-white/50 text-sm">Нет данных по выбранным фильтрам.</div>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
+              <div className="text-white text-sm font-semibold mb-3">Вопросы: детализация</div>
+              <div className="space-y-2 max-h-[52vh] overflow-auto pr-1">
+                {questionAnalytics.map((item) => (
+                  <div key={item.question_id} className="rounded-xl border border-white/10 bg-black/20 p-3">
+                    <div className="text-white text-sm font-semibold mb-1">
+                      #{item.question_id} · {item.category_icon} {item.category_title}
+                    </div>
+                    <div className="text-white/80 text-sm mb-2">{item.question_text}</div>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
+                      <div className="text-white/70">Попытки: <span className="text-white">{item.attempts}</span></div>
+                      <div className="text-white/70">Точность: <span className="text-white">{item.accuracy}%</span></div>
+                      <div className="text-white/70">Ср. время: <span className="text-white">{item.avg_time_seconds}с</span></div>
+                      <div className="text-white/70">Игроков: <span className="text-white">{item.unique_players}</span></div>
+                      <div className="text-white/70">Сложность: <span className="text-white">{item.difficulty_band}</span></div>
+                    </div>
+                  </div>
+                ))}
+                {questionAnalytics.length === 0 && (
+                  <div className="text-white/50 text-sm">Нет данных по выбранным фильтрам.</div>
+                )}
+              </div>
+            </div>
           </motion.div>
         )}
 

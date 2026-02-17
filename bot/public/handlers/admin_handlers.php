@@ -200,6 +200,265 @@ function handleAdminStats($container, ?array $telegramUser): void
 }
 
 /**
+ * Расширенная аналитика по категориям
+ * GET /admin/analytics/categories
+ */
+function handleAdminCategoryAnalytics($container, ?array $telegramUser, array $query): void
+{
+    if (!isAdmin($telegramUser, $container)) {
+        jsonError('Доступ запрещён', 403);
+    }
+
+    $days = max(1, min(365, (int) ($query['days'] ?? 30)));
+    $mode = trim((string) ($query['mode'] ?? 'all'));
+    $minAttempts = max(0, min(5000, (int) ($query['min_attempts'] ?? 1)));
+    $from = \Illuminate\Support\Carbon::now()->subDays($days)->startOfDay();
+
+    $analyticsQuery = \Illuminate\Database\Capsule\Manager::table('user_answer_history as h')
+        ->join('questions as q', 'q.id', '=', 'h.question_id')
+        ->join('categories as c', 'c.id', '=', 'q.category_id')
+        ->selectRaw('
+            c.id as category_id,
+            c.title as category_title,
+            c.icon as category_icon,
+            COUNT(h.id) as attempts,
+            SUM(CASE WHEN h.is_correct = 1 THEN 1 ELSE 0 END) as correct_answers,
+            AVG(h.time_ms) as avg_time_ms,
+            COUNT(DISTINCT h.user_id) as unique_players,
+            COUNT(DISTINCT h.question_id) as questions_seen
+        ')
+        ->whereNotNull('h.question_id')
+        ->where('h.created_at', '>=', $from);
+
+    if ($mode !== '' && $mode !== 'all') {
+        $analyticsQuery->where('h.mode', $mode);
+    }
+
+    $analyticsRows = $analyticsQuery
+        ->groupBy('c.id', 'c.title', 'c.icon')
+        ->havingRaw('COUNT(h.id) >= ?', [$minAttempts])
+        ->orderByDesc('attempts')
+        ->get();
+
+    $categoryIds = $analyticsRows
+        ->map(static fn ($row): int => (int) ($row->category_id ?? 0))
+        ->filter(static fn (int $id): bool => $id > 0)
+        ->values()
+        ->all();
+
+    $totalsByCategory = [];
+    if ($categoryIds !== []) {
+        $totalsByCategory = \QuizBot\Domain\Model\Question::query()
+            ->where('is_active', true)
+            ->whereIn('category_id', $categoryIds)
+            ->selectRaw('category_id, COUNT(*) as total_questions')
+            ->groupBy('category_id')
+            ->pluck('total_questions', 'category_id')
+            ->map(static fn ($count): int => (int) $count)
+            ->all();
+    }
+
+    $items = [];
+    $summaryAttempts = 0;
+    $summaryCorrect = 0;
+    $summaryQuestionsSeen = 0;
+
+    foreach ($analyticsRows as $row) {
+        $attempts = (int) ($row->attempts ?? 0);
+        $correct = (int) ($row->correct_answers ?? 0);
+        $accuracy = $attempts > 0 ? round(($correct / $attempts) * 100, 2) : 0.0;
+        $categoryId = (int) ($row->category_id ?? 0);
+        $questionsSeen = (int) ($row->questions_seen ?? 0);
+        $totalQuestions = (int) ($totalsByCategory[$categoryId] ?? 0);
+        $coverage = $totalQuestions > 0 ? round(($questionsSeen / $totalQuestions) * 100, 2) : 0.0;
+
+        $items[] = [
+            'category_id' => $categoryId,
+            'category_title' => (string) ($row->category_title ?? 'Без категории'),
+            'category_icon' => (string) ($row->category_icon ?? '❓'),
+            'attempts' => $attempts,
+            'correct_answers' => $correct,
+            'accuracy' => $accuracy,
+            'avg_time_ms' => (int) round((float) ($row->avg_time_ms ?? 0.0)),
+            'avg_time_seconds' => round(((float) ($row->avg_time_ms ?? 0.0)) / 1000, 2),
+            'unique_players' => (int) ($row->unique_players ?? 0),
+            'questions_seen' => $questionsSeen,
+            'total_questions' => $totalQuestions,
+            'coverage_percent' => $coverage,
+            'difficulty_band' => resolveAdminDifficultyBand($accuracy, $attempts),
+        ];
+
+        $summaryAttempts += $attempts;
+        $summaryCorrect += $correct;
+        $summaryQuestionsSeen += $questionsSeen;
+    }
+
+    jsonResponse([
+        'items' => $items,
+        'summary' => [
+            'categories' => count($items),
+            'attempts' => $summaryAttempts,
+            'correct_answers' => $summaryCorrect,
+            'accuracy' => $summaryAttempts > 0 ? round(($summaryCorrect / $summaryAttempts) * 100, 2) : 0.0,
+            'questions_seen' => $summaryQuestionsSeen,
+        ],
+        'filters' => [
+            'days' => $days,
+            'mode' => $mode === '' ? 'all' : $mode,
+            'min_attempts' => $minAttempts,
+            'from' => $from->toIso8601String(),
+        ],
+    ]);
+}
+
+/**
+ * Расширенная аналитика по вопросам
+ * GET /admin/analytics/questions
+ */
+function handleAdminQuestionAnalytics($container, ?array $telegramUser, array $query): void
+{
+    if (!isAdmin($telegramUser, $container)) {
+        jsonError('Доступ запрещён', 403);
+    }
+
+    $limit = max(1, min(500, (int) ($query['limit'] ?? 200)));
+    $days = max(1, min(365, (int) ($query['days'] ?? 30)));
+    $mode = trim((string) ($query['mode'] ?? 'duel'));
+    $categoryId = (int) ($query['category_id'] ?? 0);
+    $minAttempts = max(1, min(5000, (int) ($query['min_attempts'] ?? 3)));
+    $search = trim((string) ($query['q'] ?? ''));
+    $sort = trim((string) ($query['sort'] ?? 'attempts'));
+    $order = strtolower(trim((string) ($query['order'] ?? 'desc'))) === 'asc' ? 'asc' : 'desc';
+    $from = \Illuminate\Support\Carbon::now()->subDays($days)->startOfDay();
+
+    $baseQuery = \Illuminate\Database\Capsule\Manager::table('user_answer_history as h')
+        ->join('questions as q', 'q.id', '=', 'h.question_id')
+        ->join('categories as c', 'c.id', '=', 'q.category_id')
+        ->selectRaw('
+            q.id as question_id,
+            q.question_text as question_text,
+            q.category_id as category_id,
+            c.title as category_title,
+            c.icon as category_icon,
+            COUNT(h.id) as attempts,
+            SUM(CASE WHEN h.is_correct = 1 THEN 1 ELSE 0 END) as correct_answers,
+            AVG(h.time_ms) as avg_time_ms,
+            COUNT(DISTINCT h.user_id) as unique_players
+        ')
+        ->whereNotNull('h.question_id')
+        ->where('h.created_at', '>=', $from);
+
+    if ($mode !== '' && $mode !== 'all') {
+        $baseQuery->where('h.mode', $mode);
+    }
+
+    if ($categoryId > 0) {
+        $baseQuery->where('q.category_id', $categoryId);
+    }
+
+    if ($search !== '') {
+        $baseQuery->where('q.question_text', 'like', '%' . $search . '%');
+    }
+
+    $baseQuery
+        ->groupBy('q.id', 'q.question_text', 'q.category_id', 'c.title', 'c.icon')
+        ->havingRaw('COUNT(h.id) >= ?', [$minAttempts]);
+
+    switch ($sort) {
+        case 'accuracy':
+            $baseQuery->orderByRaw(' (SUM(CASE WHEN h.is_correct = 1 THEN 1 ELSE 0 END) * 1.0 / COUNT(h.id)) ' . $order);
+            break;
+        case 'avg_time':
+            $baseQuery->orderByRaw('AVG(h.time_ms) ' . $order);
+            break;
+        case 'players':
+            $baseQuery->orderByRaw('COUNT(DISTINCT h.user_id) ' . $order);
+            break;
+        case 'question_id':
+            $baseQuery->orderBy('q.id', $order);
+            break;
+        case 'attempts':
+        default:
+            $baseQuery->orderByRaw('COUNT(h.id) ' . $order);
+            break;
+    }
+
+    $rows = $baseQuery
+        ->limit($limit)
+        ->get();
+
+    $items = [];
+    $summaryAttempts = 0;
+    $summaryCorrect = 0;
+    $difficultyStats = ['easy' => 0, 'medium' => 0, 'hard' => 0];
+
+    foreach ($rows as $row) {
+        $attempts = (int) ($row->attempts ?? 0);
+        $correct = (int) ($row->correct_answers ?? 0);
+        $accuracy = $attempts > 0 ? round(($correct / $attempts) * 100, 2) : 0.0;
+        $difficultyBand = resolveAdminDifficultyBand($accuracy, $attempts);
+
+        $items[] = [
+            'question_id' => (int) ($row->question_id ?? 0),
+            'question_text' => (string) ($row->question_text ?? ''),
+            'category_id' => (int) ($row->category_id ?? 0),
+            'category_title' => (string) ($row->category_title ?? 'Без категории'),
+            'category_icon' => (string) ($row->category_icon ?? '❓'),
+            'attempts' => $attempts,
+            'correct_answers' => $correct,
+            'accuracy' => $accuracy,
+            'avg_time_ms' => (int) round((float) ($row->avg_time_ms ?? 0.0)),
+            'avg_time_seconds' => round(((float) ($row->avg_time_ms ?? 0.0)) / 1000, 2),
+            'unique_players' => (int) ($row->unique_players ?? 0),
+            'difficulty_band' => $difficultyBand,
+        ];
+
+        $summaryAttempts += $attempts;
+        $summaryCorrect += $correct;
+        $difficultyStats[$difficultyBand] = (int) ($difficultyStats[$difficultyBand] ?? 0) + 1;
+    }
+
+    jsonResponse([
+        'items' => $items,
+        'summary' => [
+            'questions' => count($items),
+            'attempts' => $summaryAttempts,
+            'correct_answers' => $summaryCorrect,
+            'accuracy' => $summaryAttempts > 0 ? round(($summaryCorrect / $summaryAttempts) * 100, 2) : 0.0,
+            'difficulty_distribution' => $difficultyStats,
+        ],
+        'filters' => [
+            'limit' => $limit,
+            'days' => $days,
+            'mode' => $mode === '' ? 'all' : $mode,
+            'category_id' => $categoryId > 0 ? $categoryId : null,
+            'min_attempts' => $minAttempts,
+            'q' => $search,
+            'sort' => $sort,
+            'order' => $order,
+            'from' => $from->toIso8601String(),
+        ],
+    ]);
+}
+
+function resolveAdminDifficultyBand(float $accuracyPercent, int $attempts): string
+{
+    if ($attempts < 15) {
+        return 'medium';
+    }
+
+    if ($accuracyPercent > 70.0) {
+        return 'easy';
+    }
+
+    if ($accuracyPercent >= 40.0) {
+        return 'medium';
+    }
+
+    return 'hard';
+}
+
+/**
  * Получение пользователей для админки с фильтрами
  */
 function handleAdminUsers($container, ?array $telegramUser, array $query): void
@@ -555,5 +814,4 @@ function handleAdminGrantLootbox($container, ?array $telegramUser, array $body):
         'total_quantity' => $totalQuantity,
     ]);
 }
-
 

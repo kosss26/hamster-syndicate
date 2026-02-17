@@ -13,6 +13,8 @@ use Symfony\Contracts\Cache\ItemInterface;
 
 class TrueFalseService
 {
+    private const RECENT_FACTS_WINDOW = 20;
+
     private CacheInterface $cache;
 
     private Logger $logger;
@@ -48,6 +50,7 @@ class TrueFalseService
         $session = [
             'streak' => 0,
             'asked' => [$fact->getKey()],
+            'recent_ids' => [$fact->getKey()],
             'current_fact_id' => $fact->getKey(),
             'asked_true' => $fact->is_true ? 1 : 0,
             'asked_false' => $fact->is_true ? 0 : 1,
@@ -76,6 +79,7 @@ class TrueFalseService
         $session = $this->getSession($user) ?? [
             'streak' => 0,
             'asked' => [],
+            'recent_ids' => [],
             'current_fact_id' => null,
         ];
 
@@ -85,6 +89,8 @@ class TrueFalseService
             ->find($factId);
 
         if (!$fact instanceof TrueFalseFact) {
+            $profile = $user->profile;
+            $recordValue = $profile instanceof UserProfile ? (int) $profile->true_false_record : 0;
             $this->logger->warning('Факт не найден для режима Правда или ложь', [
                 'fact_id' => $factId,
             ]);
@@ -95,7 +101,7 @@ class TrueFalseService
                 'explanation' => null,
                 'correct_answer' => false,
                 'streak' => (int) ($session['streak'] ?? 0),
-                'record' => (int) ($user->profile?->true_false_record ?? 0),
+                'record' => $recordValue,
                 'record_updated' => false,
                 'next_fact' => null,
             ];
@@ -108,6 +114,7 @@ class TrueFalseService
 
         $session['streak'] = $streak;
         $session['current_fact_id'] = null;
+        $this->pushRecentFactId($session, (int) $fact->getKey());
 
         $asked = $session['asked'] ?? [];
         $factWasAddedToAsked = false;
@@ -126,17 +133,17 @@ class TrueFalseService
         }
 
         $preferredIsTrue = $this->resolvePreferredTruthiness($session);
-        $nextFact = $this->getRandomFact($asked, $preferredIsTrue);
+        $recentExcludeIds = $this->getRecentExcludeIds($session);
+        $nextFact = $this->getRandomFact($recentExcludeIds, $preferredIsTrue);
 
         if (!$nextFact instanceof TrueFalseFact) {
-            $nextFact = $this->getRandomFact($asked);
+            $nextFact = $this->getRandomFact($recentExcludeIds);
         }
 
         if (!$nextFact instanceof TrueFalseFact) {
-            // Если факты закончились, начинаем заново
-            $session['asked'] = [];
-            $session['asked_true'] = 0;
-            $session['asked_false'] = 0;
+            // Если окно уникальности слишком большое для текущего пула,
+            // мягко сбрасываем окно и продолжаем с балансом.
+            $session['recent_ids'] = [];
             $preferredIsTrue = random_int(0, 1) === 1;
             $nextFact = $this->getRandomFact([], $preferredIsTrue);
 
@@ -148,6 +155,7 @@ class TrueFalseService
         if ($nextFact instanceof TrueFalseFact) {
             $session['current_fact_id'] = $nextFact->getKey();
             $session['asked'][] = $nextFact->getKey();
+            $this->pushRecentFactId($session, (int) $nextFact->getKey());
             if ($nextFact->is_true) {
                 $session['asked_true'] = (int) ($session['asked_true'] ?? 0) + 1;
             } else {
@@ -158,7 +166,8 @@ class TrueFalseService
         $this->saveSession($user, $session);
 
         $recordUpdated = false;
-        $record = (int) ($user->profile?->true_false_record ?? 0);
+        $profile = $user->profile;
+        $record = $profile instanceof UserProfile ? (int) $profile->true_false_record : 0;
 
         if ($isCorrect && $streak > $record) {
             $this->updateRecord($user, $streak);
@@ -184,6 +193,7 @@ class TrueFalseService
         $session = $this->getSession($user) ?? [
             'streak' => 0,
             'asked' => [],
+            'recent_ids' => [],
             'current_fact_id' => null,
             'asked_true' => 0,
             'asked_false' => 0,
@@ -191,18 +201,16 @@ class TrueFalseService
 
         $session['streak'] = 0;
 
-        $asked = $session['asked'] ?? [];
         $preferredIsTrue = $this->resolvePreferredTruthiness($session);
-        $fact = $this->getRandomFact($asked, $preferredIsTrue);
+        $recentExcludeIds = $this->getRecentExcludeIds($session);
+        $fact = $this->getRandomFact($recentExcludeIds, $preferredIsTrue);
 
         if (!$fact instanceof TrueFalseFact) {
-            $fact = $this->getRandomFact($asked);
+            $fact = $this->getRandomFact($recentExcludeIds);
         }
 
         if (!$fact instanceof TrueFalseFact) {
-            $session['asked'] = [];
-            $session['asked_true'] = 0;
-            $session['asked_false'] = 0;
+            $session['recent_ids'] = [];
             $fact = $this->getRandomFact([], random_int(0, 1) === 1);
             if (!$fact instanceof TrueFalseFact) {
                 $fact = $this->getRandomFact([]);
@@ -215,6 +223,7 @@ class TrueFalseService
                 $session['asked'][] = $fact->getKey();
                 $factWasAddedToAsked = true;
             }
+            $this->pushRecentFactId($session, (int) $fact->getKey());
             $session['current_fact_id'] = $fact->getKey();
             if ($factWasAddedToAsked) {
                 if ($fact->is_true) {
@@ -275,6 +284,47 @@ class TrueFalseService
         }
 
         return $askedTrue < $askedFalse;
+    }
+
+    /**
+     * @param array<string, mixed> $session
+     * @return array<int, int>
+     */
+    private function getRecentExcludeIds(array $session): array
+    {
+        $recent = $session['recent_ids'] ?? [];
+        if (!is_array($recent)) {
+            return [];
+        }
+
+        $ids = array_values(array_filter(array_map(static fn ($id): int => (int) $id, $recent), static fn (int $id): bool => $id > 0));
+        if (count($ids) <= self::RECENT_FACTS_WINDOW) {
+            return $ids;
+        }
+
+        return array_slice($ids, -self::RECENT_FACTS_WINDOW);
+    }
+
+    /**
+     * @param array<string, mixed> $session
+     */
+    private function pushRecentFactId(array &$session, int $factId): void
+    {
+        if ($factId <= 0) {
+            return;
+        }
+
+        $recent = $session['recent_ids'] ?? [];
+        if (!is_array($recent)) {
+            $recent = [];
+        }
+
+        $recent[] = $factId;
+        if (count($recent) > self::RECENT_FACTS_WINDOW) {
+            $recent = array_slice($recent, -self::RECENT_FACTS_WINDOW);
+        }
+
+        $session['recent_ids'] = array_values($recent);
     }
 
     private function updateRecord(User $user, int $streak): void

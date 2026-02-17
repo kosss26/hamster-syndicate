@@ -271,6 +271,16 @@ try {
             handleAdminStats($container, $telegramUser);
             break;
 
+        // GET /admin/analytics/categories - аналитика по категориям
+        case $path === '/admin/analytics/categories' && $requestMethod === 'GET':
+            handleAdminCategoryAnalytics($container, $telegramUser, $_GET);
+            break;
+
+        // GET /admin/analytics/questions - аналитика по вопросам
+        case $path === '/admin/analytics/questions' && $requestMethod === 'GET':
+            handleAdminQuestionAnalytics($container, $telegramUser, $_GET);
+            break;
+
         // GET /admin/users - список пользователей с фильтрами
         case $path === '/admin/users' && $requestMethod === 'GET':
             handleAdminUsers($container, $telegramUser, $_GET);

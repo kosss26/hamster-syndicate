@@ -194,6 +194,14 @@ export const api = {
 
   // Админ
   getAdminStats: () => request('/admin/stats'),
+  getAdminCategoryAnalytics: (params = {}) => {
+    const query = new URLSearchParams(params).toString()
+    return request(`/admin/analytics/categories${query ? `?${query}` : ''}`)
+  },
+  getAdminQuestionAnalytics: (params = {}) => {
+    const query = new URLSearchParams(params).toString()
+    return request(`/admin/analytics/questions${query ? `?${query}` : ''}`)
+  },
   getAdminUsers: (params = {}) => {
     const query = new URLSearchParams(params).toString()
     return request(`/admin/users${query ? `?${query}` : ''}`)

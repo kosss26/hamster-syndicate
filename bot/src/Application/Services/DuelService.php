@@ -28,6 +28,8 @@ class DuelService
     private const GHOST_RATING_COEFFICIENT = 0.5;
     private const REMATCH_INVITE_TTL_SECONDS = 30;
     private const TECHNICAL_TIMEOUT_STREAK = 3;
+    private const RECENT_MATCHES_NO_REPEAT = 15;
+    private const MATCH_CATEGORY_ROTATION_SLOTS = 5;
     public const REMATCH_REWARD_COEFFICIENT = 0.5;
 
     private Logger $logger;
@@ -247,7 +249,13 @@ class DuelService
                 $roundNumber++;
             }
         } else {
-            $questionPool = $this->questionSelector->selectQuestions($category, $roundCount);
+            $excludeQuestionIds = $this->collectRecentlyUsedQuestionIds($duel, self::RECENT_MATCHES_NO_REPEAT);
+            $questionPool = $this->questionSelector->selectDuelQuestions(
+                $category,
+                $roundCount,
+                $excludeQuestionIds,
+                self::MATCH_CATEGORY_ROTATION_SLOTS
+            );
 
             foreach ($questionPool as $question) {
                 $config = $roundConfigs[$roundNumber - 1] ?? [];
@@ -269,6 +277,66 @@ class DuelService
         $this->logger->info(sprintf('Дуэль %s стартовала', $duel->code));
 
         return $duel->refresh();
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function collectRecentlyUsedQuestionIds(Duel $duel, int $recentMatches): array
+    {
+        $recentMatches = max(1, $recentMatches);
+        $userIds = [];
+
+        $initiatorUserId = (int) ($duel->initiator_user_id ?? 0);
+        if ($initiatorUserId > 0) {
+            $userIds[] = $initiatorUserId;
+        }
+
+        $opponentUserId = (int) ($duel->opponent_user_id ?? 0);
+        if ($opponentUserId > 0) {
+            $userIds[] = $opponentUserId;
+        }
+
+        $userIds = array_values(array_unique($userIds));
+        if ($userIds === []) {
+            return [];
+        }
+
+        $duelIds = [];
+        foreach ($userIds as $userId) {
+            $userRecentDuelIds = Duel::query()
+                ->where('status', 'finished')
+                ->where(function ($query) use ($userId): void {
+                    $query->where('initiator_user_id', $userId)
+                        ->orWhere('opponent_user_id', $userId);
+                })
+                ->orderByDesc('finished_at')
+                ->orderByDesc('id')
+                ->limit($recentMatches)
+                ->pluck('id')
+                ->map(static fn ($id): int => (int) $id)
+                ->all();
+
+            foreach ($userRecentDuelIds as $duelId) {
+                if ($duelId > 0) {
+                    $duelIds[$duelId] = true;
+                }
+            }
+        }
+
+        if ($duelIds === []) {
+            return [];
+        }
+
+        return DuelRound::query()
+            ->whereIn('duel_id', array_keys($duelIds))
+            ->whereNotNull('question_id')
+            ->pluck('question_id')
+            ->map(static fn ($id): int => (int) $id)
+            ->filter(static fn (int $id): bool => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
     }
 
     public function getCurrentRound(Duel $duel): ?DuelRound
