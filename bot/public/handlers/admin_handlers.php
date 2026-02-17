@@ -1394,12 +1394,21 @@ function adminDecodeBase64FrameImagePayload(string $raw): ?array
 
     $mime = $mimeHint;
     if ($mime === '') {
-        $finfo = @finfo_open(FILEINFO_MIME_TYPE);
-        $detected = $finfo ? @finfo_buffer($finfo, $decoded) : false;
-        if ($finfo) {
-            @finfo_close($finfo);
+        if (function_exists('finfo_open') && function_exists('finfo_buffer') && function_exists('finfo_close')) {
+            $finfo = @finfo_open(FILEINFO_MIME_TYPE);
+            $detected = $finfo ? @finfo_buffer($finfo, $decoded) : false;
+            if ($finfo) {
+                @finfo_close($finfo);
+            }
+            $mime = is_string($detected) ? strtolower($detected) : '';
         }
-        $mime = is_string($detected) ? strtolower($detected) : '';
+
+        if ($mime === '' && function_exists('getimagesizefromstring')) {
+            $imageInfo = @getimagesizefromstring($decoded);
+            if (is_array($imageInfo) && is_string($imageInfo['mime'] ?? null)) {
+                $mime = strtolower((string) $imageInfo['mime']);
+            }
+        }
     }
 
     if ($mime === 'text/plain' || $mime === 'text/xml' || $mime === 'application/xml' || $mime === '') {
