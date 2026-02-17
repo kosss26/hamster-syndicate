@@ -3,7 +3,7 @@
   "description": "Telegram-викторина «Путешествие знаний» на PHP.",
   "type": "project",
   "require": {
-    "php": "^7.4 || ^8.0",
+    "php": "^8.1",
     "slim/slim": "^4.13",
     "slim/psr7": "^1.7",
     "php-di/php-di": "^6.4",
@@ -50,6 +50,15 @@
     ],
     "websocket": [
       "php bin/websocket_server.php"
+    ],
+    "smoke": [
+      "php bin/smoke_duel.php"
+    ],
+    "smoke:api": [
+      "php bin/smoke_api_duel.php"
+    ],
+    "smoke:all": [
+      "bash bin/smoke_all.sh"
     ]
   },
   "config": {

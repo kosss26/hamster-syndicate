@@ -162,6 +162,32 @@ function DuelPage() {
     return 'Соперник не найден.'
   }, [])
 
+  const resetToLobbyByCancellation = useCallback((cancelReason) => {
+    clearNextRoundTimers()
+    setIncomingRematch(null)
+    setDuel(null)
+    setQuestion(null)
+    setRoundStatus(null)
+    setRoundHistory([])
+    setSelectedAnswer(null)
+    hasAnsweredRef.current = false
+    answeredRoundId.current = null
+    currentQuestionId.current = null
+    setError(mapCancelReason(cancelReason))
+    navigate('/')
+  }, [clearNextRoundTimers, mapCancelReason, navigate])
+
+  const handleUnauthorizedError = useCallback((err) => {
+    const message = String(err?.message || '')
+    if (message.includes('Не авторизован')) {
+      setError('Сессия истекла. Открой игру через бота ещё раз.')
+      closeDuelSocket()
+      return true
+    }
+
+    return false
+  }, [closeDuelSocket])
+
   useEffect(() => {
     duelStateRef.current = state
   }, [state])
@@ -870,18 +896,7 @@ function DuelPage() {
         })
 
         if (data.status === 'cancelled' && data.cancelled_without_match) {
-          clearNextRoundTimers()
-          setIncomingRematch(null)
-          setDuel(null)
-          setQuestion(null)
-          setRoundStatus(null)
-          setRoundHistory([])
-          setSelectedAnswer(null)
-          hasAnsweredRef.current = false
-          answeredRoundId.current = null
-          currentQuestionId.current = null
-          setError(mapCancelReason(data.cancel_reason))
-          navigate('/')
+          resetToLobbyByCancellation(data.cancel_reason)
           return
         }
         
@@ -995,11 +1010,7 @@ function DuelPage() {
       }
     } catch (err) {
       console.error('Failed to check duel status:', err)
-      const message = String(err?.message || '')
-      if (message.includes('Не авторизован')) {
-        setError('Сессия истекла. Открой игру через бота ещё раз.')
-        closeDuelSocket()
-      }
+      handleUnauthorizedError(err)
     }
   }
 
@@ -1026,18 +1037,7 @@ function DuelPage() {
         })
 
         if (data.status === 'cancelled' && data.cancelled_without_match) {
-          clearNextRoundTimers()
-          setIncomingRematch(null)
-          setDuel(null)
-          setQuestion(null)
-          setRoundStatus(null)
-          setRoundHistory([])
-          setSelectedAnswer(null)
-          hasAnsweredRef.current = false
-          answeredRoundId.current = null
-          currentQuestionId.current = null
-          setError(mapCancelReason(data.cancel_reason))
-          navigate('/')
+          resetToLobbyByCancellation(data.cancel_reason)
           return
         }
 
@@ -1103,11 +1103,7 @@ function DuelPage() {
       }
     } catch (err) {
       console.error('Failed to load duel:', err)
-      const message = String(err?.message || '')
-      if (message.includes('Не авторизован')) {
-        setError('Сессия истекла. Открой игру через бота ещё раз.')
-        closeDuelSocket()
-      }
+      handleUnauthorizedError(err)
     }
   }
 
