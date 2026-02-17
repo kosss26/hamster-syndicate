@@ -231,6 +231,35 @@ cd /var/www/quiz-bot
 RUN_FRONT_SMOKE=0 ./UPDATE_SERVER.sh
 ```
 
+## Watchdog дуэлей (systemd timer)
+
+Чтобы зависшие раунды закрывались автоматически, установите watchdog-таймер:
+
+```bash
+cd /var/www/quiz-bot
+./INSTALL_DUEL_WATCHDOG_TIMER.sh
+```
+
+Параметры (опционально):
+
+```bash
+ROOT_DIR=/var/www/quiz-bot \
+PHP_BIN=/usr/bin/php \
+DUEL_LIMIT=500 \
+INTERVAL_SECONDS=20 \
+./INSTALL_DUEL_WATCHDOG_TIMER.sh
+```
+
+Проверка:
+
+```bash
+sudo systemctl status quizbot-duel-watchdog.timer --no-pager
+sudo journalctl -u quizbot-duel-watchdog.service -n 50 --no-pager
+```
+
+`UPDATE_SERVER.sh` при наличии юнита автоматически перезапускает `quizbot-duel-watchdog.timer`
+(отключается флагом `RESTART_DUEL_WATCHDOG_TIMER=0`).
+
 ## Структура базы данных
 
 - `users` - пользователи Telegram

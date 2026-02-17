@@ -10,6 +10,18 @@ function assertEqual(actual, expected, message) {
   }
 }
 
+function runTransitionSequence(initialState, steps) {
+  let state = initialState
+  for (const step of steps) {
+    state = deriveDuelViewState(step.data, {
+      currentState: state,
+      selectedAnswer: step.selectedAnswer ?? null,
+      answeredRoundId: step.answeredRoundId ?? null,
+    })
+  }
+  return state
+}
+
 assertEqual(
   deriveDuelViewState(null, { currentState: DUEL_STATES.SEARCHING }),
   DUEL_STATES.SEARCHING,
@@ -77,6 +89,15 @@ assertEqual(
 )
 
 assertEqual(
+  deriveDuelViewState(
+    { status: 'in_progress', question: { id: 2 }, round_status: { my_answered: false, opponent_answered: false, round_id: 80 } },
+    { currentState: DUEL_STATES.WAITING_OPPONENT_ANSWER, selectedAnswer: 4, answeredRoundId: 79 }
+  ),
+  DUEL_STATES.PLAYING,
+  'Stale optimistic answer from previous round does not lock waiting state'
+)
+
+assertEqual(
   deriveDuelViewState({ status: 'finished' }, { currentState: DUEL_STATES.PLAYING }),
   DUEL_STATES.FINISHED,
   'Finished status -> finished state'
@@ -86,6 +107,17 @@ assertEqual(
   deriveDuelViewState({ status: 'cancelled' }, { currentState: DUEL_STATES.WAITING_OPPONENT }),
   DUEL_STATES.FINISHED,
   'Cancelled status -> finished state'
+)
+
+assertEqual(
+  runTransitionSequence(DUEL_STATES.SEARCHING, [
+    { data: { status: 'matched' } },
+    { data: { status: 'in_progress', question: { id: 101 }, round_status: { my_answered: false, opponent_answered: false, round_id: 501 } } },
+    { data: { status: 'in_progress', question: { id: 101 }, round_status: { my_answered: true, opponent_answered: false, round_id: 501 } }, selectedAnswer: 11, answeredRoundId: 501 },
+    { data: { status: 'in_progress', question: { id: 102 }, round_status: { my_answered: false, opponent_answered: false, round_id: 502 } }, selectedAnswer: 11, answeredRoundId: 501 },
+  ]),
+  DUEL_STATES.PLAYING,
+  'Reconnect/late snapshot sequence keeps state on new round instead of stale waiting'
 )
 
 if (failures.length > 0) {

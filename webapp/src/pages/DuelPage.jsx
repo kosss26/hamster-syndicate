@@ -48,6 +48,7 @@ function DuelPage() {
   const currentQuestionId = useRef(null)
   const timerRef = useRef(null)
   const answeredRoundId = useRef(null)
+  const selectedAnswerRef = useRef(null)
   const searchTimerRef = useRef(null)
   const hasAnsweredRef = useRef(false) // Для проверки в таймере
   const wsRef = useRef(null)
@@ -67,6 +68,24 @@ function DuelPage() {
   const finishedRewardsShownRef = useRef(new Set())
   const ghostPoolAvailableRef = useRef(null)
   const waitWatchdogRef = useRef({ roundId: null, since: 0, lastSyncAt: 0 })
+  const duelSyncSeqRef = useRef(0)
+  const duelSyncAppliedSeqRef = useRef(0)
+  const duelSyncInFlightRef = useRef(false)
+  const duelSyncPendingRequestRef = useRef(null)
+  const foundLoadTimerRef = useRef(null)
+
+  const nextDuelSyncSeq = () => {
+    duelSyncSeqRef.current += 1
+    return duelSyncSeqRef.current
+  }
+
+  const isStaleDuelSyncSeq = (seq) => seq < duelSyncAppliedSeqRef.current
+
+  const markDuelSyncApplied = (seq) => {
+    if (seq > duelSyncAppliedSeqRef.current) {
+      duelSyncAppliedSeqRef.current = seq
+    }
+  }
 
   const enterFoundState = useCallback(() => {
     foundScreenUntilRef.current = Date.now() + FOUND_SCREEN_MIN_MS
@@ -164,6 +183,7 @@ function DuelPage() {
 
   const resetToLobbyByCancellation = (cancelReason) => {
     clearNextRoundTimers()
+    clearFoundLoadTimer()
     setIncomingRematch(null)
     setDuel(null)
     setQuestion(null)
@@ -192,6 +212,10 @@ function DuelPage() {
     duelStateRef.current = state
   }, [state])
 
+  useEffect(() => {
+    selectedAnswerRef.current = selectedAnswer
+  }, [selectedAnswer])
+
   const clearNextRoundTimers = useCallback(() => {
     if (nextRoundTimerRef.current) {
       clearTimeout(nextRoundTimerRef.current)
@@ -203,6 +227,24 @@ function DuelPage() {
     }
     setNextRoundCountdown(null)
   }, [])
+
+  const clearFoundLoadTimer = useCallback(() => {
+    if (foundLoadTimerRef.current) {
+      clearTimeout(foundLoadTimerRef.current)
+      foundLoadTimerRef.current = null
+    }
+  }, [])
+
+  const scheduleLoadAfterFound = useCallback((duelId) => {
+    if (!duelId) return
+    clearFoundLoadTimer()
+    foundLoadTimerRef.current = setTimeout(() => {
+      foundLoadTimerRef.current = null
+      if (typeof loadDuelRef.current === 'function') {
+        loadDuelRef.current(duelId)
+      }
+    }, FOUND_SCREEN_MIN_MS)
+  }, [clearFoundLoadTimer])
 
   const addRoundToHistory = useCallback((roundData) => {
     if (!roundData || !roundData.round_id) return
@@ -530,11 +572,7 @@ function DuelPage() {
       setDuel({ duel_id: incomingRematch.duel_id, status: response.data?.status || 'matched' })
       enterFoundState()
       hapticFeedback('success')
-      setTimeout(() => {
-        if (typeof loadDuelRef.current === 'function') {
-          loadDuelRef.current(incomingRematch.duel_id)
-        }
-      }, FOUND_SCREEN_MIN_MS)
+      scheduleLoadAfterFound(incomingRematch.duel_id)
     } catch (err) {
       setError(String(err?.message || 'Не удалось принять реванш'))
       hapticFeedback('error')
@@ -542,7 +580,7 @@ function DuelPage() {
     } finally {
       setLoading(false)
     }
-  }, [incomingRematch, enterFoundState, loadIncomingRematch])
+  }, [incomingRematch, enterFoundState, loadIncomingRematch, scheduleLoadAfterFound])
 
   const declineIncomingRematch = useCallback(async () => {
     if (!incomingRematch?.duel_id) return
@@ -625,8 +663,15 @@ function DuelPage() {
   useEffect(() => {
     return () => {
       clearNextRoundTimers()
+      clearFoundLoadTimer()
     }
-  }, [clearNextRoundTimers])
+  }, [clearNextRoundTimers, clearFoundLoadTimer])
+
+  useEffect(() => {
+    if (state !== STATES.FOUND) {
+      clearFoundLoadTimer()
+    }
+  }, [state, clearFoundLoadTimer])
 
   useEffect(() => {
     if (duelIdParam) {
@@ -714,16 +759,24 @@ function DuelPage() {
   useEffect(() => {
     if (!duel || state === STATES.FINISHED) return
 
-    const interval = (state === STATES.WAITING_OPPONENT_ANSWER || state === STATES.WAITING_OPPONENT)
-      ? 900
-      : 1500
+    const interval = wsConnected
+      ? (
+        (state === STATES.WAITING_OPPONENT_ANSWER || state === STATES.WAITING_OPPONENT)
+          ? 1200
+          : 2500
+      )
+      : (
+        (state === STATES.WAITING_OPPONENT_ANSWER || state === STATES.WAITING_OPPONENT)
+          ? 900
+          : 1500
+      )
 
     const checkInterval = setInterval(() => {
       checkDuelStatus(duel.duel_id)
     }, interval)
 
     return () => clearInterval(checkInterval)
-  }, [duel?.duel_id, state])
+  }, [duel?.duel_id, state, wsConnected])
 
   useEffect(() => {
     if (state !== STATES.WAITING_OPPONENT_ANSWER || !duel?.duel_id) {
@@ -864,247 +917,240 @@ function DuelPage() {
     }
   }, [state, duel?.duel_id, duel?.is_rematch, duel?.mode])
 
-  const checkDuelStatus = async (duelId) => {
-    try {
-      const response = await api.getDuel(duelId)
-      
-      if (response.success) {
-        const data = response.data
-        setDuel(prev => ({ ...(prev || {}), ...data }))
-        if (typeof data.ghost_pool_available === 'boolean') {
-          ghostPoolAvailableRef.current = data.ghost_pool_available
-        }
-        if (data.ghost_fallback_attempted && !data.ghost_fallback_assigned && !data.is_ghost_match) {
-          setGhostFallbackPending(true)
-        }
-        const currentState = duelStateRef.current
-        const serverRoundStatus = data.round_status || null
-        setRoundStatus(serverRoundStatus)
+  const applyDuelSnapshot = (data, options = {}) => {
+    const { mergeDuel = false, duelIdOverride = null } = options
+    const duelIdForFollowup = Number(duelIdOverride || data?.duel_id || duel?.duel_id || 0)
+    const currentState = duelStateRef.current
+    const serverRoundStatus = data.round_status || null
 
-        const serverMyAnswerId = Number(serverRoundStatus?.my_answer_id || 0)
-        if (serverRoundStatus?.my_answered) {
-          hasAnsweredRef.current = true
-          if (serverMyAnswerId > 0 && selectedAnswer === null) {
-            setSelectedAnswer(serverMyAnswerId)
-          }
-        }
-        
-        const isInitiator = data.is_initiator
-        setScore({
-          player: isInitiator ? data.initiator_score : data.opponent_score,
-          opponent: isInitiator ? data.opponent_score : data.initiator_score
-        })
+    if (mergeDuel) {
+      setDuel((prev) => ({ ...(prev || {}), ...data }))
+    } else {
+      setDuel(data)
+    }
 
-        if (data.status === 'cancelled' && data.cancelled_without_match) {
-          resetToLobbyByCancellation(data.cancel_reason)
-          return
-        }
-        
-        const derivedState = deriveDuelViewState(data, {
-          currentState,
-          selectedAnswer,
-          answeredRoundId: answeredRoundId.current,
-        })
+    if (typeof data.ghost_pool_available === 'boolean') {
+      ghostPoolAvailableRef.current = data.ghost_pool_available
+    }
+    if (data.ghost_fallback_attempted && !data.ghost_fallback_assigned && !data.is_ghost_match) {
+      setGhostFallbackPending(true)
+    }
 
-        if (derivedState === STATES.FINISHED) {
-          clearNextRoundTimers()
-          queueFinishedRewardsIfNeeded(data)
-          setState(STATES.FINISHED)
-        } else if (currentState === STATES.FOUND && Date.now() < foundScreenUntilRef.current) {
-          return
-        } else if (currentState === STATES.SHOWING_RESULT && Date.now() < roundResultUntilRef.current) {
-          return
-        } else if (
-          (currentState === STATES.WAITING_OPPONENT || currentState === STATES.INVITE || currentState === STATES.SEARCHING) &&
-          (data.opponent || data.status === 'matched' || data.status === 'in_progress')
-        ) {
-          // Соперник найден/дуэль стартовала. Важно для режима INVITE:
-          // иначе создатель комнаты может запоздать к началу раунда.
-          if (data.opponent) {
-            setOpponent({
-              name: data.opponent.name || 'Соперник',
-              rating: data.opponent.rating ?? 0,
-              photo_url: data.opponent.photo_url
-            })
-          }
-          enterFoundState()
-          hapticFeedback('success')
-          setTimeout(() => {
-            loadDuel(duelId)
-          }, FOUND_SCREEN_MIN_MS)
-        } else if (currentState === STATES.WAITING_OPPONENT_ANSWER) {
-          const currentRoundId = data.round_status?.round_id
-          const lastClosedRound = data.last_closed_round
-          
-          // Раунд закрылся (оба ответили или таймаут)
-          const roundClosed = (
-            // Наш раунд в lastClosedRound
-            (answeredRoundId.current && lastClosedRound && 
-             lastClosedRound.round_id === answeredRoundId.current) ||
-            // Или round_status показывает что оппонент ответил
-            data.round_status?.opponent_answered ||
-            // Или текущий раунд уже другой
-            (answeredRoundId.current && currentRoundId && 
-             currentRoundId !== answeredRoundId.current)
-          )
-          
-          if (roundClosed) {
-            // Берём данные из lastClosedRound или round_status
-            const opponentCorrect = lastClosedRound?.round_id === answeredRoundId.current
-              ? lastClosedRound.opponent_correct
-              : data.round_status?.opponent_correct
-            const correctAnswerId = lastClosedRound?.round_id === answeredRoundId.current
-              ? lastClosedRound.correct_answer_id
-              : data.round_status?.correct_answer_id
-            const myTimeTaken = lastClosedRound?.round_id === answeredRoundId.current
-              ? (Number.isFinite(lastClosedRound.my_time_taken) ? Number(lastClosedRound.my_time_taken) : null)
-              : (Number.isFinite(data.round_status?.my_time_taken) ? Number(data.round_status.my_time_taken) : null)
-            const opponentTimeTaken = lastClosedRound?.round_id === answeredRoundId.current
-              ? (Number.isFinite(lastClosedRound.opponent_time_taken) ? Number(lastClosedRound.opponent_time_taken) : null)
-              : (Number.isFinite(data.round_status?.opponent_time_taken) ? Number(data.round_status.opponent_time_taken) : null)
-            const myTimedOut = lastClosedRound?.round_id === answeredRoundId.current
-              ? Boolean(lastClosedRound.my_timed_out)
-              : Boolean(data.round_status?.my_timed_out)
-            const myReason = lastClosedRound?.round_id === answeredRoundId.current
-              ? (lastClosedRound.my_reason ?? null)
-              : (data.round_status?.my_reason ?? null)
+    setRoundStatus(serverRoundStatus)
 
-            setLastResult((prev) => ({
-              ...(prev || {}),
-              my_time_taken: myTimeTaken,
-              my_timed_out: myTimedOut,
-              my_reason: myReason,
-              speed_delta_seconds: myTimeTaken !== null && opponentTimeTaken !== null
-                ? (opponentTimeTaken - myTimeTaken)
-                : null
-            }))
-            
-            setOpponentAnswer({
-              answered: true,
-              correct: opponentCorrect ?? false,
-              timedOut: lastClosedRound?.round_id === answeredRoundId.current
-                ? Boolean(lastClosedRound.opponent_timed_out)
-                : Boolean(data.round_status?.opponent_timed_out),
-              timeTaken: lastClosedRound?.round_id === answeredRoundId.current
-                ? (Number.isFinite(lastClosedRound.opponent_time_taken) ? Number(lastClosedRound.opponent_time_taken) : null)
-                : (Number.isFinite(data.round_status?.opponent_time_taken) ? Number(data.round_status?.opponent_time_taken) : null),
-              reason: lastClosedRound?.round_id === answeredRoundId.current
-                ? (lastClosedRound.opponent_reason ?? null)
-                : (data.round_status?.opponent_reason ?? null)
-            })
-            
-            if (correctAnswerId && !correctAnswer) {
-              setCorrectAnswer(correctAnswerId)
-            }
+    if (Number.isFinite(data.current_round)) {
+      setRound(Number(data.current_round))
+    }
+    if (Number.isFinite(data.total_rounds)) {
+      setTotalRounds(Number(data.total_rounds))
+    }
+    if (data.last_closed_round) {
+      addRoundToHistory(data.last_closed_round)
+    }
 
-            if (lastClosedRound?.round_id === answeredRoundId.current) {
-              addRoundToHistory(lastClosedRound)
-            }
-            
-            enterRoundResultState(duelId)
-            hapticFeedback(opponentCorrect ? 'warning' : 'success')
-          }
-        } else if (derivedState !== currentState && derivedState !== STATES.FOUND) {
-          setState(derivedState)
-        }
+    const isInitiator = Boolean(data.is_initiator)
+    setScore({
+      player: isInitiator ? data.initiator_score : data.opponent_score,
+      opponent: isInitiator ? data.opponent_score : data.initiator_score
+    })
+
+    const serverMyAnswerId = Number(serverRoundStatus?.my_answer_id || 0)
+    if (serverRoundStatus?.my_answered) {
+      hasAnsweredRef.current = true
+      if (serverMyAnswerId > 0 && selectedAnswerRef.current === null) {
+        setSelectedAnswer(serverMyAnswerId)
       }
-    } catch (err) {
-      console.error('Failed to check duel status:', err)
-      handleUnauthorizedError(err)
+    }
+
+    if (data.status === 'cancelled' && data.cancelled_without_match) {
+      resetToLobbyByCancellation(data.cancel_reason)
+      return
+    }
+
+    const derivedState = deriveDuelViewState(data, {
+      currentState,
+      selectedAnswer: selectedAnswerRef.current,
+      answeredRoundId: answeredRoundId.current,
+    })
+
+    if (derivedState === STATES.FINISHED) {
+      clearNextRoundTimers()
+      queueFinishedRewardsIfNeeded(data)
+      setState(STATES.FINISHED)
+      return
+    }
+
+    if (currentState === STATES.FOUND && Date.now() < foundScreenUntilRef.current) {
+      return
+    }
+    if (currentState === STATES.SHOWING_RESULT && Date.now() < roundResultUntilRef.current) {
+      return
+    }
+
+    if (
+      (currentState === STATES.WAITING_OPPONENT || currentState === STATES.INVITE || currentState === STATES.SEARCHING) &&
+      (data.opponent || data.status === 'matched' || data.status === 'in_progress')
+    ) {
+      if (data.opponent) {
+        setOpponent({
+          name: data.opponent.name || 'Соперник',
+          rating: data.opponent.rating ?? 0,
+          photo_url: data.opponent.photo_url
+        })
+      }
+      enterFoundState()
+      hapticFeedback('success')
+      if (duelIdForFollowup > 0) {
+        scheduleLoadAfterFound(duelIdForFollowup)
+      }
+      return
+    }
+
+    if (currentState === STATES.WAITING_OPPONENT_ANSWER) {
+      const currentRoundId = data.round_status?.round_id
+      const lastClosedRound = data.last_closed_round
+
+      const roundClosed = (
+        (answeredRoundId.current && lastClosedRound &&
+          lastClosedRound.round_id === answeredRoundId.current) ||
+        data.round_status?.opponent_answered ||
+        (answeredRoundId.current && currentRoundId &&
+          currentRoundId !== answeredRoundId.current)
+      )
+
+      if (roundClosed) {
+        const opponentCorrect = lastClosedRound?.round_id === answeredRoundId.current
+          ? lastClosedRound.opponent_correct
+          : data.round_status?.opponent_correct
+        const correctAnswerId = lastClosedRound?.round_id === answeredRoundId.current
+          ? lastClosedRound.correct_answer_id
+          : data.round_status?.correct_answer_id
+        const myTimeTaken = lastClosedRound?.round_id === answeredRoundId.current
+          ? (Number.isFinite(lastClosedRound.my_time_taken) ? Number(lastClosedRound.my_time_taken) : null)
+          : (Number.isFinite(data.round_status?.my_time_taken) ? Number(data.round_status.my_time_taken) : null)
+        const opponentTimeTaken = lastClosedRound?.round_id === answeredRoundId.current
+          ? (Number.isFinite(lastClosedRound.opponent_time_taken) ? Number(lastClosedRound.opponent_time_taken) : null)
+          : (Number.isFinite(data.round_status?.opponent_time_taken) ? Number(data.round_status.opponent_time_taken) : null)
+        const myTimedOut = lastClosedRound?.round_id === answeredRoundId.current
+          ? Boolean(lastClosedRound.my_timed_out)
+          : Boolean(data.round_status?.my_timed_out)
+        const myReason = lastClosedRound?.round_id === answeredRoundId.current
+          ? (lastClosedRound.my_reason ?? null)
+          : (data.round_status?.my_reason ?? null)
+
+        setLastResult((prev) => ({
+          ...(prev || {}),
+          my_time_taken: myTimeTaken,
+          my_timed_out: myTimedOut,
+          my_reason: myReason,
+          speed_delta_seconds: myTimeTaken !== null && opponentTimeTaken !== null
+            ? (opponentTimeTaken - myTimeTaken)
+            : null
+        }))
+
+        setOpponentAnswer({
+          answered: true,
+          correct: opponentCorrect ?? false,
+          timedOut: lastClosedRound?.round_id === answeredRoundId.current
+            ? Boolean(lastClosedRound.opponent_timed_out)
+            : Boolean(data.round_status?.opponent_timed_out),
+          timeTaken: lastClosedRound?.round_id === answeredRoundId.current
+            ? (Number.isFinite(lastClosedRound.opponent_time_taken) ? Number(lastClosedRound.opponent_time_taken) : null)
+            : (Number.isFinite(data.round_status?.opponent_time_taken) ? Number(data.round_status?.opponent_time_taken) : null),
+          reason: lastClosedRound?.round_id === answeredRoundId.current
+            ? (lastClosedRound.opponent_reason ?? null)
+            : (data.round_status?.opponent_reason ?? null)
+        })
+
+        if (correctAnswerId) {
+          setCorrectAnswer((prev) => prev || correctAnswerId)
+        }
+
+        if (lastClosedRound?.round_id === answeredRoundId.current) {
+          addRoundToHistory(lastClosedRound)
+        }
+
+        enterRoundResultState(duelIdForFollowup)
+        hapticFeedback(opponentCorrect ? 'warning' : 'success')
+      } else if (derivedState !== currentState && derivedState !== STATES.FOUND) {
+        setState(derivedState)
+      }
+      return
+    }
+
+    if (data.question) {
+      if (currentQuestionId.current !== data.question.id) {
+        clearNextRoundTimers()
+        currentQuestionId.current = data.question.id
+        answeredRoundId.current = null
+
+        setQuestion(data.question)
+        setRoundStatus(serverRoundStatus)
+        setSelectedAnswer(null)
+        hasAnsweredRef.current = false
+        setCorrectAnswer(null)
+        setOpponentAnswer(null)
+        setLastResult(null)
+        setHiddenAnswers([])
+
+        const timeLimit = data.round_status?.time_limit || 30
+        if (data.round_status?.question_sent_at) {
+          const sentAt = new Date(data.round_status.question_sent_at)
+          const elapsed = Math.floor((Date.now() - sentAt.getTime()) / 1000)
+          const newTimeLeft = Math.max(0, timeLimit - (isNaN(elapsed) ? 0 : elapsed))
+          setTimeLeft(newTimeLeft)
+        } else {
+          setTimeLeft(timeLimit)
+        }
+
+        setState(derivedState)
+      } else if (derivedState !== duelStateRef.current && derivedState !== STATES.FOUND) {
+        setState(derivedState)
+      }
+    } else if (derivedState !== currentState && derivedState !== STATES.FOUND) {
+      setState(derivedState)
     }
   }
 
-  const loadDuel = async (duelId) => {
+  const syncDuelSnapshot = async (duelId, options = {}) => {
+    if (duelSyncInFlightRef.current) {
+      duelSyncPendingRequestRef.current = { duelId, options }
+      return
+    }
+
+    duelSyncInFlightRef.current = true
+
+    const { mergeDuel = false, source = 'duel sync' } = options
+    const syncSeq = nextDuelSyncSeq()
     try {
       const response = await api.getDuel(duelId)
-      
-      if (response.success) {
-        const data = response.data
-        setDuel(data)
-        const serverRoundStatus = data.round_status || null
-        setRoundStatus(serverRoundStatus)
-        setRound(data.current_round)
-        setTotalRounds(data.total_rounds)
+      if (!response.success) return
 
-        if (data.last_closed_round) {
-          addRoundToHistory(data.last_closed_round)
-        }
-        
-        const isInitiator = data.is_initiator
-        setScore({
-          player: isInitiator ? data.initiator_score : data.opponent_score,
-          opponent: isInitiator ? data.opponent_score : data.initiator_score
-        })
+      if (isStaleDuelSyncSeq(syncSeq)) return
+      markDuelSyncApplied(syncSeq)
 
-        if (data.status === 'cancelled' && data.cancelled_without_match) {
-          resetToLobbyByCancellation(data.cancel_reason)
-          return
-        }
-
-        const derivedState = deriveDuelViewState(data, {
-          currentState: duelStateRef.current,
-          selectedAnswer,
-          answeredRoundId: answeredRoundId.current,
-        })
-
-        if (derivedState === STATES.FINISHED) {
-          clearNextRoundTimers()
-          queueFinishedRewardsIfNeeded(data)
-          setState(STATES.FINISHED)
-        } else if (duelStateRef.current === STATES.FOUND && Date.now() < foundScreenUntilRef.current) {
-          return
-        } else if (duelStateRef.current === STATES.SHOWING_RESULT && Date.now() < roundResultUntilRef.current) {
-          return
-        } else if (data.question) {
-          // Новый вопрос — сбрасываем состояние и запускаем таймер
-          if (currentQuestionId.current !== data.question.id) {
-            clearNextRoundTimers()
-            currentQuestionId.current = data.question.id
-            answeredRoundId.current = null
-            
-            // Ответы уже перемешаны на сервере (одинаково для обоих игроков)
-            setQuestion(data.question)
-            setRoundStatus(data.round_status || null)
-            setSelectedAnswer(null)
-            hasAnsweredRef.current = false
-            setCorrectAnswer(null)
-            setOpponentAnswer(null)
-            setLastResult(null)
-            setHiddenAnswers([])
-            // hintUsed НЕ сбрасываем - одна подсказка на всю дуэль
-            
-            const timeLimit = data.round_status?.time_limit || 30
-            if (data.round_status?.question_sent_at) {
-              const sentAt = new Date(data.round_status.question_sent_at)
-              const elapsed = Math.floor((Date.now() - sentAt.getTime()) / 1000)
-              const newTimeLeft = Math.max(0, timeLimit - (isNaN(elapsed) ? 0 : elapsed))
-              setTimeLeft(newTimeLeft)
-            } else {
-              setTimeLeft(timeLimit)
-            }
-            
-            // При новом вопросе используем derive-логику, чтобы корректно восстановиться после reconnect.
-            setState(derivedState)
-          } else if (derivedState !== duelStateRef.current && derivedState !== STATES.FOUND) {
-            // Восстановление экрана без жесткого ресета UI при reconnect.
-            setState(derivedState)
-          }
-
-          const serverMyAnswerId = Number(serverRoundStatus?.my_answer_id || 0)
-          if (serverRoundStatus?.my_answered) {
-            hasAnsweredRef.current = true
-            if (serverMyAnswerId > 0 && selectedAnswer === null) {
-              setSelectedAnswer(serverMyAnswerId)
-            }
-          }
-        } else if (derivedState !== duelStateRef.current && derivedState !== STATES.FOUND) {
-          setState(derivedState)
-        }
-      }
+      applyDuelSnapshot(response.data, { mergeDuel, duelIdOverride: duelId })
     } catch (err) {
-      console.error('Failed to load duel:', err)
+      if (isStaleDuelSyncSeq(syncSeq)) return
+      console.error(`Failed to ${source}:`, err)
       handleUnauthorizedError(err)
+    } finally {
+      duelSyncInFlightRef.current = false
+
+      const pending = duelSyncPendingRequestRef.current
+      if (pending && pending.duelId) {
+        duelSyncPendingRequestRef.current = null
+        void syncDuelSnapshot(pending.duelId, pending.options || {})
+      }
     }
+  }
+
+  const checkDuelStatus = async (duelId) => {
+    await syncDuelSnapshot(duelId, { mergeDuel: true, source: 'check duel status' })
+  }
+
+  const loadDuel = async (duelId) => {
+    await syncDuelSnapshot(duelId, { mergeDuel: false, source: 'load duel' })
   }
 
   loadDuelRef.current = loadDuel
@@ -1136,10 +1182,7 @@ function DuelPage() {
           }
           enterFoundState()
           hapticFeedback('success')
-          
-          setTimeout(() => {
-            loadDuel(data.duel_id)
-          }, FOUND_SCREEN_MIN_MS)
+          scheduleLoadAfterFound(data.duel_id)
         } else {
           setState(STATES.WAITING_OPPONENT)
         }
@@ -1239,10 +1282,7 @@ function DuelPage() {
         
         enterFoundState()
         hapticFeedback('success')
-        
-        setTimeout(() => {
-          loadDuel(data.duel_id)
-        }, FOUND_SCREEN_MIN_MS)
+        scheduleLoadAfterFound(data.duel_id)
       } else {
         setError(response.error || 'Дуэль не найдена')
         hapticFeedback('error')
@@ -1465,6 +1505,7 @@ function DuelPage() {
           if (isRematchWaiting) {
             setError('Приглашение на реванш отменено.')
           }
+          clearFoundLoadTimer()
           setDuel(null)
           navigate('/')
         }}

@@ -11,6 +11,7 @@ set -euo pipefail
 #   SMOKE_API_BASE_URL=https://app.tvixx.ru
 #   SMOKE_INSECURE=1              # disable TLS verification for API smoke
 #   RUN_FRONT_SMOKE=1             # run frontend state smoke before build
+#   RESTART_DUEL_WATCHDOG_TIMER=1 # restart watchdog timer when unit is installed
 #   PHP_BIN=php                   # php executable override
 #   NPM_BIN=npm                   # npm executable override
 
@@ -22,6 +23,7 @@ RUN_API_SMOKE="${RUN_API_SMOKE:-0}"
 SMOKE_API_BASE_URL="${SMOKE_API_BASE_URL:-}"
 SMOKE_INSECURE="${SMOKE_INSECURE:-0}"
 RUN_FRONT_SMOKE="${RUN_FRONT_SMOKE:-1}"
+RESTART_DUEL_WATCHDOG_TIMER="${RESTART_DUEL_WATCHDOG_TIMER:-1}"
 
 echo "[update] root dir: ${ROOT_DIR}"
 cd "${ROOT_DIR}"
@@ -78,6 +80,16 @@ echo "[update] restarting services"
 systemctl restart php8.2-fpm
 systemctl restart nginx
 systemctl restart quizbot-websocket
+
+if [[ "${RESTART_DUEL_WATCHDOG_TIMER}" == "1" ]]; then
+  if systemctl list-unit-files | grep -q '^quizbot-duel-watchdog.timer'; then
+    echo "[update] restarting quizbot-duel-watchdog.timer"
+    systemctl restart quizbot-duel-watchdog.timer
+    systemctl status quizbot-duel-watchdog.timer --no-pager | sed -n '1,12p'
+  else
+    echo "[update] watchdog timer not installed (skip). Use ./INSTALL_DUEL_WATCHDOG_TIMER.sh"
+  fi
+fi
 
 echo "[update] websocket status"
 systemctl status quizbot-websocket --no-pager | sed -n '1,12p'

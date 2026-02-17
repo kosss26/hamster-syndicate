@@ -1,0 +1,14 @@
+[Unit]
+Description=QuizBot Duel Round Watchdog
+After=network.target
+
+[Service]
+Type=oneshot
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/quiz-bot/bot
+ExecStart=/usr/bin/php /var/www/quiz-bot/bot/bin/duel_round_watchdog.php 500
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

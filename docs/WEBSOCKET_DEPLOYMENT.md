@@ -70,14 +70,33 @@ sudo systemctl restart quizbot-websocket
 sudo systemctl status quizbot-websocket
 ```
 
-## 4. Проверки после релиза
+## 4. Watchdog таймер для зависших раундов
+
+Рекомендуется запускать `duel_round_watchdog.php` как `systemd timer`, чтобы
+автоматически закрывать просроченные раунды даже при потере websocket/polling событий.
+
+Быстрый вариант:
+
+```bash
+cd /var/www/quiz-bot
+./INSTALL_DUEL_WATCHDOG_TIMER.sh
+```
+
+Проверка:
+
+```bash
+sudo systemctl status quizbot-duel-watchdog.timer --no-pager
+sudo journalctl -u quizbot-duel-watchdog.service -n 50 --no-pager
+```
+
+## 5. Проверки после релиза
 
 1. Открывается `wss://your-domain.com/ws` из WebApp.
 2. API `GET /api/duel/ws-ticket?duel_id=<id>` возвращает `ticket` для участников дуэли.
 3. При ответе одного игрока второй получает `duel_update` без задержки polling-интервала.
 4. Процесс `quizbot-websocket` автоматически рестартует после сбоя.
 
-## 5. Рекомендации
+## 6. Рекомендации
 
 - Используйте отдельный `WEBSOCKET_TICKET_SECRET`, не равный `TELEGRAM_BOT_TOKEN`.
 - Храните Nginx и systemd логи в централизованном логировании.
@@ -86,6 +105,6 @@ sudo systemctl status quizbot-websocket
 - `WEBSOCKET_MAX_MESSAGE_BYTES` ограничивает размер входящего клиентского payload (по умолчанию 2048 байт).
 
 
-## 6. Диагностика API
+## 7. Диагностика API
 
 Все JSON-ответы API теперь содержат `request_id` для трассировки ошибок в логах.

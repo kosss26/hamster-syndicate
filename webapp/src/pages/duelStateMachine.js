@@ -56,7 +56,13 @@ export function deriveDuelViewState(data, context = {}) {
   )
   const opponentAnswered = Boolean(roundStatus.opponent_answered)
 
-  if (!myAnswered && currentState === DUEL_STATES.WAITING_OPPONENT_ANSWER && selectedAnswer !== null) {
+  const optimisticSameRound = (
+    selectedAnswer !== null &&
+    answeredRoundId !== null &&
+    roundStatus.round_id === answeredRoundId
+  )
+
+  if (!myAnswered && currentState === DUEL_STATES.WAITING_OPPONENT_ANSWER && optimisticSameRound) {
     return DUEL_STATES.WAITING_OPPONENT_ANSWER
   }
 

@@ -214,6 +214,34 @@ try {
     } else {
         assertTrue(false, 'Technical defeat duel has result row', $errors);
     }
+
+    fwrite(STDOUT, "== Scenario 7: Global watchdog closes stale in-progress round ==\n");
+    cleanupUsers($userA, $userB);
+    $watchdogDuel = $duelService->createDuel($userA, $userB);
+    $watchdogDuel = $duelService->startDuel($watchdogDuel);
+    $watchdogRound = $duelService->getCurrentRound($watchdogDuel);
+    assertTrue($watchdogRound !== null, 'Watchdog scenario has current round', $errors);
+    if ($watchdogRound) {
+        $correctAnswerId = findCorrectAnswerId($duelService, $watchdogDuel);
+        assertTrue($correctAnswerId !== null, 'Watchdog scenario has correct answer', $errors);
+        if ($correctAnswerId !== null) {
+            // A already answered, B still pending. Round should be closed by watchdog timeout.
+            $duelService->submitAnswer($watchdogRound, $userA, $correctAnswerId);
+            $watchdogRound = $watchdogRound->fresh();
+            $watchdogRound->question_sent_at = Carbon::now()->subSeconds(((int) $watchdogRound->time_limit) + 5);
+            $watchdogRound->save();
+
+            $watchdogStats = $duelService->processExpiredInProgressRounds(50);
+            $watchdogRound = $watchdogRound->fresh();
+            $opponentPayload = is_array($watchdogRound->opponent_payload) ? $watchdogRound->opponent_payload : [];
+
+            assertTrue((int) ($watchdogStats['processed'] ?? 0) > 0, 'Watchdog processed in-progress duels', $errors);
+            assertTrue((int) ($watchdogStats['round_closed'] ?? 0) > 0, 'Watchdog closed stale round', $errors);
+            assertTrue($watchdogRound->closed_at !== null, 'Watchdog scenario round is closed', $errors);
+            assertTrue(($opponentPayload['completed'] ?? false) === true, 'Watchdog marked pending participant as completed', $errors);
+            assertTrue(($opponentPayload['reason'] ?? '') === 'timeout', 'Watchdog completed pending participant by timeout', $errors);
+        }
+    }
 } catch (Throwable $e) {
     $errors[] = $e->getMessage();
     fwrite(STDERR, "[EXCEPTION] {$e->getMessage()}\n");
