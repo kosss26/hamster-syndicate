@@ -38,8 +38,8 @@ const FRAME_STYLES = {
 }
 
 const EXTERNAL_FRAME_FALLBACK = {
-  avatarInsetPercent: 9,
-  frameScale: 1.08,
+  avatarInsetPercent: 12,
+  frameScale: 1.2,
 }
 
 const frameMetricsCache = new Map()
@@ -171,9 +171,9 @@ function detectExternalFrameMetrics(imageData, width, height) {
     return EXTERNAL_FRAME_FALLBACK
   }
 
-  const frameScale = clamp(1 / outerNorm, 1, 1.75)
+  const frameScale = clamp(1 / outerNorm, 1, 2.4)
   const avatarRadiusRatio = clamp((innerNorm / outerNorm) * 0.97, 0.5, 0.92)
-  const avatarInsetPercent = clamp((1 - avatarRadiusRatio) * 50, 3, 12)
+  const avatarInsetPercent = clamp((1 - avatarRadiusRatio) * 50, 4, 16)
 
   return {
     avatarInsetPercent: Number(avatarInsetPercent.toFixed(2)),
@@ -247,9 +247,6 @@ function AvatarWithFrame({
   const [frameBroken, setFrameBroken] = useState(false)
   const hasFrameAsset = Boolean(frameAssetUrl && !frameBroken)
   const frameWidth = Math.max(3, size * 0.06)
-  const frameBleedPercent = hasFrameAsset
-    ? Math.max(0, Number((((externalFrameMeta?.frameScale || 1) - 1) * 50).toFixed(2)))
-    : 0
 
   useEffect(() => {
     setAvatarBroken(false)
@@ -292,14 +289,13 @@ function AvatarWithFrame({
   }, [frameAssetUrl])
 
   return (
-    <div className={`relative ${className}`} style={{ width: size, height: size, overflow: 'visible' }}>
+    <div className={`relative ${className}`} style={{ width: size, height: size }}>
       {showGlow && (
         <div className={`absolute -inset-2 rounded-full bg-gradient-to-r ${frameStyle.glow} blur-lg opacity-50`} />
       )}
 
       <motion.div
         className="relative w-full h-full"
-        style={{ overflow: 'visible' }}
         animate={animated ? { rotate: 360 } : {}}
         transition={animated ? {
           duration: 3,
@@ -335,13 +331,10 @@ function AvatarWithFrame({
               src={frameAssetUrl}
               alt=""
               aria-hidden="true"
-              className="absolute object-contain pointer-events-none"
+              className="absolute inset-0 w-full h-full object-contain pointer-events-none"
               style={{
-                inset: `-${frameBleedPercent}%`,
-                width: `${100 + frameBleedPercent * 2}%`,
-                height: `${100 + frameBleedPercent * 2}%`,
-                maxWidth: 'none',
-                maxHeight: 'none',
+                transform: `scale(${externalFrameMeta.frameScale})`,
+                transformOrigin: 'center',
               }}
               onError={() => {
                 if (frameCandidateIndex < frameAssetUrls.length - 1) {
