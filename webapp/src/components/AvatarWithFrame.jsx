@@ -37,17 +37,12 @@ const FRAME_STYLES = {
   },
 }
 
-const EXTERNAL_FRAME_DEFAULTS = {
+const EXTERNAL_FRAME_FALLBACK = {
   avatarInsetPercent: 12,
   frameScale: 1.2,
 }
 
-const EXTERNAL_FRAME_OVERRIDES = {
-  frame_test: {
-    avatarInsetPercent: 14,
-    frameScale: 1.28,
-  },
-}
+const frameMetricsCache = new Map()
 
 function resolveFrameAssetUrl(frameKey) {
   const normalized = String(frameKey || '').trim()
@@ -67,10 +62,147 @@ function resolveDisplayName(name, user) {
   return '?'
 }
 
-function resolveExternalFrameMeta(frameKey) {
-  const normalized = String(frameKey || '').trim()
-  if (!normalized) return EXTERNAL_FRAME_DEFAULTS
-  return EXTERNAL_FRAME_OVERRIDES[normalized] || EXTERNAL_FRAME_DEFAULTS
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value))
+}
+
+function median(values) {
+  if (!Array.isArray(values) || values.length === 0) return 0
+  const sorted = [...values].sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  if (sorted.length % 2 === 0) {
+    return (sorted[mid - 1] + sorted[mid]) / 2
+  }
+  return sorted[mid]
+}
+
+function detectExternalFrameMetrics(imageData, width, height) {
+  const alphaThreshold = 20
+  const minSide = Math.min(width, height)
+  if (minSide < 16) return EXTERNAL_FRAME_FALLBACK
+
+  const pixels = imageData.data
+  let minX = width
+  let maxX = -1
+  let minY = height
+  let maxY = -1
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const alpha = pixels[(y * width + x) * 4 + 3]
+      if (alpha > alphaThreshold) {
+        if (x < minX) minX = x
+        if (x > maxX) maxX = x
+        if (y < minY) minY = y
+        if (y > maxY) maxY = y
+      }
+    }
+  }
+
+  if (maxX < minX || maxY < minY) {
+    return EXTERNAL_FRAME_FALLBACK
+  }
+
+  const centerX = (minX + maxX) / 2
+  const centerY = (minY + maxY) / 2
+  const maxRadius = minSide / 2
+  const anglesCount = 84
+  const innerSamples = []
+  const outerSamples = []
+
+  for (let i = 0; i < anglesCount; i += 1) {
+    const angle = (Math.PI * 2 * i) / anglesCount
+    const cosA = Math.cos(angle)
+    const sinA = Math.sin(angle)
+    let firstOpaque = -1
+    let lastOpaque = -1
+
+    for (let r = 0; r <= maxRadius; r += 1) {
+      const px = Math.round(centerX + (cosA * r))
+      const py = Math.round(centerY + (sinA * r))
+      if (px < 0 || px >= width || py < 0 || py >= height) continue
+
+      const alpha = pixels[(py * width + px) * 4 + 3]
+      if (alpha > alphaThreshold) {
+        if (firstOpaque < 0) firstOpaque = r
+        lastOpaque = r
+      }
+    }
+
+    if (firstOpaque > 0 && lastOpaque > 0 && lastOpaque > firstOpaque) {
+      innerSamples.push(firstOpaque)
+      outerSamples.push(lastOpaque)
+    }
+  }
+
+  if (innerSamples.length < 16 || outerSamples.length < 16) {
+    return EXTERNAL_FRAME_FALLBACK
+  }
+
+  const innerRadius = median(innerSamples)
+  const outerRadius = median(outerSamples)
+  if (innerRadius <= 0 || outerRadius <= 0 || innerRadius >= outerRadius) {
+    return EXTERNAL_FRAME_FALLBACK
+  }
+
+  const outerNorm = outerRadius / maxRadius
+  const innerNorm = innerRadius / maxRadius
+  if (!Number.isFinite(outerNorm) || !Number.isFinite(innerNorm) || outerNorm <= 0) {
+    return EXTERNAL_FRAME_FALLBACK
+  }
+
+  const frameScale = clamp(1 / outerNorm, 1, 2.4)
+  const avatarRadiusRatio = clamp((innerNorm / outerNorm) * 0.97, 0.5, 0.92)
+  const avatarInsetPercent = clamp((1 - avatarRadiusRatio) * 50, 4, 26)
+
+  return {
+    avatarInsetPercent: Number(avatarInsetPercent.toFixed(2)),
+    frameScale: Number(frameScale.toFixed(3)),
+  }
+}
+
+function loadExternalFrameMetrics(frameUrl) {
+  if (!frameUrl) {
+    return Promise.resolve(EXTERNAL_FRAME_FALLBACK)
+  }
+
+  if (frameMetricsCache.has(frameUrl)) {
+    return frameMetricsCache.get(frameUrl)
+  }
+
+  const promise = new Promise((resolve) => {
+    const image = new Image()
+    image.crossOrigin = 'anonymous'
+    image.onload = () => {
+      try {
+        const width = image.naturalWidth || image.width
+        const height = image.naturalHeight || image.height
+        if (!width || !height) {
+          resolve(EXTERNAL_FRAME_FALLBACK)
+          return
+        }
+
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d', { willReadFrequently: true })
+        if (!ctx) {
+          resolve(EXTERNAL_FRAME_FALLBACK)
+          return
+        }
+        ctx.drawImage(image, 0, 0)
+        const imageData = ctx.getImageData(0, 0, width, height)
+        resolve(detectExternalFrameMetrics(imageData, width, height))
+      } catch (_) {
+        resolve(EXTERNAL_FRAME_FALLBACK)
+      }
+    }
+    image.onerror = () => resolve(EXTERNAL_FRAME_FALLBACK)
+    image.src = frameUrl
+  })
+
+  frameMetricsCache.set(frameUrl, promise)
+  return promise
 }
 
 function AvatarWithFrame({
@@ -88,7 +220,7 @@ function AvatarWithFrame({
   const frameStyle = FRAME_STYLES[resolvedFrameKey] || FRAME_STYLES.default
   const initial = resolveDisplayName(name, user)[0]?.toUpperCase() || '?'
   const frameAssetUrl = useMemo(() => resolveFrameAssetUrl(resolvedFrameKey), [resolvedFrameKey])
-  const externalFrameMeta = useMemo(() => resolveExternalFrameMeta(resolvedFrameKey), [resolvedFrameKey])
+  const [externalFrameMeta, setExternalFrameMeta] = useState(EXTERNAL_FRAME_FALLBACK)
   const [avatarBroken, setAvatarBroken] = useState(false)
   const [frameBroken, setFrameBroken] = useState(false)
   const hasFrameAsset = Boolean(frameAssetUrl && !frameBroken)
@@ -100,6 +232,33 @@ function AvatarWithFrame({
 
   useEffect(() => {
     setFrameBroken(false)
+  }, [frameAssetUrl])
+
+  useEffect(() => {
+    let isCancelled = false
+    if (!frameAssetUrl) {
+      setExternalFrameMeta(EXTERNAL_FRAME_FALLBACK)
+      return () => {
+        isCancelled = true
+      }
+    }
+
+    setExternalFrameMeta(EXTERNAL_FRAME_FALLBACK)
+    loadExternalFrameMetrics(frameAssetUrl)
+      .then((meta) => {
+        if (!isCancelled) {
+          setExternalFrameMeta(meta || EXTERNAL_FRAME_FALLBACK)
+        }
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          setExternalFrameMeta(EXTERNAL_FRAME_FALLBACK)
+        }
+      })
+
+    return () => {
+      isCancelled = true
+    }
   }, [frameAssetUrl])
 
   return (

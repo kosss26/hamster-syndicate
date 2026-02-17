@@ -356,6 +356,21 @@ try {
             handleAdminGrantLootbox($container, $telegramUser, $body);
             break;
 
+        // GET /admin/frames - список рамок
+        case $path === '/admin/frames' && $requestMethod === 'GET':
+            handleAdminFramesList($container, $telegramUser);
+            break;
+
+        // POST /admin/frames/upsert - загрузить/обновить рамку
+        case $path === '/admin/frames/upsert' && $requestMethod === 'POST':
+            handleAdminFrameUpsert($container, $telegramUser, $body);
+            break;
+
+        // POST /admin/frames/grant - выдать рамку пользователю
+        case $path === '/admin/frames/grant' && $requestMethod === 'POST':
+            handleAdminGrantFrame($container, $telegramUser, $body);
+            break;
+
         // === SHOP SYSTEM ===
         
         // GET /shop/items - получить товары магазина

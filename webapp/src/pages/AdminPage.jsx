@@ -11,6 +11,7 @@ const TABS = [
   { id: 'duels', label: 'Дуэли' },
   { id: 'questions', label: 'Вопросы' },
   { id: 'facts', label: 'П/Л факты' },
+  { id: 'frames', label: 'Рамки' },
   { id: 'lootboxes', label: 'Лутбоксы' },
   { id: 'broadcast', label: 'Рассылка' },
 ]
@@ -35,6 +36,7 @@ function AdminPage() {
   const [duels, setDuels] = useState([])
   const [facts, setFacts] = useState([])
   const [adminNotifications, setAdminNotifications] = useState([])
+  const [frames, setFrames] = useState([])
 
   const [userQuery, setUserQuery] = useState('')
   const [duelQuery, setDuelQuery] = useState('')
@@ -79,6 +81,26 @@ function AdminPage() {
     quantity: 1,
   })
   const [grantResult, setGrantResult] = useState(null)
+  const [frameForm, setFrameForm] = useState({
+    frame_key: '',
+    name: '',
+    rarity: 'rare',
+    description: '',
+    price_coins: 1500,
+    price_gems: 0,
+    sort_order: 500,
+    is_active: true,
+    create_shop_item: true,
+    image_base64: '',
+    preview_url: '',
+  })
+  const [frameGrantForm, setFrameGrantForm] = useState({
+    target: '',
+    target_type: 'telegram_id',
+    frame_key: '',
+    rarity: 'rare',
+  })
+  const [frameActionResult, setFrameActionResult] = useState(null)
 
   useEffect(() => {
     showBackButton(true)
@@ -98,6 +120,8 @@ function AdminPage() {
         loadDuels()
       } else if (activeTab === 'facts') {
         loadFacts()
+      } else if (activeTab === 'frames') {
+        loadFrames()
       } else if (activeTab === 'broadcast') {
         loadAdminNotifications()
       }
@@ -109,7 +133,7 @@ function AdminPage() {
     setLoading(true)
     setError(null)
     try {
-      await Promise.all([loadStats(), loadAnalytics(), loadUsers(), loadDuels(), loadFacts(), loadAdminNotifications()])
+      await Promise.all([loadStats(), loadAnalytics(), loadUsers(), loadDuels(), loadFacts(), loadFrames(), loadAdminNotifications()])
     } catch (e) {
       setError(e.message || 'Ошибка загрузки админки')
     } finally {
@@ -224,10 +248,24 @@ function AdminPage() {
     if (res.success) setAdminNotifications(res.data.items || [])
   }
 
+  const loadFrames = async () => {
+    const res = await api.getAdminFrames()
+    if (res.success) setFrames(res.data.items || [])
+  }
+
   const activeDuelsCount = useMemo(
     () => duels.filter((d) => ['waiting', 'matched', 'in_progress'].includes(d.status)).length,
     [duels]
   )
+
+  const normalizeFrameKey = (value) => {
+    return String(value || '')
+      .toLowerCase()
+      .replace(/\.png$/i, '')
+      .replace(/[^a-z0-9_-]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 64)
+  }
 
   const balanceFlagLabel = (flag) => {
     if (flag === 'too_hard') return 'Слишком сложно'
@@ -470,6 +508,124 @@ function AdminPage() {
         lootbox_type: data.lootbox_type,
         added: data.added,
         total: data.total_quantity,
+      })
+      hapticFeedback('success')
+    } catch (e) {
+      alert(e.message || 'Ошибка')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleFrameFileChange = (file) => {
+    if (!file) return
+    if (file.type !== 'image/png') {
+      alert('Поддерживается только PNG')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : ''
+      const guessedKey = normalizeFrameKey(file.name)
+      setFrameForm((prev) => ({
+        ...prev,
+        frame_key: prev.frame_key || guessedKey,
+        image_base64: result,
+        preview_url: result,
+      }))
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleUpsertFrame = async () => {
+    const frameKey = normalizeFrameKey(frameForm.frame_key)
+    if (!frameKey) {
+      alert('Укажи корректный ключ рамки (a-z, 0-9, _, -)')
+      return
+    }
+    const existingFrame = frames.find((item) => item.frame_key === frameKey)
+    if (!frameForm.image_base64 && !existingFrame) {
+      alert('Загрузи PNG файл рамки')
+      return
+    }
+
+    setActionLoading(true)
+    setFrameActionResult(null)
+    try {
+      const payload = {
+        frame_key: frameKey,
+        image_base64: frameForm.image_base64,
+        create_shop_item: Boolean(frameForm.create_shop_item),
+        name: frameForm.name.trim() || `Рамка: ${frameKey}`,
+        rarity: frameForm.rarity,
+        description: frameForm.description.trim(),
+        price_coins: Math.max(0, Number(frameForm.price_coins || 0)),
+        price_gems: Math.max(0, Number(frameForm.price_gems || 0)),
+        sort_order: Number(frameForm.sort_order || 500),
+        is_active: Boolean(frameForm.is_active),
+      }
+      const res = await api.adminUpsertFrame(payload)
+      if (!res.success) throw new Error(res.error || 'Не удалось сохранить рамку')
+
+      const data = res.data || {}
+      setFrameActionResult({
+        type: 'upsert',
+        message: data.message || 'Рамка сохранена',
+        frame_key: data.frame_key || frameKey,
+        url: data.url || null,
+        shop_item: data.shop_item || null,
+      })
+
+      setFrameForm((prev) => ({
+        ...prev,
+        frame_key: frameKey,
+      }))
+      await loadFrames()
+      hapticFeedback('success')
+    } catch (e) {
+      alert(e.message || 'Ошибка')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleGrantFrame = async () => {
+    const frameKey = normalizeFrameKey(frameGrantForm.frame_key)
+    const target = frameGrantForm.target.trim()
+    if (!frameKey) {
+      alert('Укажи ключ рамки')
+      return
+    }
+    if (!target) {
+      alert('Укажи ID пользователя')
+      return
+    }
+
+    setActionLoading(true)
+    setFrameActionResult(null)
+    try {
+      const payload = {
+        frame_key: frameKey,
+        rarity: frameGrantForm.rarity,
+      }
+      if (frameGrantForm.target_type === 'user_id') {
+        payload.user_id = Number(target)
+      } else {
+        payload.telegram_id = Number(target)
+      }
+
+      const res = await api.adminGrantFrame(payload)
+      if (!res.success) throw new Error(res.error || 'Не удалось выдать рамку')
+
+      const data = res.data || {}
+      setFrameActionResult({
+        type: 'grant',
+        message: data.message || 'Рамка выдана',
+        frame_key: data.frame_key || frameKey,
+        user_id: data.user_id,
+        telegram_id: data.telegram_id,
+        already_owned: Boolean(data.already_owned),
       })
       hapticFeedback('success')
     } catch (e) {
@@ -972,6 +1128,217 @@ function AdminPage() {
                   </button>
                 </div>
               ))}
+            </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'frames' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+            <div className="rounded-2xl border border-white/10 bg-black/25 p-4 space-y-3">
+              <div className="text-sm text-white/70">Загрузка рамки (PNG) + публикация в магазин</div>
+              <div className="grid md:grid-cols-2 gap-2">
+                <input
+                  value={frameForm.frame_key}
+                  onChange={(e) => setFrameForm((prev) => ({ ...prev, frame_key: normalizeFrameKey(e.target.value) }))}
+                  placeholder="Ключ рамки, например frame_fire"
+                  className="rounded-xl bg-black/30 border border-white/15 px-4 py-3 text-white"
+                />
+                <input
+                  value={frameForm.name}
+                  onChange={(e) => setFrameForm((prev) => ({ ...prev, name: e.target.value }))}
+                  placeholder="Название для магазина"
+                  className="rounded-xl bg-black/30 border border-white/15 px-4 py-3 text-white"
+                />
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-2">
+                <select
+                  value={frameForm.rarity}
+                  onChange={(e) => setFrameForm((prev) => ({ ...prev, rarity: e.target.value }))}
+                  className="rounded-xl bg-black/30 border border-white/15 px-4 py-3 text-white"
+                >
+                  <option value="common">Обычная</option>
+                  <option value="rare">Редкая</option>
+                  <option value="epic">Эпическая</option>
+                  <option value="legendary">Легендарная</option>
+                </select>
+                <input
+                  type="file"
+                  accept="image/png"
+                  onChange={(e) => handleFrameFileChange(e.target.files?.[0])}
+                  className="rounded-xl bg-black/30 border border-white/15 px-4 py-3 text-white file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:text-white"
+                />
+              </div>
+
+              <textarea
+                rows={2}
+                value={frameForm.description}
+                onChange={(e) => setFrameForm((prev) => ({ ...prev, description: e.target.value }))}
+                placeholder="Описание рамки (опционально)"
+                className="w-full rounded-xl bg-black/30 border border-white/15 px-4 py-3 text-white"
+              />
+
+              <div className="grid md:grid-cols-4 gap-2">
+                <input
+                  type="number"
+                  min={0}
+                  value={frameForm.price_coins}
+                  onChange={(e) => setFrameForm((prev) => ({ ...prev, price_coins: e.target.value }))}
+                  placeholder="Цена в монетах"
+                  className="rounded-xl bg-black/30 border border-white/15 px-4 py-3 text-white"
+                />
+                <input
+                  type="number"
+                  min={0}
+                  value={frameForm.price_gems}
+                  onChange={(e) => setFrameForm((prev) => ({ ...prev, price_gems: e.target.value }))}
+                  placeholder="Цена в кристаллах"
+                  className="rounded-xl bg-black/30 border border-white/15 px-4 py-3 text-white"
+                />
+                <input
+                  type="number"
+                  min={0}
+                  value={frameForm.sort_order}
+                  onChange={(e) => setFrameForm((prev) => ({ ...prev, sort_order: e.target.value }))}
+                  placeholder="Sort order"
+                  className="rounded-xl bg-black/30 border border-white/15 px-4 py-3 text-white"
+                />
+                <button
+                  onClick={handleUpsertFrame}
+                  disabled={actionLoading}
+                  className="rounded-xl bg-cyan-500/20 border border-cyan-400/30 text-cyan-200 px-4 py-3 disabled:opacity-40"
+                >
+                  Сохранить рамку
+                </button>
+              </div>
+
+              <div className="flex flex-wrap gap-3 text-sm text-white/80">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={frameForm.create_shop_item}
+                    onChange={(e) => setFrameForm((prev) => ({ ...prev, create_shop_item: e.target.checked }))}
+                  />
+                  Создать/обновить товар в магазине
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={frameForm.is_active}
+                    onChange={(e) => setFrameForm((prev) => ({ ...prev, is_active: e.target.checked }))}
+                  />
+                  Товар активен
+                </label>
+              </div>
+
+              {frameForm.preview_url && (
+                <div className="rounded-xl border border-white/10 bg-black/25 p-3 flex items-center gap-3">
+                  <img src={frameForm.preview_url} alt="preview" className="w-16 h-16 object-contain rounded-lg bg-black/30" />
+                  <div className="text-xs text-white/70">
+                    Предпросмотр PNG (автоподгонка аватара в игре будет рассчитана автоматически)
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-black/25 p-4 space-y-3">
+              <div className="text-sm text-white/70">Выдать рамку игроку</div>
+              <div className="grid md:grid-cols-5 gap-2">
+                <select
+                  value={frameGrantForm.target_type}
+                  onChange={(e) => setFrameGrantForm((prev) => ({ ...prev, target_type: e.target.value }))}
+                  className="rounded-xl bg-black/30 border border-white/15 px-4 py-3 text-white"
+                >
+                  <option value="telegram_id">По Telegram ID</option>
+                  <option value="user_id">По User ID</option>
+                </select>
+                <input
+                  value={frameGrantForm.target}
+                  onChange={(e) => setFrameGrantForm((prev) => ({ ...prev, target: e.target.value.replace(/\D+/g, '') }))}
+                  placeholder={frameGrantForm.target_type === 'telegram_id' ? 'Telegram ID игрока' : 'User ID игрока'}
+                  className="rounded-xl bg-black/30 border border-white/15 px-4 py-3 text-white"
+                />
+                <input
+                  value={frameGrantForm.frame_key}
+                  onChange={(e) => setFrameGrantForm((prev) => ({ ...prev, frame_key: normalizeFrameKey(e.target.value) }))}
+                  placeholder="frame_key"
+                  className="rounded-xl bg-black/30 border border-white/15 px-4 py-3 text-white"
+                />
+                <select
+                  value={frameGrantForm.rarity}
+                  onChange={(e) => setFrameGrantForm((prev) => ({ ...prev, rarity: e.target.value }))}
+                  className="rounded-xl bg-black/30 border border-white/15 px-4 py-3 text-white"
+                >
+                  <option value="common">Обычная</option>
+                  <option value="rare">Редкая</option>
+                  <option value="epic">Эпическая</option>
+                  <option value="legendary">Легендарная</option>
+                </select>
+                <button
+                  onClick={handleGrantFrame}
+                  disabled={actionLoading}
+                  className="rounded-xl bg-violet-500/20 border border-violet-400/30 text-violet-200 px-4 py-3 disabled:opacity-40"
+                >
+                  Выдать рамку
+                </button>
+              </div>
+            </div>
+
+            {frameActionResult && (
+              <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-emerald-100 text-sm">
+                <div>{frameActionResult.message}</div>
+                {frameActionResult.frame_key ? <div className="text-emerald-200/80 text-xs mt-1">Рамка: {frameActionResult.frame_key}</div> : null}
+                {frameActionResult.user_id ? <div className="text-emerald-200/80 text-xs mt-1">user_id: {frameActionResult.user_id} · tg: {frameActionResult.telegram_id}</div> : null}
+              </div>
+            )}
+
+            <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-sm text-white/70">Загруженные рамки</div>
+                <button onClick={loadFrames} className="px-3 py-1.5 rounded-lg bg-white/10 text-white/80 text-xs">Обновить</button>
+              </div>
+              <div className="grid md:grid-cols-2 gap-2">
+                {frames.map((frame) => (
+                  <div key={frame.frame_key} className="rounded-xl border border-white/10 bg-black/20 p-3 flex items-center gap-3">
+                    <img src={frame.url} alt={frame.frame_key} className="w-14 h-14 object-contain rounded-lg bg-black/30" />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-white text-sm font-semibold truncate">{frame.frame_key}</div>
+                      <div className="text-white/50 text-[11px]">
+                        {frame.width}x{frame.height} · {Math.round((Number(frame.size_bytes || 0) / 1024) || 0)} KB
+                      </div>
+                      <div className="text-[11px] mt-1">
+                        {frame.shop_item ? (
+                          <span className="text-emerald-200">В магазине: {frame.shop_item.name} ({frame.shop_item.price_coins}🪙 / {frame.shop_item.price_gems}💎)</span>
+                        ) : (
+                          <span className="text-amber-200">Не привязана к магазину</span>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setFrameForm((prev) => ({
+                          ...prev,
+                          frame_key: frame.frame_key,
+                          name: frame.shop_item?.name || prev.name,
+                          rarity: frame.shop_item?.rarity || prev.rarity,
+                          description: frame.shop_item?.description || prev.description,
+                          price_coins: frame.shop_item?.price_coins ?? prev.price_coins,
+                          price_gems: frame.shop_item?.price_gems ?? prev.price_gems,
+                          sort_order: frame.shop_item?.sort_order ?? prev.sort_order,
+                          is_active: frame.shop_item?.is_active ?? prev.is_active,
+                          create_shop_item: true,
+                          image_base64: '',
+                          preview_url: frame.url,
+                        }))
+                        setFrameGrantForm((prev) => ({ ...prev, frame_key: frame.frame_key }))
+                      }}
+                      className="px-2.5 py-2 rounded-lg bg-white/10 text-white/70 text-xs"
+                    >
+                      Выбрать
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           </motion.div>
         )}

@@ -399,11 +399,24 @@ function handleGetImage(string $folder, string $filename): void
     // Очищаем имя файла от потенциально опасных символов
     $filename = basename($filename);
     
-    // Путь к файлу
-    $filepath = dirname(__DIR__) . '/storage/images/' . $folder . '/' . $filename;
-    
+    // Исторически файлы могли храниться в двух местах.
+    // 1) Новый/основной путь: bot/storage/images
+    // 2) Legacy-путь:       bot/public/storage/images
+    $candidatePaths = [
+        dirname(__DIR__, 2) . '/storage/images/' . $folder . '/' . $filename,
+        dirname(__DIR__) . '/storage/images/' . $folder . '/' . $filename,
+    ];
+
+    $filepath = null;
+    foreach ($candidatePaths as $candidate) {
+        if (is_file($candidate)) {
+            $filepath = $candidate;
+            break;
+        }
+    }
+
     // Проверяем существование файла
-    if (!file_exists($filepath) || !is_file($filepath)) {
+    if ($filepath === null) {
         http_response_code(404);
         exit;
     }

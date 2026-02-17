@@ -227,6 +227,15 @@ export const api = {
     method: 'POST',
     body: JSON.stringify(payload)
   }),
+  getAdminFrames: () => request('/admin/frames'),
+  adminUpsertFrame: (payload) => request('/admin/frames/upsert', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  }),
+  adminGrantFrame: (payload) => request('/admin/frames/grant', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  }),
   isAdmin: () => request('/admin/check'),
   adminCancelDuel: (duelId) => request(`/admin/duel/${duelId}/cancel`, { method: 'POST' }),
   adminCancelDuelByCode: (code) => request('/admin/duel/by-code/cancel', {
