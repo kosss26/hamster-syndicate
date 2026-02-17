@@ -39,6 +39,12 @@ function AdminPage() {
   const [userQuery, setUserQuery] = useState('')
   const [duelQuery, setDuelQuery] = useState('')
   const [duelStatus, setDuelStatus] = useState('all')
+  const [duelDateFrom, setDuelDateFrom] = useState('')
+  const [duelDateTo, setDuelDateTo] = useState('')
+  const [duelDetailsOpen, setDuelDetailsOpen] = useState(false)
+  const [duelDetailsLoading, setDuelDetailsLoading] = useState(false)
+  const [duelDetails, setDuelDetails] = useState(null)
+  const [duelDetailsError, setDuelDetailsError] = useState('')
   const [factQuery, setFactQuery] = useState('')
   const [factTruth, setFactTruth] = useState('all')
   const [analyticsDays, setAnalyticsDays] = useState(30)
@@ -97,7 +103,7 @@ function AdminPage() {
       }
     }, 10000)
     return () => clearInterval(interval)
-  }, [autoRefresh, activeTab, userQuery, duelQuery, duelStatus, factQuery, factTruth, analyticsDays, analyticsMode, analyticsMinAttempts, analyticsCategoryId, analyticsQuestionSort, analyticsQuestionOrder, analyticsQuestionQuery])
+  }, [autoRefresh, activeTab, userQuery, duelQuery, duelStatus, duelDateFrom, duelDateTo, factQuery, factTruth, analyticsDays, analyticsMode, analyticsMinAttempts, analyticsCategoryId, analyticsQuestionSort, analyticsQuestionOrder, analyticsQuestionQuery])
 
   const loadAll = async () => {
     setLoading(true)
@@ -161,9 +167,47 @@ function AdminPage() {
     const res = await api.getAdminDuels({
       q: duelQuery,
       status: duelStatus,
+      date_from: duelDateFrom || undefined,
+      date_to: duelDateTo || undefined,
       limit: 60,
     })
     if (res.success) setDuels(res.data.items || [])
+  }
+
+  const openDuelDetails = async (duelId) => {
+    setDuelDetailsOpen(true)
+    setDuelDetailsLoading(true)
+    setDuelDetailsError('')
+    setDuelDetails(null)
+    try {
+      const res = await api.getAdminDuelDetails(duelId)
+      if (!res.success) throw new Error(res.error || 'Не удалось загрузить детали дуэли')
+      setDuelDetails(res.data || null)
+    } catch (e) {
+      setDuelDetailsError(e.message || 'Не удалось загрузить детали дуэли')
+    } finally {
+      setDuelDetailsLoading(false)
+    }
+  }
+
+  const formatDateTime = (value) => {
+    if (!value) return '—'
+    try {
+      return new Date(value).toLocaleString('ru-RU')
+    } catch (_) {
+      return String(value)
+    }
+  }
+
+  const formatDuration = (seconds) => {
+    const total = Number(seconds)
+    if (!Number.isFinite(total) || total < 0) return '—'
+    const h = Math.floor(total / 3600)
+    const m = Math.floor((total % 3600) / 60)
+    const s = total % 60
+    if (h > 0) return `${h}ч ${m}м ${s}с`
+    if (m > 0) return `${m}м ${s}с`
+    return `${s}с`
   }
 
   const loadFacts = async () => {
@@ -718,7 +762,7 @@ function AdminPage() {
 
         {activeTab === 'duels' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
-            <div className="grid md:grid-cols-3 gap-2">
+            <div className="grid md:grid-cols-5 gap-2">
               <input
                 value={duelQuery}
                 onChange={(e) => setDuelQuery(e.target.value.toUpperCase())}
@@ -738,6 +782,18 @@ function AdminPage() {
                 <option value="finished">finished</option>
                 <option value="cancelled">cancelled</option>
               </select>
+              <input
+                type="date"
+                value={duelDateFrom}
+                onChange={(e) => setDuelDateFrom(e.target.value)}
+                className="rounded-xl bg-black/30 border border-white/15 px-4 py-3 text-white"
+              />
+              <input
+                type="date"
+                value={duelDateTo}
+                onChange={(e) => setDuelDateTo(e.target.value)}
+                className="rounded-xl bg-black/30 border border-white/15 px-4 py-3 text-white"
+              />
               <button onClick={loadDuels} className="rounded-xl bg-white/10 text-white/80 px-4 py-3">Применить</button>
             </div>
 
@@ -766,16 +822,31 @@ function AdminPage() {
 
             <div className="space-y-2">
               {duels.map((d) => (
-                <div key={d.id} className="rounded-xl border border-white/10 bg-black/25 p-3 flex items-center justify-between gap-3">
+                <div
+                  key={d.id}
+                  className="rounded-xl border border-white/10 bg-black/25 p-3 flex items-center justify-between gap-3 cursor-pointer hover:bg-white/[0.07] transition-colors"
+                  onClick={() => openDuelDetails(d.id)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') openDuelDetails(d.id)
+                  }}
+                >
                   <div className="min-w-0">
                     <div className="text-white font-semibold">{d.code} · {d.status}</div>
                     <div className="text-white/60 text-xs truncate">
-                      {d.initiator?.name || '???'} ({d.initiator?.rating ?? 0}) vs {d.opponent?.name || '???'} ({d.opponent?.rating ?? 0})
+                      {d.initiator?.name || '???'} vs {d.opponent?.name || '???'}
+                    </div>
+                    <div className="text-white/45 text-[11px] truncate mt-1">
+                      Создана: {formatDateTime(d.created_at)}
                     </div>
                   </div>
                   {['waiting', 'matched', 'in_progress'].includes(d.status) && (
                     <button
-                      onClick={() => setConfirm({ type: 'duel', duelId: d.id, code: d.code })}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setConfirm({ type: 'duel', duelId: d.id, code: d.code })
+                      }}
                       className="px-3 py-2 rounded-lg bg-red-500/20 border border-red-400/30 text-red-200 text-xs"
                     >
                       Завершить
@@ -1036,6 +1107,120 @@ function AdminPage() {
                   {actionLoading ? '...' : 'Завершить'}
                 </button>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {duelDetailsOpen && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/75 p-4 overflow-auto">
+            <motion.div initial={{ scale: 0.98 }} animate={{ scale: 1 }} exit={{ scale: 0.98 }} className="w-full max-w-4xl mx-auto rounded-2xl border border-white/10 bg-dark-950 p-4 md:p-5">
+              <div className="flex items-start justify-between gap-2 mb-4">
+                <div>
+                  <div className="text-white text-xl font-semibold">Детали дуэли</div>
+                  <div className="text-white/50 text-xs">Максимальная информация по матчу</div>
+                </div>
+                <button onClick={() => setDuelDetailsOpen(false)} className="px-3 py-2 rounded-xl bg-white/10 text-white/70">Закрыть</button>
+              </div>
+
+              {duelDetailsLoading && (
+                <div className="text-white/70 text-sm">Загрузка деталей...</div>
+              )}
+
+              {!duelDetailsLoading && duelDetailsError && (
+                <div className="rounded-xl border border-red-400/30 bg-red-500/10 p-3 text-red-200 text-sm">{duelDetailsError}</div>
+              )}
+
+              {!duelDetailsLoading && !duelDetailsError && duelDetails?.duel && (
+                <div className="space-y-3">
+                  <div className="rounded-xl border border-white/10 bg-black/25 p-3">
+                    <div className="text-white font-semibold mb-1">
+                      #{duelDetails.duel.id} · {duelDetails.duel.code} · {duelDetails.duel.status}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs text-white/70">
+                      <div>Создана: <span className="text-white">{formatDateTime(duelDetails.duel.created_at)}</span></div>
+                      <div>Старт: <span className="text-white">{formatDateTime(duelDetails.duel.started_at)}</span></div>
+                      <div>Финиш: <span className="text-white">{formatDateTime(duelDetails.duel.finished_at)}</span></div>
+                      <div>Матчмейкинг: <span className="text-white">{formatDateTime(duelDetails.duel.matched_at)}</span></div>
+                      <div>Длительность: <span className="text-white">{formatDuration(duelDetails.duel.duration_seconds)}</span></div>
+                      <div>Раундов до победы: <span className="text-white">{duelDetails.duel.rounds_to_win ?? '—'}</span></div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-white/10 bg-black/25 p-3">
+                    <div className="text-white text-sm font-semibold mb-2">Участники</div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                      <div className="rounded-lg border border-white/10 bg-black/20 p-2">
+                        <div className="text-white font-semibold">Инициатор: {duelDetails.duel.initiator?.name || '—'}</div>
+                        <div className="text-white/60">user_id: {duelDetails.duel.initiator?.id ?? '—'} · tg: {duelDetails.duel.initiator?.telegram_id ?? '—'}</div>
+                        <div className="text-white/60">username: {duelDetails.duel.initiator?.username ? `@${duelDetails.duel.initiator.username}` : '—'}</div>
+                        <div className="text-white/60">Текущий рейтинг: {duelDetails.duel.initiator?.rating ?? '—'}</div>
+                      </div>
+                      <div className="rounded-lg border border-white/10 bg-black/20 p-2">
+                        <div className="text-white font-semibold">Оппонент: {duelDetails.duel.opponent?.name || '—'}</div>
+                        <div className="text-white/60">user_id: {duelDetails.duel.opponent?.id ?? '—'} · tg: {duelDetails.duel.opponent?.telegram_id ?? '—'}</div>
+                        <div className="text-white/60">username: {duelDetails.duel.opponent?.username ? `@${duelDetails.duel.opponent.username}` : '—'}</div>
+                        <div className="text-white/60">Текущий рейтинг: {duelDetails.duel.opponent?.rating ?? '—'}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-white/10 bg-black/25 p-3">
+                    <div className="text-white text-sm font-semibold mb-2">Итог матча</div>
+                    {duelDetails.duel.result ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-white/70">
+                        <div>Результат: <span className="text-white">{duelDetails.duel.result.result}</span></div>
+                        <div>Победитель: <span className="text-white">{duelDetails.duel.result.winner_name || 'Ничья'}</span></div>
+                        <div>Счет: <span className="text-white">{duelDetails.duel.result.initiator_total_score} : {duelDetails.duel.result.opponent_total_score}</span></div>
+                        <div>Верных: <span className="text-white">{duelDetails.duel.result.initiator_correct} : {duelDetails.duel.result.opponent_correct}</span></div>
+                        <div>MMR инициатора: <span className="text-white">{duelDetails.duel.result.rating_changes?.initiator ?? 0}</span></div>
+                        <div>MMR оппонента: <span className="text-white">{duelDetails.duel.result.rating_changes?.opponent ?? 0}</span></div>
+                        <div className="md:col-span-2">
+                          Тех.поражение: <span className="text-white">{duelDetails.duel.result.technical_defeat ? JSON.stringify(duelDetails.duel.result.technical_defeat) : 'нет'}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-white/60 text-sm">Итогов пока нет.</div>
+                    )}
+                  </div>
+
+                  <div className="rounded-xl border border-white/10 bg-black/25 p-3">
+                    <div className="text-white text-sm font-semibold mb-2">Раунды ({duelDetails.rounds?.length || 0})</div>
+                    <div className="space-y-2 max-h-[40vh] overflow-auto pr-1">
+                      {(duelDetails.rounds || []).map((round) => (
+                        <div key={round.id} className="rounded-lg border border-white/10 bg-black/20 p-2 text-xs">
+                          <div className="text-white font-semibold">
+                            R{round.round_number} · {round.question?.category?.icon || '❓'} {round.question?.category?.title || 'Без категории'}
+                          </div>
+                          <div className="text-white/80 mt-1">{round.question?.text || 'Вопрос недоступен'}</div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2 text-white/70">
+                            <div>
+                              <div>Инициатор: score {round.initiator?.score ?? 0}</div>
+                              <div>Ответ: {round.initiator?.payload?.is_correct === null ? '—' : (round.initiator?.payload?.is_correct ? 'верно' : 'ошибка')}</div>
+                              <div>Причина: {round.initiator?.payload?.reason || '—'}</div>
+                              <div>Время: {round.initiator?.payload?.time_elapsed ?? '—'}с</div>
+                            </div>
+                            <div>
+                              <div>Оппонент: score {round.opponent?.score ?? 0}</div>
+                              <div>Ответ: {round.opponent?.payload?.is_correct === null ? '—' : (round.opponent?.payload?.is_correct ? 'верно' : 'ошибка')}</div>
+                              <div>Причина: {round.opponent?.payload?.reason || '—'}</div>
+                              <div>Время: {round.opponent?.payload?.time_elapsed ?? '—'}с</div>
+                            </div>
+                          </div>
+                          <div className="text-white/40 mt-1">Отправка: {formatDateTime(round.question_sent_at)} · Закрыт: {formatDateTime(round.closed_at)}</div>
+                        </div>
+                      ))}
+                      {(duelDetails.rounds || []).length === 0 && (
+                        <div className="text-white/50 text-sm">Раунды не найдены.</div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-white/10 bg-black/25 p-3">
+                    <div className="text-white text-sm font-semibold mb-2">Настройки дуэли (raw)</div>
+                    <pre className="text-[11px] text-white/70 whitespace-pre-wrap break-words">{JSON.stringify(duelDetails.duel.settings || {}, null, 2)}</pre>
+                  </div>
+                </div>
+              )}
             </motion.div>
           </motion.div>
         )}

@@ -210,6 +210,7 @@ export const api = {
     const query = new URLSearchParams(params).toString()
     return request(`/admin/duels${query ? `?${query}` : ''}`)
   },
+  getAdminDuelDetails: (duelId) => request(`/admin/duels/${duelId}`),
   getAdminFacts: (params = {}) => {
     const query = new URLSearchParams(params).toString()
     return request(`/admin/facts${query ? `?${query}` : ''}`)

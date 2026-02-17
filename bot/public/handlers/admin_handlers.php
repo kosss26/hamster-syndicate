@@ -587,6 +587,8 @@ function handleAdminDuels($container, ?array $telegramUser, array $query): void
     $limit = max(1, min(100, (int) ($query['limit'] ?? 50)));
     $status = trim((string) ($query['status'] ?? ''));
     $search = strtoupper(trim((string) ($query['q'] ?? '')));
+    $dateFrom = trim((string) ($query['date_from'] ?? ''));
+    $dateTo = trim((string) ($query['date_to'] ?? ''));
 
     $duelsQuery = \QuizBot\Domain\Model\Duel::query()
         ->with(['initiator.profile', 'opponent.profile', 'result'])
@@ -604,6 +606,24 @@ function handleAdminDuels($container, ?array $telegramUser, array $query): void
         });
     }
 
+    if ($dateFrom !== '') {
+        try {
+            $from = \Illuminate\Support\Carbon::parse($dateFrom)->startOfDay();
+            $duelsQuery->where('created_at', '>=', $from);
+        } catch (\Throwable $e) {
+            // ignore invalid date format
+        }
+    }
+
+    if ($dateTo !== '') {
+        try {
+            $to = \Illuminate\Support\Carbon::parse($dateTo)->endOfDay();
+            $duelsQuery->where('created_at', '<=', $to);
+        } catch (\Throwable $e) {
+            // ignore invalid date format
+        }
+    }
+
     $duels = $duelsQuery
         ->limit($limit)
         ->get()
@@ -613,16 +633,17 @@ function handleAdminDuels($container, ?array $telegramUser, array $query): void
                 'code' => $d->code,
                 'status' => $d->status,
                 'created_at' => $d->created_at ? $d->created_at->toIso8601String() : null,
+                'matched_at' => $d->matched_at ? $d->matched_at->toIso8601String() : null,
+                'started_at' => $d->started_at ? $d->started_at->toIso8601String() : null,
+                'finished_at' => $d->finished_at ? $d->finished_at->toIso8601String() : null,
                 'updated_at' => $d->updated_at ? $d->updated_at->toIso8601String() : null,
                 'initiator' => $d->initiator ? [
                     'id' => $d->initiator->getKey(),
                     'name' => $d->initiator->first_name,
-                    'rating' => $d->initiator->profile ? (int) $d->initiator->profile->rating : 0,
                 ] : null,
                 'opponent' => $d->opponent ? [
                     'id' => $d->opponent->getKey(),
                     'name' => $d->opponent->first_name,
-                    'rating' => $d->opponent->profile ? (int) $d->opponent->profile->rating : 0,
                 ] : null,
                 'result' => $d->result ? [
                     'initiator_score' => (int) $d->result->initiator_total_score,
@@ -640,6 +661,133 @@ function handleAdminDuels($container, ?array $telegramUser, array $query): void
         'items' => $duels,
         'count' => $duels->count(),
         'active_duels' => $activeCount,
+    ]);
+}
+
+/**
+ * GET /admin/duels/{id} - детальная информация о дуэли для модального окна админки
+ */
+function handleAdminDuelDetails($container, ?array $telegramUser, int $duelId): void
+{
+    if (!isAdmin($telegramUser, $container)) {
+        jsonError('Доступ запрещён', 403);
+    }
+
+    $duel = \QuizBot\Domain\Model\Duel::query()
+        ->with([
+            'initiator.profile',
+            'opponent.profile',
+            'result.winner',
+            'rounds.question.category',
+        ])
+        ->find($duelId);
+
+    if (!$duel) {
+        jsonError('Дуэль не найдена', 404);
+    }
+
+    $settings = is_array($duel->settings) ? $duel->settings : [];
+    $result = $duel->result;
+    $metadata = ($result && is_array($result->metadata)) ? $result->metadata : [];
+    $ratingChanges = is_array($metadata['rating_changes'] ?? null) ? $metadata['rating_changes'] : [];
+
+    $durationSeconds = null;
+    if ($duel->started_at && $duel->finished_at) {
+        $durationSeconds = max(0, $duel->started_at->diffInSeconds($duel->finished_at));
+    }
+
+    $rounds = $duel->rounds
+        ->sortBy('round_number')
+        ->values()
+        ->map(function ($round) {
+            $initiatorPayload = is_array($round->initiator_payload) ? $round->initiator_payload : [];
+            $opponentPayload = is_array($round->opponent_payload) ? $round->opponent_payload : [];
+
+            return [
+                'id' => (int) $round->getKey(),
+                'round_number' => (int) $round->round_number,
+                'time_limit' => (int) ($round->time_limit ?? 0),
+                'question' => $round->question ? [
+                    'id' => (int) $round->question->getKey(),
+                    'text' => (string) $round->question->question_text,
+                    'category' => $round->question->category ? [
+                        'id' => (int) $round->question->category->getKey(),
+                        'title' => (string) $round->question->category->title,
+                        'icon' => (string) ($round->question->category->icon ?? '❓'),
+                    ] : null,
+                ] : null,
+                'initiator' => [
+                    'score' => (int) ($round->initiator_score ?? 0),
+                    'payload' => [
+                        'completed' => (bool) ($initiatorPayload['completed'] ?? false),
+                        'is_correct' => isset($initiatorPayload['is_correct']) ? (bool) $initiatorPayload['is_correct'] : null,
+                        'answer_id' => isset($initiatorPayload['answer_id']) && $initiatorPayload['answer_id'] !== null ? (int) $initiatorPayload['answer_id'] : null,
+                        'time_elapsed' => isset($initiatorPayload['time_elapsed']) ? (int) $initiatorPayload['time_elapsed'] : null,
+                        'reason' => isset($initiatorPayload['reason']) ? (string) $initiatorPayload['reason'] : null,
+                        'answered_at' => isset($initiatorPayload['answered_at']) ? (string) $initiatorPayload['answered_at'] : null,
+                    ],
+                ],
+                'opponent' => [
+                    'score' => (int) ($round->opponent_score ?? 0),
+                    'payload' => [
+                        'completed' => (bool) ($opponentPayload['completed'] ?? false),
+                        'is_correct' => isset($opponentPayload['is_correct']) ? (bool) $opponentPayload['is_correct'] : null,
+                        'answer_id' => isset($opponentPayload['answer_id']) && $opponentPayload['answer_id'] !== null ? (int) $opponentPayload['answer_id'] : null,
+                        'time_elapsed' => isset($opponentPayload['time_elapsed']) ? (int) $opponentPayload['time_elapsed'] : null,
+                        'reason' => isset($opponentPayload['reason']) ? (string) $opponentPayload['reason'] : null,
+                        'answered_at' => isset($opponentPayload['answered_at']) ? (string) $opponentPayload['answered_at'] : null,
+                    ],
+                ],
+                'question_sent_at' => $round->question_sent_at ? $round->question_sent_at->toIso8601String() : null,
+                'closed_at' => $round->closed_at ? $round->closed_at->toIso8601String() : null,
+            ];
+        })
+        ->all();
+
+    jsonResponse([
+        'duel' => [
+            'id' => (int) $duel->getKey(),
+            'code' => (string) $duel->code,
+            'status' => (string) $duel->status,
+            'rounds_to_win' => (int) ($duel->rounds_to_win ?? 0),
+            'created_at' => $duel->created_at ? $duel->created_at->toIso8601String() : null,
+            'matched_at' => $duel->matched_at ? $duel->matched_at->toIso8601String() : null,
+            'started_at' => $duel->started_at ? $duel->started_at->toIso8601String() : null,
+            'finished_at' => $duel->finished_at ? $duel->finished_at->toIso8601String() : null,
+            'updated_at' => $duel->updated_at ? $duel->updated_at->toIso8601String() : null,
+            'duration_seconds' => $durationSeconds,
+            'initiator' => $duel->initiator ? [
+                'id' => (int) $duel->initiator->getKey(),
+                'telegram_id' => (int) ($duel->initiator->telegram_id ?? 0),
+                'name' => (string) ($duel->initiator->first_name ?: 'Игрок'),
+                'username' => $duel->initiator->username ? (string) $duel->initiator->username : null,
+                'rating' => $duel->initiator->profile ? (int) $duel->initiator->profile->rating : null,
+            ] : null,
+            'opponent' => $duel->opponent ? [
+                'id' => (int) $duel->opponent->getKey(),
+                'telegram_id' => (int) ($duel->opponent->telegram_id ?? 0),
+                'name' => (string) ($duel->opponent->first_name ?: 'Игрок'),
+                'username' => $duel->opponent->username ? (string) $duel->opponent->username : null,
+                'rating' => $duel->opponent->profile ? (int) $duel->opponent->profile->rating : null,
+            ] : null,
+            'result' => $result ? [
+                'winner_user_id' => $result->winner_user_id !== null ? (int) $result->winner_user_id : null,
+                'winner_name' => $result->winner ? (string) ($result->winner->first_name ?: 'Игрок') : null,
+                'result' => (string) $result->result,
+                'initiator_total_score' => (int) $result->initiator_total_score,
+                'opponent_total_score' => (int) $result->opponent_total_score,
+                'initiator_correct' => (int) $result->initiator_correct,
+                'opponent_correct' => (int) $result->opponent_correct,
+                'rating_changes' => [
+                    'initiator' => (int) ($ratingChanges['initiator_rating_change'] ?? 0),
+                    'opponent' => (int) ($ratingChanges['opponent_rating_change'] ?? 0),
+                ],
+                'technical_defeat' => $metadata['technical_defeat'] ?? null,
+                'achievement_unlocks' => $metadata['achievement_unlocks'] ?? [],
+            ] : null,
+            'settings' => $settings,
+        ],
+        'rounds' => $rounds,
     ]);
 }
 

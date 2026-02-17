@@ -291,6 +291,11 @@ try {
             handleAdminDuels($container, $telegramUser, $_GET);
             break;
 
+        // GET /admin/duels/{id} - подробная информация по дуэли
+        case preg_match('#^/admin/duels/(\d+)$#', $path, $matches) && $requestMethod === 'GET':
+            handleAdminDuelDetails($container, $telegramUser, (int) $matches[1]);
+            break;
+
         // GET /online - получить онлайн
         case $path === '/online' && $requestMethod === 'GET':
             handleGetOnline($container, $telegramUser);
