@@ -88,7 +88,7 @@ function AdminPage() {
     description: '',
     price_coins: 1500,
     price_gems: 0,
-    sort_order: 500,
+    sort_order: '',
     is_active: true,
     create_shop_item: true,
     image_base64: '',
@@ -562,7 +562,7 @@ function AdminPage() {
         description: frameForm.description.trim(),
         price_coins: Math.max(0, Number(frameForm.price_coins || 0)),
         price_gems: Math.max(0, Number(frameForm.price_gems || 0)),
-        sort_order: Number(frameForm.sort_order || 500),
+        sort_order: Number(frameForm.sort_order) > 0 ? Number(frameForm.sort_order) : null,
         is_active: Boolean(frameForm.is_active),
       }
       const res = await api.adminUpsertFrame(payload)
@@ -1200,7 +1200,7 @@ function AdminPage() {
                   min={0}
                   value={frameForm.sort_order}
                   onChange={(e) => setFrameForm((prev) => ({ ...prev, sort_order: e.target.value }))}
-                  placeholder="Sort order"
+                  placeholder="Sort order (0/пусто = авто)"
                   className="rounded-xl bg-black/30 border border-white/15 px-4 py-3 text-white"
                 />
                 <button

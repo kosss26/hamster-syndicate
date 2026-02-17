@@ -1143,6 +1143,13 @@ function handleAdminFrameUpsert($container, ?array $telegramUser, array $body): 
             jsonError('Минимальный размер рамки 64x64', 400);
         }
 
+        if (!is_writable($framesDir)) {
+            @chmod($framesDir, 0775);
+        }
+        if (!is_writable($framesDir)) {
+            jsonError('Нет прав записи в директорию рамок. Проверь владельца/права на bot/storage/images/cosmetics', 500);
+        }
+
         if (@file_put_contents($targetPath, $binary, LOCK_EX) === false) {
             jsonError('Не удалось сохранить файл рамки', 500);
         }
@@ -1175,7 +1182,11 @@ function handleAdminFrameUpsert($container, ?array $telegramUser, array $body): 
 
         $priceCoins = max(0, (int) ($body['price_coins'] ?? 0));
         $priceGems = max(0, (int) ($body['price_gems'] ?? 0));
-        $sortOrder = (int) ($body['sort_order'] ?? 500);
+        $sortOrderInput = $body['sort_order'] ?? null;
+        $sortOrder = is_numeric($sortOrderInput) ? (int) $sortOrderInput : 0;
+        if ($sortOrder <= 0) {
+            $sortOrder = adminResolveNextShopSortOrder();
+        }
         $description = trim((string) ($body['description'] ?? ''));
         $isActive = array_key_exists('is_active', $body) ? (bool) $body['is_active'] : true;
 
@@ -1351,4 +1362,17 @@ function adminFindFrameShopItemByCosmeticId(string $cosmeticId): ?\QuizBot\Domai
     }
 
     return null;
+}
+
+function adminResolveNextShopSortOrder(): int
+{
+    $maxSortOrder = (int) \QuizBot\Domain\Model\ShopItem::query()
+        ->where('type', \QuizBot\Domain\Model\ShopItem::TYPE_COSMETIC)
+        ->max('sort_order');
+
+    if ($maxSortOrder <= 0) {
+        return 500;
+    }
+
+    return $maxSortOrder + 10;
 }
