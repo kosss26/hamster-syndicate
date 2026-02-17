@@ -28,6 +28,7 @@ function AdminPage() {
 
   const [stats, setStats] = useState(null)
   const [categoryAnalytics, setCategoryAnalytics] = useState([])
+  const [analyticsTrend, setAnalyticsTrend] = useState([])
   const [questionAnalytics, setQuestionAnalytics] = useState([])
   const [analyticsSummary, setAnalyticsSummary] = useState(null)
   const [users, setUsers] = useState([])
@@ -137,6 +138,7 @@ function AdminPage() {
 
     if (categoryRes.success) {
       setCategoryAnalytics(categoryRes.data.items || [])
+      setAnalyticsTrend(categoryRes.data.daily_trend || [])
     }
 
     if (questionRes.success) {
@@ -182,6 +184,86 @@ function AdminPage() {
     () => duels.filter((d) => ['waiting', 'matched', 'in_progress'].includes(d.status)).length,
     [duels]
   )
+
+  const balanceFlagLabel = (flag) => {
+    if (flag === 'too_hard') return 'Слишком сложно'
+    if (flag === 'too_easy') return 'Слишком легко'
+    if (flag === 'insufficient_data') return 'Мало данных'
+    return 'Ок'
+  }
+
+  const balanceFlagClass = (flag) => {
+    if (flag === 'too_hard') return 'text-red-200 border-red-400/40 bg-red-500/10'
+    if (flag === 'too_easy') return 'text-amber-200 border-amber-400/40 bg-amber-500/10'
+    if (flag === 'insufficient_data') return 'text-slate-300 border-slate-400/30 bg-slate-500/10'
+    return 'text-emerald-200 border-emerald-400/40 bg-emerald-500/10'
+  }
+
+  const escapeCsv = (value) => {
+    const text = String(value ?? '')
+    if (/[",;\n]/.test(text)) {
+      return `"${text.replace(/"/g, '""')}"`
+    }
+    return text
+  }
+
+  const downloadCsvFile = (filename, headers, rows) => {
+    const headerLine = headers.map(escapeCsv).join(';')
+    const contentLines = rows.map((row) => row.map(escapeCsv).join(';'))
+    const csv = [headerLine, ...contentLines].join('\n')
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', filename)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  const exportCategoryAnalyticsCsv = () => {
+    const rows = categoryAnalytics.map((item) => ([
+      item.category_id,
+      item.category_title,
+      item.attempts,
+      item.correct_answers,
+      item.accuracy,
+      item.avg_time_seconds,
+      item.unique_players,
+      item.questions_seen,
+      item.total_questions,
+      item.coverage_percent,
+      item.difficulty_band,
+    ]))
+
+    downloadCsvFile(
+      `analytics_categories_${analyticsMode}_${analyticsDays}d.csv`,
+      ['category_id', 'category_title', 'attempts', 'correct_answers', 'accuracy_percent', 'avg_time_seconds', 'unique_players', 'questions_seen', 'total_questions', 'coverage_percent', 'difficulty_band'],
+      rows
+    )
+  }
+
+  const exportQuestionAnalyticsCsv = () => {
+    const rows = questionAnalytics.map((item) => ([
+      item.question_id,
+      item.category_id,
+      item.category_title,
+      item.attempts,
+      item.correct_answers,
+      item.accuracy,
+      item.avg_time_seconds,
+      item.unique_players,
+      item.difficulty_band,
+      item.question_text,
+    ]))
+
+    downloadCsvFile(
+      `analytics_questions_${analyticsMode}_${analyticsDays}d.csv`,
+      ['question_id', 'category_id', 'category_title', 'attempts', 'correct_answers', 'accuracy_percent', 'avg_time_seconds', 'unique_players', 'difficulty_band', 'question_text'],
+      rows
+    )
+  }
 
   const runAction = async (fn) => {
     setActionLoading(true)
@@ -505,6 +587,23 @@ function AdminPage() {
                   Применить
                 </button>
               </div>
+
+              <div className="grid md:grid-cols-2 gap-2">
+                <button
+                  onClick={exportCategoryAnalyticsCsv}
+                  disabled={categoryAnalytics.length === 0}
+                  className="rounded-xl bg-cyan-500/20 border border-cyan-400/30 text-cyan-200 px-4 py-3 disabled:opacity-40"
+                >
+                  Экспорт CSV: категории
+                </button>
+                <button
+                  onClick={exportQuestionAnalyticsCsv}
+                  disabled={questionAnalytics.length === 0}
+                  className="rounded-xl bg-violet-500/20 border border-violet-400/30 text-violet-200 px-4 py-3 disabled:opacity-40"
+                >
+                  Экспорт CSV: вопросы
+                </button>
+              </div>
             </div>
 
             {analyticsSummary && (
@@ -517,13 +616,34 @@ function AdminPage() {
             )}
 
             <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
+              <div className="text-white text-sm font-semibold mb-3">Дневной тренд</div>
+              <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+                {analyticsTrend.map((point) => (
+                  <div key={point.day} className="min-w-[124px] rounded-xl border border-white/10 bg-black/20 p-2.5 text-xs">
+                    <div className="text-white/60 mb-1">{point.day}</div>
+                    <div className="text-white">Попытки: {point.attempts}</div>
+                    <div className="text-white/80">Точность: {point.accuracy}%</div>
+                  </div>
+                ))}
+                {analyticsTrend.length === 0 && (
+                  <div className="text-white/50 text-sm">Нет данных по тренду.</div>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
               <div className="text-white text-sm font-semibold mb-3">Категории: точность и покрытие</div>
               <div className="space-y-2">
                 {categoryAnalytics.map((item) => (
                   <div key={item.category_id} className="rounded-xl border border-white/10 bg-black/20 p-3 grid grid-cols-1 md:grid-cols-6 gap-2 text-xs">
                     <div className="text-white">
                       <div className="font-semibold">{item.category_icon} {item.category_title}</div>
-                      <div className="text-white/50">Сложность: {item.difficulty_band}</div>
+                      <div className="text-white/50 flex items-center gap-1.5">
+                        <span>Сложность: {item.difficulty_band}</span>
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 border ${balanceFlagClass(item.balance_flag)}`}>
+                          {balanceFlagLabel(item.balance_flag)}
+                        </span>
+                      </div>
                     </div>
                     <div className="text-white/70">Попытки: <span className="text-white">{item.attempts}</span></div>
                     <div className="text-white/70">Точность: <span className="text-white">{item.accuracy}%</span></div>
@@ -552,7 +672,12 @@ function AdminPage() {
                       <div className="text-white/70">Точность: <span className="text-white">{item.accuracy}%</span></div>
                       <div className="text-white/70">Ср. время: <span className="text-white">{item.avg_time_seconds}с</span></div>
                       <div className="text-white/70">Игроков: <span className="text-white">{item.unique_players}</span></div>
-                      <div className="text-white/70">Сложность: <span className="text-white">{item.difficulty_band}</span></div>
+                      <div className="text-white/70 flex items-center gap-1.5">
+                        <span>Сложность: <span className="text-white">{item.difficulty_band}</span></span>
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 border ${balanceFlagClass(item.balance_flag)}`}>
+                          {balanceFlagLabel(item.balance_flag)}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 ))}

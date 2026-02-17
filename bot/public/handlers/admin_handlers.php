@@ -271,6 +271,8 @@ function handleAdminCategoryAnalytics($container, ?array $telegramUser, array $q
         $questionsSeen = (int) ($row->questions_seen ?? 0);
         $totalQuestions = (int) ($totalsByCategory[$categoryId] ?? 0);
         $coverage = $totalQuestions > 0 ? round(($questionsSeen / $totalQuestions) * 100, 2) : 0.0;
+        $difficultyBand = resolveAdminDifficultyBand($accuracy, $attempts);
+        $balanceFlag = resolveBalanceFlag($accuracy, $attempts);
 
         $items[] = [
             'category_id' => $categoryId,
@@ -285,13 +287,42 @@ function handleAdminCategoryAnalytics($container, ?array $telegramUser, array $q
             'questions_seen' => $questionsSeen,
             'total_questions' => $totalQuestions,
             'coverage_percent' => $coverage,
-            'difficulty_band' => resolveAdminDifficultyBand($accuracy, $attempts),
+            'difficulty_band' => $difficultyBand,
+            'balance_flag' => $balanceFlag,
         ];
 
         $summaryAttempts += $attempts;
         $summaryCorrect += $correct;
         $summaryQuestionsSeen += $questionsSeen;
     }
+
+    $trendQuery = \Illuminate\Database\Capsule\Manager::table('user_answer_history as h')
+        ->join('questions as q', 'q.id', '=', 'h.question_id')
+        ->selectRaw('DATE(h.created_at) as day, COUNT(h.id) as attempts, SUM(CASE WHEN h.is_correct = 1 THEN 1 ELSE 0 END) as correct_answers')
+        ->whereNotNull('h.question_id')
+        ->where('h.created_at', '>=', $from);
+
+    if ($mode !== '' && $mode !== 'all') {
+        $trendQuery->where('h.mode', $mode);
+    }
+
+    $dailyTrend = $trendQuery
+        ->groupBy(\Illuminate\Database\Capsule\Manager::raw('DATE(h.created_at)'))
+        ->orderBy('day')
+        ->get()
+        ->map(static function ($row): array {
+            $attempts = (int) ($row->attempts ?? 0);
+            $correct = (int) ($row->correct_answers ?? 0);
+
+            return [
+                'day' => (string) ($row->day ?? ''),
+                'attempts' => $attempts,
+                'correct_answers' => $correct,
+                'accuracy' => $attempts > 0 ? round(($correct / $attempts) * 100, 2) : 0.0,
+            ];
+        })
+        ->values()
+        ->all();
 
     jsonResponse([
         'items' => $items,
@@ -302,6 +333,7 @@ function handleAdminCategoryAnalytics($container, ?array $telegramUser, array $q
             'accuracy' => $summaryAttempts > 0 ? round(($summaryCorrect / $summaryAttempts) * 100, 2) : 0.0,
             'questions_seen' => $summaryQuestionsSeen,
         ],
+        'daily_trend' => $dailyTrend,
         'filters' => [
             'days' => $days,
             'mode' => $mode === '' ? 'all' : $mode,
@@ -397,6 +429,7 @@ function handleAdminQuestionAnalytics($container, ?array $telegramUser, array $q
         $correct = (int) ($row->correct_answers ?? 0);
         $accuracy = $attempts > 0 ? round(($correct / $attempts) * 100, 2) : 0.0;
         $difficultyBand = resolveAdminDifficultyBand($accuracy, $attempts);
+        $balanceFlag = resolveBalanceFlag($accuracy, $attempts);
 
         $items[] = [
             'question_id' => (int) ($row->question_id ?? 0),
@@ -411,6 +444,7 @@ function handleAdminQuestionAnalytics($container, ?array $telegramUser, array $q
             'avg_time_seconds' => round(((float) ($row->avg_time_ms ?? 0.0)) / 1000, 2),
             'unique_players' => (int) ($row->unique_players ?? 0),
             'difficulty_band' => $difficultyBand,
+            'balance_flag' => $balanceFlag,
         ];
 
         $summaryAttempts += $attempts;
@@ -456,6 +490,23 @@ function resolveAdminDifficultyBand(float $accuracyPercent, int $attempts): stri
     }
 
     return 'hard';
+}
+
+function resolveBalanceFlag(float $accuracyPercent, int $attempts): string
+{
+    if ($attempts < 30) {
+        return 'insufficient_data';
+    }
+
+    if ($accuracyPercent < 35.0) {
+        return 'too_hard';
+    }
+
+    if ($accuracyPercent > 80.0) {
+        return 'too_easy';
+    }
+
+    return 'ok';
 }
 
 /**
@@ -814,4 +865,3 @@ function handleAdminGrantLootbox($container, ?array $telegramUser, array $body):
         'total_quantity' => $totalQuantity,
     ]);
 }
-
