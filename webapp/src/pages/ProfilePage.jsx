@@ -168,7 +168,7 @@ function ProfilePage() {
                   </defs>
                 </svg>
 
-                <div className="absolute inset-[20px] rounded-full overflow-hidden">
+                <div className="absolute inset-[14px] rounded-full">
                   <AvatarWithFrame
                     photoUrl={user?.photo_url}
                     name={user?.first_name}
