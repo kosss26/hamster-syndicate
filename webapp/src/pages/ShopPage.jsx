@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useTelegram, hapticFeedback } from '../hooks/useTelegram'
 import api from '../api/client'
 import CoinIcon from '../components/CoinIcon'
 import TicketIcon from '../components/TicketIcon'
+import AvatarWithFrame from '../components/AvatarWithFrame'
 
 const SHOP_SECTIONS = [
   { key: 'hint', title: 'Подсказки', icon: '💡', description: 'Поддержка в сложных вопросах' },
@@ -36,6 +37,24 @@ function rarityLabel(rarity) {
   }
 }
 
+function getFrameCosmeticId(item) {
+  if (!item || item.type !== 'cosmetic') return null
+  const metadata = item.metadata || {}
+  const type = String(metadata.cosmetic_type || '').toLowerCase()
+  const cosmeticId = String(metadata.cosmetic_id || '').trim()
+  if (type !== 'frame' || !cosmeticId) return null
+  return cosmeticId
+}
+
+function formatCosmeticName(value) {
+  const source = String(value || '').trim()
+  if (!source) return 'Рамка профиля'
+  return source
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
 const ShopPage = () => {
   const { webApp } = useTelegram()
   const [loading, setLoading] = useState(true)
@@ -46,6 +65,7 @@ const ShopPage = () => {
   const [error, setError] = useState(null)
   const [balance, setBalance] = useState({ coins: 0, gems: 0, hints: 0, tickets: 0 })
   const [quantities, setQuantities] = useState({})
+  const [purchaseModalItem, setPurchaseModalItem] = useState(null)
 
   useEffect(() => {
     if (webApp?.BackButton) {
@@ -136,6 +156,7 @@ const ShopPage = () => {
       if (response.success) {
         hapticFeedback('success')
         webApp?.showAlert?.(`Покупка успешна: ${item.name}`)
+        setPurchaseModalItem(null)
         await loadShop()
       }
     } catch (err) {
@@ -148,6 +169,26 @@ const ShopPage = () => {
 
   const historyPreview = useMemo(() => history.slice(0, 8), [history])
   const selectedSectionMeta = SHOP_SECTIONS.find((section) => section.key === selectedCategory)
+  const selectedPurchaseQuantity = purchaseModalItem
+    ? Math.max(1, Number(quantities[purchaseModalItem.id] || 1))
+    : 1
+  const selectedPurchaseFrameId = purchaseModalItem ? getFrameCosmeticId(purchaseModalItem) : null
+  const selectedPurchaseTotalCoins = purchaseModalItem
+    ? Number(purchaseModalItem.price_coins || 0) * selectedPurchaseQuantity
+    : 0
+  const selectedPurchaseTotalGems = purchaseModalItem
+    ? Number(purchaseModalItem.price_gems || 0) * selectedPurchaseQuantity
+    : 0
+  const canConfirmPurchase = purchaseModalItem ? canBuy(purchaseModalItem) : false
+  const purchaseDisabledReason = useMemo(() => {
+    if (!purchaseModalItem) return ''
+    if (purchaseModalItem.is_owned) return 'Этот товар уже у вас есть'
+    if (purchaseModalItem.remaining_today !== null && Number(purchaseModalItem.remaining_today) <= 0) {
+      return 'Дневной лимит исчерпан'
+    }
+    if (!canConfirmPurchase) return 'Недостаточно ресурсов для покупки'
+    return ''
+  }, [purchaseModalItem, canConfirmPurchase])
 
   if (loading) {
     return (
@@ -249,9 +290,11 @@ const ShopPage = () => {
             {items.map((item) => {
               const quantity = Math.max(1, Number(quantities[item.id] || 1))
               const maxQty = Math.max(1, Number(item.max_per_purchase || 1))
-              const disabled = !canBuy(item) || busyItemId === item.id
+              const canBuyItem = canBuy(item)
+              const disabled = busyItemId === item.id
               const rarityStyle = RARITY_STYLES[item.rarity] || RARITY_STYLES.common
               const remainingToday = item.remaining_today
+              const frameCosmeticId = getFrameCosmeticId(item)
 
               return (
                 <motion.div
@@ -264,10 +307,22 @@ const ShopPage = () => {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <div className="w-10 h-10 rounded-xl border border-white/10 bg-white/5 flex items-center justify-center text-lg">
-                          {item.icon || '🛍️'}
+                          {frameCosmeticId ? (
+                            <AvatarWithFrame
+                              size={34}
+                              frameKey={frameCosmeticId}
+                              name="?"
+                              photoUrl={null}
+                              showGlow={false}
+                            />
+                          ) : (
+                            item.icon || '🛍️'
+                          )}
                         </div>
                         <div>
-                          <p className="text-white font-semibold text-sm">{item.name}</p>
+                          <p className="text-white font-semibold text-sm">
+                            {frameCosmeticId ? formatCosmeticName(item.name || frameCosmeticId) : item.name}
+                          </p>
                           <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] border ${rarityStyle}`}>
                             {rarityLabel(item.rarity)}
                           </span>
@@ -320,10 +375,10 @@ const ShopPage = () => {
                     </div>
 
                     <button
-                      onClick={() => handleBuy(item)}
+                      onClick={() => setPurchaseModalItem(item)}
                       disabled={disabled}
                       className={`px-4 py-2 rounded-xl text-sm font-semibold border ${
-                        disabled
+                        !canBuyItem || disabled
                           ? 'border-white/10 bg-white/5 text-white/35'
                           : 'border-cyan-300/35 bg-cyan-500/15 text-white active:scale-[0.98]'
                       }`}
@@ -379,6 +434,120 @@ const ShopPage = () => {
           )}
         </section>
       </div>
+
+      <AnimatePresence>
+        {purchaseModalItem && (
+          <motion.div
+            className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => {
+              if (busyItemId === null) setPurchaseModalItem(null)
+            }}
+          >
+            <motion.div
+              className="w-full max-w-sm rounded-3xl border border-white/15 bg-[#0a0f23]/95 p-4"
+              initial={{ opacity: 0, y: 22, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.99 }}
+              transition={{ duration: 0.2 }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-14 h-14 rounded-2xl border border-white/10 bg-white/5 flex items-center justify-center text-2xl">
+                  {selectedPurchaseFrameId ? (
+                    <AvatarWithFrame
+                      size={48}
+                      frameKey={selectedPurchaseFrameId}
+                      name="?"
+                      photoUrl={null}
+                      showGlow={false}
+                    />
+                  ) : (
+                    purchaseModalItem.icon || '🛍️'
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-white font-semibold text-base leading-tight">
+                    {selectedPurchaseFrameId
+                      ? formatCosmeticName(purchaseModalItem.name || selectedPurchaseFrameId)
+                      : purchaseModalItem.name}
+                  </p>
+                  <p className="text-white/65 text-xs mt-1">{purchaseModalItem.description || 'Подтвердите покупку товара'}</p>
+                  <span className={`inline-flex mt-2 px-2 py-0.5 rounded-full text-[10px] border ${RARITY_STYLES[purchaseModalItem.rarity] || RARITY_STYLES.common}`}>
+                    {rarityLabel(purchaseModalItem.rarity)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-4 flex items-center justify-between">
+                <p className="text-white/70 text-sm">Количество</p>
+                <div className="inline-flex items-center rounded-xl border border-white/10 bg-white/5">
+                  <button
+                    onClick={() => setItemQuantity(purchaseModalItem, selectedPurchaseQuantity - 1)}
+                    disabled={selectedPurchaseQuantity <= 1 || busyItemId !== null}
+                    className="w-9 h-9 text-white/80 disabled:text-white/25"
+                  >
+                    −
+                  </button>
+                  <span className="w-10 text-center text-sm text-white font-semibold">{selectedPurchaseQuantity}</span>
+                  <button
+                    onClick={() => setItemQuantity(purchaseModalItem, selectedPurchaseQuantity + 1)}
+                    disabled={selectedPurchaseQuantity >= Math.max(1, Number(purchaseModalItem.max_per_purchase || 1)) || busyItemId !== null}
+                    className="w-9 h-9 text-white/80 disabled:text-white/25"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 p-3">
+                <p className="text-[11px] text-white/55 uppercase">Итого к оплате</p>
+                <div className="mt-2 flex items-center justify-between text-sm">
+                  <div className="text-white/80">Цена</div>
+                  <div className="text-white font-semibold inline-flex items-center gap-2">
+                    {selectedPurchaseTotalCoins > 0 ? (
+                      <span className="inline-flex items-center gap-1">
+                        <CoinIcon className="w-4 h-4" />
+                        {selectedPurchaseTotalCoins}
+                      </span>
+                    ) : null}
+                    {selectedPurchaseTotalCoins > 0 && selectedPurchaseTotalGems > 0 ? <span>+</span> : null}
+                    {selectedPurchaseTotalGems > 0 ? <span>{selectedPurchaseTotalGems} 💎</span> : null}
+                    {selectedPurchaseTotalCoins <= 0 && selectedPurchaseTotalGems <= 0 ? <span>Бесплатно</span> : null}
+                  </div>
+                </div>
+              </div>
+
+              {purchaseDisabledReason ? (
+                <p className="mt-3 text-xs text-red-200">{purchaseDisabledReason}</p>
+              ) : null}
+
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setPurchaseModalItem(null)}
+                  disabled={busyItemId !== null}
+                  className="h-11 rounded-xl border border-white/15 bg-white/5 text-white/80 text-sm font-semibold disabled:opacity-50"
+                >
+                  Отмена
+                </button>
+                <button
+                  onClick={() => handleBuy(purchaseModalItem)}
+                  disabled={!canConfirmPurchase || busyItemId === purchaseModalItem.id}
+                  className={`h-11 rounded-xl border text-sm font-semibold ${
+                    !canConfirmPurchase || busyItemId === purchaseModalItem.id
+                      ? 'border-white/15 bg-white/5 text-white/35'
+                      : 'border-cyan-300/40 bg-cyan-500/15 text-white'
+                  }`}
+                >
+                  {busyItemId === purchaseModalItem.id ? 'Покупка...' : 'Подтвердить'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

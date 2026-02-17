@@ -6,6 +6,16 @@ import CoinIcon from '../components/CoinIcon'
 import TicketIcon from '../components/TicketIcon'
 import AvatarWithFrame from '../components/AvatarWithFrame'
 
+const formatCosmeticTitle = (cosmetic) => {
+  if (cosmetic?.name) return cosmetic.name
+  const raw = String(cosmetic?.cosmetic_id || cosmetic?.key || '').trim()
+  if (!raw) return 'Косметика'
+  return raw
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+}
+
 const InventoryPage = () => {
   const { webApp } = useTelegram()
   const [inventory, setInventory] = useState(null)
@@ -240,7 +250,7 @@ const InventoryPage = () => {
                       <AvatarWithFrame
                         photoUrl={null}
                         name="?"
-                        frameKey={cosmetic.key}
+                        frameKey={cosmetic.cosmetic_id || cosmetic.key}
                         size={80}
                         animated={cosmetic.metadata?.animated || false}
                         showGlow={false}
@@ -254,7 +264,7 @@ const InventoryPage = () => {
                   
                   <div className="text-center mb-3">
                     <h3 className="text-white font-bold text-sm mb-1">
-                      {cosmetic.name || cosmetic.key}
+                      {formatCosmeticTitle(cosmetic)}
                     </h3>
                     <div className="text-xs font-bold text-white/60 uppercase">
                       {cosmetic.rarity}
