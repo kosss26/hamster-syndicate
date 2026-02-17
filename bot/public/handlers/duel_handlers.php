@@ -38,16 +38,24 @@ function handleCreateDuel($container, ?array $telegramUser, array $body): void
     // Проверяем, есть ли у пользователя активная дуэль (с автоочисткой старых matchmaking)
     $existingDuel = $duelService->findActiveDuelForUser($user, true);
     if ($existingDuel) {
-        notifyDuelRealtime($existingDuel->getKey());
-        jsonResponse([
-            'duel_id' => $existingDuel->getKey(),
-            'status' => $existingDuel->status,
-            'code' => $existingDuel->code,
-            'initiator_id' => $existingDuel->initiator_user_id,
-            'opponent_id' => $existingDuel->opponent_user_id,
-            'existing' => true,
-        ]);
-        return;
+        $existingSettings = is_array($existingDuel->settings) ? $existingDuel->settings : [];
+        $isReplaceableRematchInvite = $mode === 'rematch'
+            && $existingDuel->status === 'waiting'
+            && (($existingSettings['rematch_invite'] ?? false) === true)
+            && (int) $existingDuel->initiator_user_id === (int) $user->getKey();
+
+        if (!$isReplaceableRematchInvite) {
+            notifyDuelRealtime($existingDuel->getKey());
+            jsonResponse([
+                'duel_id' => $existingDuel->getKey(),
+                'status' => $existingDuel->status,
+                'code' => $existingDuel->code,
+                'initiator_id' => $existingDuel->initiator_user_id,
+                'opponent_id' => $existingDuel->opponent_user_id,
+                'existing' => true,
+            ]);
+            return;
+        }
     }
 
     /** @var TicketService $ticketService */
