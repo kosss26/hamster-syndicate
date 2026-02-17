@@ -1,15 +1,6 @@
-export const DUEL_STATES = {
-  MENU: 'menu',
-  SEARCHING: 'searching',
-  INVITE: 'invite',
-  ENTER_CODE: 'enter_code',
-  FOUND: 'found',
-  PLAYING: 'playing',
-  WAITING_OPPONENT: 'waiting_opponent',
-  WAITING_OPPONENT_ANSWER: 'waiting_opponent_answer',
-  SHOWING_RESULT: 'showing_result',
-  FINISHED: 'finished',
-}
+import { STATES } from './duel/constants.js'
+
+export const DUEL_STATES = STATES
 
 /**
  * Централизованный derive состояния UI дуэли из серверного payload.
@@ -40,7 +31,12 @@ export function deriveDuelViewState(data, context = {}) {
     }
 
     if (status === 'in_progress') {
-      if (currentState === DUEL_STATES.SHOWING_RESULT || currentState === DUEL_STATES.WAITING_OPPONENT_ANSWER) {
+      if (
+        currentState === DUEL_STATES.SHOWING_RESULT ||
+        currentState === DUEL_STATES.WAITING_OPPONENT_ANSWER ||
+        currentState === DUEL_STATES.PLAYING ||
+        currentState === DUEL_STATES.FOUND
+      ) {
         return currentState
       }
       return DUEL_STATES.WAITING_OPPONENT

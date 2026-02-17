@@ -12,7 +12,9 @@ use QuizBot\Application\Services\UserService;
 use QuizBot\Application\Services\DuelService;
 use QuizBot\Bootstrap\AppBootstrap;
 use QuizBot\Domain\Model\Duel;
+use QuizBot\Domain\Model\DuelGhostSnapshot;
 use QuizBot\Domain\Model\DuelRound;
+use QuizBot\Domain\Model\Question;
 use QuizBot\Infrastructure\Config\Config;
 use Illuminate\Support\Carbon;
 
@@ -200,8 +202,22 @@ function cleanupActiveDuels(int $userAId, int $userBId): void
 
 function waitForSharedActiveDuel(string $apiBase, int $userAId, int $userBId, int $timeoutSeconds, bool $insecure, array &$errors): ?int
 {
-    $start = time();
-    while ((time() - $start) < $timeoutSeconds) {
+    $meta = waitForSharedActiveDuelMeta($apiBase, $userAId, $userBId, $timeoutSeconds, $insecure);
+    if ($meta === null) {
+        fail('Users did not converge to the same active duel in time', $errors);
+        return null;
+    }
+
+    return (int) ($meta['duel_id'] ?? 0);
+}
+
+/**
+ * @return array{duel_id:int,elapsed_ms:int}|null
+ */
+function waitForSharedActiveDuelMeta(string $apiBase, int $userAId, int $userBId, int $timeoutSeconds, bool $insecure): ?array
+{
+    $start = microtime(true);
+    while ((microtime(true) - $start) < $timeoutSeconds) {
         $a = apiCall($apiBase, $userAId, 'GET', '/duel/current', null, $insecure);
         $b = apiCall($apiBase, $userBId, 'GET', '/duel/current', null, $insecure);
 
@@ -211,14 +227,16 @@ function waitForSharedActiveDuel(string $apiBase, int $userAId, int $userBId, in
             $idA = (int) ($da['duel_id'] ?? 0);
             $idB = (int) ($db['duel_id'] ?? 0);
             if ($idA > 0 && $idA === $idB) {
-                return $idA;
+                return [
+                    'duel_id' => $idA,
+                    'elapsed_ms' => (int) round((microtime(true) - $start) * 1000),
+                ];
             }
         }
 
         usleep(500_000);
     }
 
-    fail('Users did not converge to the same active duel in time', $errors);
     return null;
 }
 
@@ -381,6 +399,62 @@ function assertNoAnswerRegressionDuringRapidPoll(
     }
 
     return true;
+}
+
+function createGhostSnapshotFromUser(\QuizBot\Domain\Model\User $sourceUser): ?DuelGhostSnapshot
+{
+    $questions = Question::query()
+        ->whereHas('answers')
+        ->with('answers')
+        ->limit(6)
+        ->get();
+
+    if ($questions->count() < 3) {
+        return null;
+    }
+
+    $rounds = [];
+    $roundNumber = 1;
+    foreach ($questions as $question) {
+        $questionId = (int) $question->getKey();
+        if ($questionId <= 0) {
+            continue;
+        }
+
+        $correctAnswer = $question->answers->firstWhere('is_correct', true);
+        $fallbackAnswer = $question->answers->first();
+        $answer = $correctAnswer ?: $fallbackAnswer;
+        if (!$answer) {
+            continue;
+        }
+
+        $isCorrect = (bool) ($correctAnswer !== null);
+        $rounds[] = [
+            'round_number' => $roundNumber,
+            'question_id' => $questionId,
+            'time_limit' => 30,
+            'answer_id' => (int) $answer->getKey(),
+            'is_correct' => $isCorrect,
+            'reason' => null,
+            'time_elapsed' => max(1, 8 + $roundNumber),
+            'answered_at' => Carbon::now()->subSeconds(max(1, 45 - $roundNumber))->toAtomString(),
+        ];
+        $roundNumber++;
+    }
+
+    if (count($rounds) < 3) {
+        return null;
+    }
+
+    return DuelGhostSnapshot::query()->create([
+        'source_duel_id' => 0,
+        'source_user_id' => (int) $sourceUser->getKey(),
+        'source_rating' => $sourceUser->profile ? (int) $sourceUser->profile->rating : 1000,
+        'question_count' => count($rounds),
+        'quality_score' => max(30, count($rounds) * 10),
+        'rounds_payload' => ['rounds' => $rounds],
+        'created_at' => Carbon::now(),
+    ]);
 }
 
 try {
@@ -589,6 +663,40 @@ try {
         }
     }
 
+    out('== Scenario 2.5: Ghost fallback after 30s waiting ==');
+    cleanupActiveDuels((int) $userA->getKey(), (int) $userB->getKey());
+
+    $ghostSnapshot = createGhostSnapshotFromUser($userB);
+    assertTrue($ghostSnapshot instanceof DuelGhostSnapshot, 'Ghost snapshot prepared for fallback scenario', $errors);
+
+    $ghostCreate = apiCall($apiBase, $userAId, 'POST', '/duel/create', ['mode' => 'random'], $insecure);
+    assertTrue(isSuccessResponse($ghostCreate), 'Ghost scenario: user A random duel create succeeded', $errors);
+    $ghostCreateData = responseData($ghostCreate);
+    $ghostDuelId = (int) ($ghostCreateData['duel_id'] ?? 0);
+    assertTrue($ghostDuelId > 0, 'Ghost scenario: duel id returned', $errors);
+
+    if ($ghostDuelId > 0) {
+        $ghostDuel = Duel::query()->find($ghostDuelId);
+        if ($ghostDuel instanceof Duel) {
+            $ghostDuel->created_at = Carbon::now()->subSeconds(35);
+            $ghostDuel->save();
+        } else {
+            fail('Ghost scenario: created duel not found in DB', $errors);
+        }
+
+        $ghostState = apiCall($apiBase, $userAId, 'GET', '/duel/' . $ghostDuelId, null, $insecure);
+        assertTrue(isSuccessResponse($ghostState), 'Ghost scenario: duel state readable', $errors);
+        if (isSuccessResponse($ghostState)) {
+            $ghostStateData = responseData($ghostState);
+            assertTrue(($ghostStateData['ghost_fallback_attempted'] ?? false) === true, 'Ghost scenario: fallback attempt flag is true', $errors);
+            assertTrue(($ghostStateData['ghost_fallback_assigned'] ?? false) === true, 'Ghost scenario: fallback assigned flag is true', $errors);
+            assertTrue(($ghostStateData['is_ghost_match'] ?? false) === true, 'Ghost scenario: duel marked as ghost match', $errors);
+            assertTrue(($ghostStateData['match_type'] ?? '') === 'ghost', 'Ghost scenario: match_type is ghost', $errors);
+            assertTrue(($ghostStateData['status'] ?? '') === 'in_progress', 'Ghost scenario: duel auto-started after fallback', $errors);
+            assertTrue((int) (($ghostStateData['question']['id'] ?? 0)) > 0, 'Ghost scenario: question visible immediately', $errors);
+        }
+    }
+
     out('== Scenario 3: Friend duel via code ==');
     cleanupActiveDuels((int) $userA->getKey(), (int) $userB->getKey());
 
@@ -605,9 +713,15 @@ try {
         $join = apiCall($apiBase, $userBId, 'POST', '/duel/join', ['code' => $friendCode], $insecure);
         assertTrue(isSuccessResponse($join), 'User B joined friend duel by code', $errors);
 
-        $sharedFriendDuelId = waitForSharedActiveDuel($apiBase, $userAId, $userBId, 20, $insecure, $errors);
-        assertTrue($sharedFriendDuelId !== null, 'Both users converged to same friend duel', $errors);
-        if ($sharedFriendDuelId !== null) {
+        $sharedFriendMeta = waitForSharedActiveDuelMeta($apiBase, $userAId, $userBId, 20, $insecure);
+        $sharedFriendDuelId = $sharedFriendMeta ? (int) ($sharedFriendMeta['duel_id'] ?? 0) : null;
+        assertTrue($sharedFriendMeta !== null && $sharedFriendDuelId > 0, 'Both users converged to same friend duel', $errors);
+        if ($sharedFriendMeta !== null && $sharedFriendDuelId !== null && $sharedFriendDuelId > 0) {
+            assertTrue(
+                (int) ($sharedFriendMeta['elapsed_ms'] ?? 999999) <= 8000,
+                'Friend duel: both clients converge quickly (<= 8s)',
+                $errors
+            );
             assertTrue((int) $sharedFriendDuelId === (int) $friendDuelId, 'Friend duel id matches created invite', $errors);
 
             $friendAQuestion = waitForQuestionVisible($apiBase, $userAId, $sharedFriendDuelId, 8, $insecure);
@@ -741,6 +855,102 @@ try {
             assertTrue($rematchAQuestion['ok'] === true, 'Accepted rematch: initiator sees question without refresh', $errors);
             assertTrue($rematchBQuestion['ok'] === true, 'Accepted rematch: opponent sees question without refresh', $errors);
         }
+    }
+
+    out('== Scenario 6: Rematch expiry by TTL ==');
+    cleanupActiveDuels((int) $userA->getKey(), (int) $userB->getKey());
+
+    $rematchExpiryCreate = apiCall($apiBase, $userAId, 'POST', '/duel/create', [
+        'mode' => 'rematch',
+        'target_user_id' => $targetUserId,
+    ], $insecure);
+    assertTrue(isSuccessResponse($rematchExpiryCreate), 'Rematch invite create (expiry flow) succeeded', $errors);
+    $rematchExpiryData = responseData($rematchExpiryCreate);
+    $rematchExpiryId = (int) ($rematchExpiryData['duel_id'] ?? 0);
+    assertTrue($rematchExpiryId > 0, 'Rematch invite id exists (expiry flow)', $errors);
+
+    if ($rematchExpiryId > 0) {
+        $expiryDuel = Duel::query()->find($rematchExpiryId);
+        if ($expiryDuel instanceof Duel) {
+            $settings = is_array($expiryDuel->settings) ? $expiryDuel->settings : [];
+            $settings['rematch_expires_at'] = Carbon::now()->subSeconds(5)->toIso8601String();
+            $expiryDuel->settings = $settings;
+            $expiryDuel->save();
+        } else {
+            fail('Rematch expiry duel row not found by id', $errors);
+        }
+
+        $incomingAfterExpiry = apiCall($apiBase, $userBId, 'GET', '/duel/rematch/incoming', null, $insecure);
+        assertTrue(isSuccessResponse($incomingAfterExpiry), 'Incoming rematch endpoint works after forced expiry', $errors);
+        if (isSuccessResponse($incomingAfterExpiry)) {
+            $incomingAfterExpiryData = responseData($incomingAfterExpiry);
+            assertTrue(($incomingAfterExpiryData['incoming'] ?? null) === null, 'Expired rematch no longer appears as incoming', $errors);
+        }
+
+        $expiredState = apiCall($apiBase, $userAId, 'GET', '/duel/' . $rematchExpiryId, null, $insecure);
+        assertTrue(isSuccessResponse($expiredState), 'Expired rematch state readable', $errors);
+        if (isSuccessResponse($expiredState)) {
+            $expiredStateData = responseData($expiredState);
+            assertTrue(($expiredStateData['status'] ?? '') === 'cancelled', 'Expired rematch status is cancelled', $errors);
+            assertTrue(($expiredStateData['cancel_reason'] ?? '') === 'rematch_expired', 'Expired rematch cancel_reason is rematch_expired', $errors);
+            if (array_key_exists('cancelled_without_match', $expiredStateData)) {
+                assertTrue(($expiredStateData['cancelled_without_match'] ?? false) === true, 'Expired rematch flagged as cancelled_without_match', $errors);
+            }
+        }
+
+        $acceptAfterExpiry = apiCall($apiBase, $userBId, 'POST', '/duel/rematch/accept', [
+            'duel_id' => $rematchExpiryId,
+        ], $insecure);
+        assertTrue(!isSuccessResponse($acceptAfterExpiry), 'Accepting expired rematch is rejected', $errors);
+    }
+
+    out('== Scenario 7: Rematch replacement keeps only latest invite ==');
+    cleanupActiveDuels((int) $userA->getKey(), (int) $userB->getKey());
+
+    $replaceCreateFirst = apiCall($apiBase, $userAId, 'POST', '/duel/create', [
+        'mode' => 'rematch',
+        'target_user_id' => $targetUserId,
+    ], $insecure);
+    assertTrue(isSuccessResponse($replaceCreateFirst), 'First rematch invite created (replacement flow)', $errors);
+    $replaceFirstData = responseData($replaceCreateFirst);
+    $replaceFirstId = (int) ($replaceFirstData['duel_id'] ?? 0);
+    assertTrue($replaceFirstId > 0, 'First rematch invite id exists (replacement flow)', $errors);
+
+    $replaceCreateSecond = apiCall($apiBase, $userAId, 'POST', '/duel/create', [
+        'mode' => 'rematch',
+        'target_user_id' => $targetUserId,
+    ], $insecure);
+    assertTrue(isSuccessResponse($replaceCreateSecond), 'Second rematch invite created (replacement flow)', $errors);
+    $replaceSecondData = responseData($replaceCreateSecond);
+    $replaceSecondId = (int) ($replaceSecondData['duel_id'] ?? 0);
+    assertTrue($replaceSecondId > 0, 'Second rematch invite id exists (replacement flow)', $errors);
+
+    if ($replaceFirstId > 0 && $replaceSecondId > 0) {
+        assertTrue($replaceSecondId !== $replaceFirstId, 'Replacement flow uses a new rematch duel id', $errors);
+
+        $incomingAfterReplace = apiCall($apiBase, $userBId, 'GET', '/duel/rematch/incoming', null, $insecure);
+        assertTrue(isSuccessResponse($incomingAfterReplace), 'Incoming rematch endpoint works after replacement', $errors);
+        if (isSuccessResponse($incomingAfterReplace)) {
+            $incomingAfterReplaceData = responseData($incomingAfterReplace);
+            $incoming = is_array($incomingAfterReplaceData['incoming'] ?? null) ? $incomingAfterReplaceData['incoming'] : null;
+            assertTrue($incoming !== null, 'Incoming rematch payload exists after replacement', $errors);
+            if ($incoming !== null) {
+                assertTrue((int) ($incoming['duel_id'] ?? 0) === $replaceSecondId, 'Incoming rematch points to newest invite', $errors);
+            }
+        }
+
+        $firstStateAfterReplace = apiCall($apiBase, $userAId, 'GET', '/duel/' . $replaceFirstId, null, $insecure);
+        assertTrue(isSuccessResponse($firstStateAfterReplace), 'Replaced rematch state readable', $errors);
+        if (isSuccessResponse($firstStateAfterReplace)) {
+            $firstStateAfterReplaceData = responseData($firstStateAfterReplace);
+            assertTrue(($firstStateAfterReplaceData['status'] ?? '') === 'cancelled', 'Replaced rematch status is cancelled', $errors);
+            assertTrue(($firstStateAfterReplaceData['cancel_reason'] ?? '') === 'rematch_replaced', 'Replaced rematch cancel_reason is rematch_replaced', $errors);
+        }
+
+        $acceptOldReplaced = apiCall($apiBase, $userBId, 'POST', '/duel/rematch/accept', [
+            'duel_id' => $replaceFirstId,
+        ], $insecure);
+        assertTrue(!isSuccessResponse($acceptOldReplaced), 'Accepting replaced rematch is rejected', $errors);
     }
 
     cleanupActiveDuels((int) $userA->getKey(), (int) $userB->getKey());

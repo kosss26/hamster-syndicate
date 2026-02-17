@@ -7,13 +7,19 @@ import { addNotificationItems } from '../utils/notificationInbox'
 import { WS_STATUS, FOUND_SCREEN_MIN_MS, ROUND_RESULT_MIN_MS, STATES } from './duel/constants'
 import { DuelMenuView, DuelEnterCodeView, DuelWaitingView, DuelFoundView } from './duel/DuelLobbyViews'
 import { DuelPlayingView, DuelFinishedView } from './duel/DuelGameViews'
+import { buildRewardNotificationItems } from './duel/rewardNotifications'
+import { useDuelRealtime } from './duel/useDuelRealtime'
+import { useDuelPolling } from './duel/useDuelPolling'
+import { useDuelSnapshotSync } from './duel/useDuelSnapshotSync'
+import { useDuelSearchTimeout } from './duel/useDuelSearchTimeout'
 
 function DuelPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { id: duelIdParam } = useParams()
   const { user, webApp } = useTelegram()
-  const wsConfigured = Boolean(getWsBaseUrl())
+  const wsBaseUrl = getWsBaseUrl()
+  const wsConfigured = Boolean(wsBaseUrl)
   
   const [state, setState] = useState(STATES.MENU)
   const [loading, setLoading] = useState(false)
@@ -41,25 +47,19 @@ function DuelPage() {
   const [opponent, setOpponent] = useState(null) // Данные оппонента {name, rating}
   const [incomingRematch, setIncomingRematch] = useState(null)
   const [myRating, setMyRating] = useState(0) // Мой рейтинг
-  const [wsConnected, setWsConnected] = useState(false)
-  const [wsConnectionState, setWsConnectionState] = useState(WS_STATUS.OFFLINE)
-  const [wsRetrying, setWsRetrying] = useState(false)
   
   const currentQuestionId = useRef(null)
   const timerRef = useRef(null)
   const answeredRoundId = useRef(null)
   const selectedAnswerRef = useRef(null)
-  const searchTimerRef = useRef(null)
   const hasAnsweredRef = useRef(false) // Для проверки в таймере
-  const wsRef = useRef(null)
-  const wsReconnectRef = useRef(null)
-  const wsReconnectAttemptsRef = useRef(0)
-  const wsPingIntervalRef = useRef(null)
-  const wsStopReconnectRef = useRef(false)
   const duelStateRef = useRef(STATES.MENU)
   const nextRoundTimerRef = useRef(null)
   const nextRoundIntervalRef = useRef(null)
   const loadDuelRef = useRef(null)
+  const checkDuelStatusRef = useRef(null)
+  const applyDuelSnapshotRef = useRef(null)
+  const handleUnauthorizedErrorRef = useRef(null)
   const autoJoinAttemptedRef = useRef(false)
   const autoModeHandledRef = useRef(false)
   const seenAchievementRewardsRef = useRef(new Set())
@@ -67,25 +67,23 @@ function DuelPage() {
   const roundResultUntilRef = useRef(0)
   const finishedRewardsShownRef = useRef(new Set())
   const ghostPoolAvailableRef = useRef(null)
-  const waitWatchdogRef = useRef({ roundId: null, since: 0, lastSyncAt: 0 })
-  const duelSyncSeqRef = useRef(0)
-  const duelSyncAppliedSeqRef = useRef(0)
-  const duelSyncInFlightRef = useRef(false)
-  const duelSyncPendingRequestRef = useRef(null)
   const foundLoadTimerRef = useRef(null)
 
-  const nextDuelSyncSeq = () => {
-    duelSyncSeqRef.current += 1
-    return duelSyncSeqRef.current
-  }
-
-  const isStaleDuelSyncSeq = (seq) => seq < duelSyncAppliedSeqRef.current
-
-  const markDuelSyncApplied = (seq) => {
-    if (seq > duelSyncAppliedSeqRef.current) {
-      duelSyncAppliedSeqRef.current = seq
-    }
-  }
+  const {
+    wsConnected,
+    wsConnectionState,
+    wsRetrying,
+    wsReconnectAttempt,
+    closeDuelSocket,
+    handleRealtimeRetry,
+  } = useDuelRealtime({
+    duelId: duel?.duel_id,
+    wsConfigured,
+    wsBaseUrl,
+    duelStateRef,
+    checkDuelStatusRef,
+    getDuelWsTicket: api.getDuelWsTicket,
+  })
 
   const enterFoundState = useCallback(() => {
     foundScreenUntilRef.current = Date.now() + FOUND_SCREEN_MIN_MS
@@ -93,52 +91,7 @@ function DuelPage() {
   }, [])
 
   const queueRewardNotifications = useCallback((payload) => {
-    if (!payload) return
-
-    const next = []
-    const achievementUnlocks = Array.isArray(payload.achievement_unlocks) ? payload.achievement_unlocks : []
-    const collectionDrops = Array.isArray(payload.collection_drops) ? payload.collection_drops : []
-
-    achievementUnlocks.forEach((unlock, index) => {
-      const achievement = unlock?.achievement
-      if (!achievement?.title) return
-      const dedupeKey = `achievement_${achievement.id || achievement.key || achievement.title}`
-      if (seenAchievementRewardsRef.current.has(dedupeKey)) {
-        return
-      }
-      seenAchievementRewardsRef.current.add(dedupeKey)
-
-      next.push({
-        id: `ach_${Date.now()}_${index}_${achievement.id || achievement.key || 'x'}`,
-        type: 'achievement',
-        icon: achievement.icon || '🏆',
-        title: achievement.title,
-        subtitle: achievement.description || '',
-        rarity: achievement.rarity || 'common',
-      })
-    })
-
-    collectionDrops.forEach((drop, index) => {
-      const item = drop?.item
-      if (!item?.name) return
-      const isDuplicate = Boolean(drop?.is_duplicate)
-      const coinBonus = isDuplicate
-        ? Number(drop?.duplicate_compensation?.coins || 0)
-        : Number(drop?.new_card_bonus?.coins || 0)
-      const subtitle = isDuplicate
-        ? `Дубликат обменян: +${coinBonus} монет`
-        : `Редкость: ${item.rarity_label || drop.rarity_label || 'Обычная'}${coinBonus > 0 ? ` · +${coinBonus} монет` : ''}`
-
-      next.push({
-        id: `card_${Date.now()}_${index}_${item.id || item.key || 'x'}`,
-        type: 'card',
-        icon: isDuplicate ? '♻️' : '🃏',
-        title: isDuplicate ? `Дубликат: ${item.name}` : `Карточка: ${item.name}`,
-        subtitle,
-        rarity: item.rarity || 'common',
-      })
-    })
-
+    const next = buildRewardNotificationItems(payload, seenAchievementRewardsRef.current)
     if (next.length === 0) return
 
     addNotificationItems(next)
@@ -207,6 +160,7 @@ function DuelPage() {
 
     return false
   }
+  handleUnauthorizedErrorRef.current = handleUnauthorizedError
 
   useEffect(() => {
     duelStateRef.current = state
@@ -302,196 +256,13 @@ function DuelPage() {
     scheduleNextRoundLoad(duelId, ROUND_RESULT_MIN_MS)
   }, [scheduleNextRoundLoad])
 
-  const closeDuelSocket = useCallback((preventReconnect = true, resetAttempts = preventReconnect) => {
-    if (wsReconnectRef.current) {
-      clearTimeout(wsReconnectRef.current)
-      wsReconnectRef.current = null
-    }
-
-    wsStopReconnectRef.current = preventReconnect
-    if (resetAttempts) {
-      wsReconnectAttemptsRef.current = 0
-    }
-    setWsConnected(false)
-    setWsConnectionState(WS_STATUS.OFFLINE)
-    setWsRetrying(false)
-
-    if (wsPingIntervalRef.current) {
-      clearInterval(wsPingIntervalRef.current)
-      wsPingIntervalRef.current = null
-    }
-
-    if (wsRef.current) {
-      wsRef.current.onopen = null
-      wsRef.current.onclose = null
-      wsRef.current.onmessage = null
-      wsRef.current.onerror = null
-      wsRef.current.close()
-      wsRef.current = null
-    }
-  }, [])
-
-  const scheduleSocketReconnect = useCallback((duelId) => {
-    if (duelStateRef.current === STATES.FINISHED || !duelId || wsStopReconnectRef.current || !wsConfigured) return
-
-    if (wsReconnectRef.current) {
-      clearTimeout(wsReconnectRef.current)
-      wsReconnectRef.current = null
-    }
-
-    const maxAttempts = 8
-    const attempt = wsReconnectAttemptsRef.current + 1
-
-    if (attempt > maxAttempts) {
-      console.warn('WS reconnect limit reached; falling back to polling')
-      wsStopReconnectRef.current = true
-      return
-    }
-
-    wsReconnectAttemptsRef.current = attempt
-    const baseDelayMs = Math.min(1500 * (2 ** (attempt - 1)), 15000)
-    const jitterMs = Math.floor(Math.random() * 500)
-    const delayMs = baseDelayMs + jitterMs
-
-    setWsConnectionState(WS_STATUS.CONNECTING)
-    wsReconnectRef.current = setTimeout(() => {
-      connectDuelSocket(duelId)
-    }, delayMs)
-  }, [wsConfigured])
-
-  const connectDuelSocket = useCallback(async (duelId) => {
-    const wsBase = getWsBaseUrl()
-    if (!duelId) return
-
-    if (!wsBase) {
-      setWsConnected(false)
-      setWsConnectionState(WS_STATUS.DISABLED)
-      setWsRetrying(false)
-      return
-    }
-
-    try {
-      wsStopReconnectRef.current = false
-      setWsConnectionState(WS_STATUS.CONNECTING)
-
-      const ticketResponse = await api.getDuelWsTicket(duelId)
-      if (!ticketResponse.success || !ticketResponse.data?.ticket) {
-        scheduleSocketReconnect(duelId)
-        return
-      }
-
-      closeDuelSocket(false, false)
-
-      const ws = new WebSocket(`${wsBase}?ticket=${encodeURIComponent(ticketResponse.data.ticket)}`)
-      wsRef.current = ws
-
-      ws.onopen = () => {
-        wsReconnectAttemptsRef.current = 0
-        setWsConnected(true)
-        setWsConnectionState(WS_STATUS.CONNECTED)
-        setWsRetrying(false)
-        ws.send(JSON.stringify({ type: 'ping' }))
-
-        if (wsPingIntervalRef.current) {
-          clearInterval(wsPingIntervalRef.current)
-        }
-
-        wsPingIntervalRef.current = setInterval(() => {
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'ping' }))
-          }
-        }, 20000)
-
-        // Восстановление состояния сразу после reconnect без ожидания следующего события/поллинга.
-        checkDuelStatus(duelId)
-      }
-
-      ws.onmessage = (event) => {
-        try {
-          const message = JSON.parse(event.data)
-          if (message.type === 'duel_update' && message.payload?.duel_id) {
-            checkDuelStatus(message.payload.duel_id)
-          }
-
-          if (message.type === 'duel_closed' && message.duel_id) {
-            closeDuelSocket()
-            checkDuelStatus(message.duel_id)
-          }
-
-          if (message.type === 'error') {
-            const wsErrorMessage = message.message || 'unknown_error'
-
-            if (wsErrorMessage === 'duel_closed' || wsErrorMessage === 'duel_access_denied') {
-              wsStopReconnectRef.current = true
-              closeDuelSocket()
-              checkDuelStatus(duelId)
-              return
-            }
-
-            if (wsErrorMessage === 'invalid_ticket') {
-              wsStopReconnectRef.current = true
-              closeDuelSocket()
-              return
-            }
-          }
-        } catch (e) {
-          console.error('Failed to parse ws message', e)
-        }
-      }
-
-      ws.onclose = () => {
-        setWsConnected(false)
-        setWsConnectionState(WS_STATUS.OFFLINE)
-
-        if (wsPingIntervalRef.current) {
-          clearInterval(wsPingIntervalRef.current)
-          wsPingIntervalRef.current = null
-        }
-
-        scheduleSocketReconnect(duelId)
-      }
-
-      ws.onerror = () => {
-        setWsConnected(false)
-        setWsConnectionState(WS_STATUS.OFFLINE)
-
-        if (wsPingIntervalRef.current) {
-          clearInterval(wsPingIntervalRef.current)
-          wsPingIntervalRef.current = null
-        }
-
-        ws.close()
-      }
-    } catch (e) {
-      console.error('Failed to establish duel websocket', e)
-      setWsConnected(false)
-      setWsConnectionState(WS_STATUS.OFFLINE)
-
-      const message = String(e?.message || '')
-      if (message.includes('Дуэль уже завершена') || message.includes('Доступ запрещён') || message.includes('Не авторизован')) {
-        wsStopReconnectRef.current = true
-        return
-      }
-
-      scheduleSocketReconnect(duelId)
-    }
-  }, [closeDuelSocket, scheduleSocketReconnect])
-
   // Загрузка профиля для получения монет
-
-  const handleRealtimeRetry = () => {
-    if (!wsConfigured || !duel?.duel_id || wsConnectionState === WS_STATUS.CONNECTING || wsRetrying) return
-
-    setWsRetrying(true)
-    setWsConnectionState(WS_STATUS.CONNECTING)
-    connectDuelSocket(duel.duel_id)
-  }
 
   const renderRealtimeBadge = (compact = false) => {
     const isOnline = wsConnected
     const isConnecting = wsConnectionState === WS_STATUS.CONNECTING
     const isDisabled = wsConnectionState === WS_STATUS.DISABLED || !wsConfigured
-    const attemptLabel = isConnecting && wsReconnectAttemptsRef.current > 0 ? ` · #${wsReconnectAttemptsRef.current}` : ''
+    const attemptLabel = isConnecting && wsReconnectAttempt > 0 ? ` · #${wsReconnectAttempt}` : ''
     const label = isDisabled ? 'Realtime · DISABLED' : isOnline ? 'Realtime · ON' : isConnecting ? `Realtime · CONNECTING${attemptLabel}` : 'Realtime · OFF'
     const subtitle = isDisabled ? 'Set VITE_WS_URL to enable realtime' : isOnline ? 'WebSocket active' : isConnecting ? 'Attempting reconnect...' : 'Polling fallback'
     const dotClass = isDisabled
@@ -756,167 +527,6 @@ function DuelPage() {
     }
   }, [state, question?.id, handleTimeoutSubmit])
 
-  useEffect(() => {
-    if (!duel || state === STATES.FINISHED) return
-
-    const interval = wsConnected
-      ? (
-        (state === STATES.WAITING_OPPONENT_ANSWER || state === STATES.WAITING_OPPONENT)
-          ? 1200
-          : 2500
-      )
-      : (
-        (state === STATES.WAITING_OPPONENT_ANSWER || state === STATES.WAITING_OPPONENT)
-          ? 900
-          : 1500
-      )
-
-    const checkInterval = setInterval(() => {
-      checkDuelStatus(duel.duel_id)
-    }, interval)
-
-    return () => clearInterval(checkInterval)
-  }, [duel?.duel_id, state, wsConnected])
-
-  useEffect(() => {
-    if (state !== STATES.WAITING_OPPONENT_ANSWER || !duel?.duel_id) {
-      waitWatchdogRef.current = { roundId: null, since: 0, lastSyncAt: 0 }
-      return
-    }
-
-    const trackedRoundId = Number(roundStatus?.round_id || 0)
-    if (!trackedRoundId) return
-
-    const now = Date.now()
-    if (waitWatchdogRef.current.roundId !== trackedRoundId) {
-      waitWatchdogRef.current = { roundId: trackedRoundId, since: now, lastSyncAt: 0 }
-    }
-
-    const watchdog = setInterval(() => {
-      const snapshot = waitWatchdogRef.current
-      if (snapshot.roundId !== trackedRoundId || snapshot.since <= 0) return
-
-      const elapsedMs = Date.now() - snapshot.since
-      const canForceSync = Date.now() - snapshot.lastSyncAt >= 12000
-
-      // Если застряли в ожидании слишком долго, принудительно синхронизируемся.
-      if (elapsedMs >= 45000 && canForceSync) {
-        waitWatchdogRef.current.lastSyncAt = Date.now()
-        if (typeof loadDuelRef.current === 'function') {
-          loadDuelRef.current(duel.duel_id)
-        }
-      }
-
-      // Мягкий guardrail для пользователя.
-      if (elapsedMs >= 90000) {
-        setError('Синхронизация раунда потеряна. Попробуй переподключиться.')
-      }
-    }, 3000)
-
-    return () => clearInterval(watchdog)
-  }, [state, duel?.duel_id, roundStatus?.round_id])
-
-
-  useEffect(() => {
-    if (!duel?.duel_id) return
-
-    if (!wsConfigured) {
-      setWsConnectionState(WS_STATUS.DISABLED)
-      return
-    }
-
-    connectDuelSocket(duel.duel_id)
-
-    return () => {
-      closeDuelSocket()
-    }
-  }, [duel?.duel_id, wsConfigured, connectDuelSocket, closeDuelSocket])
-
-  // Таймер поиска соперника - 30 секунд максимум
-  useEffect(() => {
-    if (state !== STATES.WAITING_OPPONENT) {
-      if (searchTimerRef.current) {
-        clearInterval(searchTimerRef.current)
-        searchTimerRef.current = null
-      }
-      setGhostFallbackPending(false)
-      ghostPoolAvailableRef.current = null
-      return
-    }
-
-    setSearchTimeLeft(30)
-    setGhostFallbackPending(false)
-    const isRematchWaiting = Boolean(duel?.is_rematch || duel?.mode === 'rematch')
-    
-    searchTimerRef.current = setInterval(() => {
-      setSearchTimeLeft(prev => {
-        if (prev <= 1) {
-          // Время вышло: сначала проверяем fallback на призрака.
-          clearInterval(searchTimerRef.current)
-          searchTimerRef.current = null
-
-          const currentDuelId = duel?.duel_id
-          if (!currentDuelId) {
-            setError(isRematchWaiting ? 'Соперник не принял реванш.' : 'Соперник не найден. Попробуйте ещё раз.')
-            navigate('/')
-            hapticFeedback('error')
-            return 0
-          }
-
-          if (isRematchWaiting) {
-            api.cancelRematch(currentDuelId).catch(() => api.cancelDuel(currentDuelId).catch(console.error))
-            setError('Соперник не принял реванш за 30 секунд.')
-            setDuel(null)
-            navigate('/')
-            hapticFeedback('warning')
-            return 0
-          }
-
-          setGhostFallbackPending(true)
-
-          ;(async () => {
-            await checkDuelStatus(currentDuelId)
-
-            setTimeout(() => {
-              if (duelStateRef.current !== STATES.WAITING_OPPONENT) {
-                return
-              }
-              checkDuelStatus(currentDuelId).finally(() => {
-                if (duelStateRef.current !== STATES.WAITING_OPPONENT) {
-                  return
-                }
-                api.cancelDuel(currentDuelId).catch(console.error)
-                setError(ghostPoolAvailableRef.current === false
-                  ? 'Соперник не найден: пока нет записей призраков. Сыграйте несколько реальных дуэлей.'
-                  : 'Соперник не найден. Попробуйте ещё раз.')
-                navigate('/')
-                hapticFeedback('error')
-              })
-            }, 3500)
-          })().catch(() => {
-            if (duelStateRef.current !== STATES.WAITING_OPPONENT) {
-              return
-            }
-            api.cancelDuel(currentDuelId).catch(console.error)
-            setError('Соперник не найден. Попробуйте ещё раз.')
-            navigate('/')
-            hapticFeedback('error')
-          })
-
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-
-    return () => {
-      if (searchTimerRef.current) {
-        clearInterval(searchTimerRef.current)
-        searchTimerRef.current = null
-      }
-    }
-  }, [state, duel?.duel_id, duel?.is_rematch, duel?.mode])
-
   const applyDuelSnapshot = (data, options = {}) => {
     const { mergeDuel = false, duelIdOverride = null } = options
     const duelIdForFollowup = Number(duelIdOverride || data?.duel_id || duel?.duel_id || 0)
@@ -1111,43 +721,46 @@ function DuelPage() {
       setState(derivedState)
     }
   }
+  applyDuelSnapshotRef.current = applyDuelSnapshot
 
-  const syncDuelSnapshot = async (duelId, options = {}) => {
-    if (duelSyncInFlightRef.current) {
-      duelSyncPendingRequestRef.current = { duelId, options }
-      return
-    }
-
-    duelSyncInFlightRef.current = true
-
-    const { mergeDuel = false, source = 'duel sync' } = options
-    const syncSeq = nextDuelSyncSeq()
-    try {
-      const response = await api.getDuel(duelId)
-      if (!response.success) return
-
-      if (isStaleDuelSyncSeq(syncSeq)) return
-      markDuelSyncApplied(syncSeq)
-
-      applyDuelSnapshot(response.data, { mergeDuel, duelIdOverride: duelId })
-    } catch (err) {
-      if (isStaleDuelSyncSeq(syncSeq)) return
-      console.error(`Failed to ${source}:`, err)
-      handleUnauthorizedError(err)
-    } finally {
-      duelSyncInFlightRef.current = false
-
-      const pending = duelSyncPendingRequestRef.current
-      if (pending && pending.duelId) {
-        duelSyncPendingRequestRef.current = null
-        void syncDuelSnapshot(pending.duelId, pending.options || {})
-      }
-    }
-  }
+  const { syncDuelSnapshot } = useDuelSnapshotSync({
+    getDuel: api.getDuel,
+    applySnapshotRef: applyDuelSnapshotRef,
+    onSyncErrorRef: handleUnauthorizedErrorRef,
+  })
 
   const checkDuelStatus = async (duelId) => {
     await syncDuelSnapshot(duelId, { mergeDuel: true, source: 'check duel status' })
   }
+  checkDuelStatusRef.current = checkDuelStatus
+
+  useDuelPolling({
+    duelId: duel?.duel_id,
+    state,
+    wsConnected,
+    roundStatus,
+    checkDuelStatusRef,
+    loadDuelRef,
+    setError,
+  })
+
+  useDuelSearchTimeout({
+    state,
+    duelId: duel?.duel_id,
+    isRematchWaiting: Boolean(duel?.is_rematch || duel?.mode === 'rematch'),
+    duelStateRef,
+    checkDuelStatusRef,
+    setSearchTimeLeft,
+    setGhostFallbackPending,
+    ghostPoolAvailableRef,
+    setError,
+    setDuel,
+    navigateHome: () => navigate('/'),
+    cancelDuel: (duelId) => api.cancelDuel(duelId),
+    cancelRematch: (duelId) => api.cancelRematch(duelId),
+    onErrorFeedback: () => hapticFeedback('error'),
+    onWarningFeedback: () => hapticFeedback('warning'),
+  })
 
   const loadDuel = async (duelId) => {
     await syncDuelSnapshot(duelId, { mergeDuel: false, source: 'load duel' })

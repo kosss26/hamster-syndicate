@@ -53,6 +53,18 @@ assertEqual(
 )
 
 assertEqual(
+  deriveDuelViewState({ status: 'in_progress' }, { currentState: DUEL_STATES.PLAYING }),
+  DUEL_STATES.PLAYING,
+  'In progress without question keeps playing when question snapshot is late'
+)
+
+assertEqual(
+  deriveDuelViewState({ status: 'in_progress' }, { currentState: DUEL_STATES.FOUND }),
+  DUEL_STATES.FOUND,
+  'In progress without question keeps found screen during handoff'
+)
+
+assertEqual(
   deriveDuelViewState(
     { status: 'in_progress', question: { id: 1 }, round_status: { my_answered: false, opponent_answered: false } },
     { currentState: DUEL_STATES.FOUND, selectedAnswer: null, answeredRoundId: null }

@@ -12,13 +12,18 @@ trait DuelRematchTrait
 {
     public function createRematchInvite(User $initiator, User $target, ?Duel $sourceDuel = null): Duel
     {
-        if ((int) $initiator->getKey() === (int) $target->getKey()) {
+        $initiatorUserId = (int) $initiator->getKey();
+        $targetUserId = (int) $target->getKey();
+
+        if ($initiatorUserId === $targetUserId) {
             throw new \RuntimeException('Нельзя отправить реванш самому себе.');
         }
 
+        $this->cancelPreviousPendingRematchInvites($initiatorUserId, $targetUserId);
+
         return $this->createDuel($initiator, null, null, [
             'rematch_invite' => true,
-            'target_user_id' => (int) $target->getKey(),
+            'target_user_id' => $targetUserId,
             'rematch_started_at' => Carbon::now()->toIso8601String(),
             'rematch_expires_at' => Carbon::now()->addSeconds(self::REMATCH_INVITE_TTL_SECONDS)->toIso8601String(),
             'rematch_source_duel_id' => $sourceDuel ? (int) $sourceDuel->getKey() : null,
@@ -34,18 +39,25 @@ trait DuelRematchTrait
 
     public function getIncomingRematchInvite(User $target): ?Duel
     {
+        $targetUserId = (int) $target->getKey();
+        $lookupFrom = Carbon::now()->subSeconds(self::REMATCH_INVITE_TTL_SECONDS + 120);
+
         $duel = Duel::query()
             ->where('status', 'waiting')
-            ->where('initiator_user_id', '!=', (int) $target->getKey())
+            ->whereNull('opponent_user_id')
+            ->whereNotNull('settings')
+            ->where('created_at', '>=', $lookupFrom)
+            ->where('initiator_user_id', '!=', $targetUserId)
             ->orderByDesc('created_at')
+            ->limit(40)
             ->get()
-            ->first(function (Duel $duel) use ($target): bool {
-                if (!$this->isRematchInvite($duel) || $duel->opponent_user_id !== null) {
+            ->first(function (Duel $duel) use ($targetUserId): bool {
+                if (!$this->isRematchInvite($duel)) {
                     return false;
                 }
 
                 $settings = $duel->settings ?? [];
-                return (int) ($settings['target_user_id'] ?? 0) === (int) $target->getKey();
+                return (int) ($settings['target_user_id'] ?? 0) === $targetUserId;
             });
 
         if (!$duel) {
@@ -162,5 +174,36 @@ trait DuelRematchTrait
         $duel->save();
 
         return true;
+    }
+
+    private function cancelPreviousPendingRematchInvites(int $initiatorUserId, int $targetUserId): void
+    {
+        $candidates = Duel::query()
+            ->where('status', 'waiting')
+            ->whereNull('opponent_user_id')
+            ->whereNotNull('settings')
+            ->where('initiator_user_id', $initiatorUserId)
+            ->where('created_at', '>=', Carbon::now()->subDay())
+            ->orderByDesc('created_at')
+            ->limit(40)
+            ->get();
+
+        foreach ($candidates as $candidate) {
+            if (!$candidate instanceof Duel || !$this->isRematchInvite($candidate)) {
+                continue;
+            }
+
+            $settings = $candidate->settings ?? [];
+            if ((int) ($settings['target_user_id'] ?? 0) !== $targetUserId) {
+                continue;
+            }
+
+            $settings['cancel_reason'] = 'rematch_replaced';
+            $settings['cancelled_by_user_id'] = $initiatorUserId;
+            $candidate->settings = $settings;
+            $candidate->status = 'cancelled';
+            $candidate->finished_at = Carbon::now();
+            $candidate->save();
+        }
     }
 }
