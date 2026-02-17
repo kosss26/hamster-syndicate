@@ -162,7 +162,7 @@ function DuelPage() {
     return 'Соперник не найден.'
   }, [])
 
-  const resetToLobbyByCancellation = useCallback((cancelReason) => {
+  const resetToLobbyByCancellation = (cancelReason) => {
     clearNextRoundTimers()
     setIncomingRematch(null)
     setDuel(null)
@@ -175,9 +175,9 @@ function DuelPage() {
     currentQuestionId.current = null
     setError(mapCancelReason(cancelReason))
     navigate('/')
-  }, [clearNextRoundTimers, mapCancelReason, navigate])
+  }
 
-  const handleUnauthorizedError = useCallback((err) => {
+  const handleUnauthorizedError = (err) => {
     const message = String(err?.message || '')
     if (message.includes('Не авторизован')) {
       setError('Сессия истекла. Открой игру через бота ещё раз.')
@@ -186,7 +186,7 @@ function DuelPage() {
     }
 
     return false
-  }, [closeDuelSocket])
+  }
 
   useEffect(() => {
     duelStateRef.current = state
