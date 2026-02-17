@@ -133,6 +133,7 @@ function handleGetLeaderboard($container, string $type): void
                 'name' => $user->first_name ?? 'Игрок',
                 'username' => $user->username ?? '',
                 'photo_url' => $user->photo_url, // Используем то что есть, не загружаем
+                'equipped_frame' => $user->profile ? ($user->profile->equipped_frame ?? 'default') : 'default',
                 'rating' => $playerData['rating'],
                 'rank' => $profileFormatter->getRankByRating($playerData['rating']),
             ];
@@ -148,6 +149,7 @@ function handleGetLeaderboard($container, string $type): void
                 'name' => $user->first_name ?? 'Игрок',
                 'username' => $user->username ?? '',
                 'photo_url' => $user->photo_url, // Используем то что есть, не загружаем
+                'equipped_frame' => $user->profile ? ($user->profile->equipped_frame ?? 'default') : 'default',
                 'record' => $playerData['record'],
             ];
         }

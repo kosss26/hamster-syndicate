@@ -50,3 +50,6 @@ composer.lock
 
 storage/images/*
 !storage/images/.gitkeep
+!storage/images/cosmetics/
+storage/images/cosmetics/*
+!storage/images/cosmetics/frame_test.png

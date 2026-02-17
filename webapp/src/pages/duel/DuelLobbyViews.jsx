@@ -297,15 +297,13 @@ export function DuelFoundView({ user, myRating, opponent, duel }) {
           transition={{ type: 'spring', stiffness: 100, delay: 0.1 }}
           className="flex flex-col items-center"
         >
-          <div className="w-24 h-24 rounded-full bg-gradient-to-br from-red-500 to-orange-600 p-1 shadow-[0_0_30px_rgba(239,68,68,0.4)]">
-            <div className="w-full h-full rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-4xl overflow-hidden">
-              {opponent?.photo_url ? (
-                <img src={opponent.photo_url} alt="Аватар соперника" className="w-full h-full object-cover" />
-              ) : (
-                <span>{opponent?.name?.[0] || '?'}</span>
-              )}
-            </div>
-          </div>
+          <AvatarWithFrame
+            photoUrl={opponent?.photo_url}
+            name={opponent?.name || 'Соперник'}
+            frameKey={opponent?.equipped_frame}
+            size={96}
+            showGlow
+          />
           <p className="mt-4 font-bold text-xl text-white">{opponent?.name || 'Соперник'}</p>
           {duel?.is_ghost_match && (
             <p className="mt-1 text-[11px] uppercase tracking-wide text-cyan-200/90">Асинхронный призрак</p>

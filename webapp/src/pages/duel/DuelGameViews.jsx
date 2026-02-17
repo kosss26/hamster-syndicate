@@ -115,17 +115,13 @@ export function DuelPlayingView({
           </div>
 
           <div className="flex items-center gap-3 flex-row-reverse">
-            <div className="relative">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-500 to-orange-600 p-0.5 shadow-lg">
-                <div className="w-full h-full rounded-full bg-black/40 backdrop-blur-sm overflow-hidden flex items-center justify-center text-lg">
-                  {opponent?.photo_url ? (
-                    <img src={opponent.photo_url} alt="Аватар соперника" className="w-full h-full object-cover" />
-                  ) : (
-                    <span>{opponent?.name?.[0] || '?'}</span>
-                  )}
-                </div>
-              </div>
-            </div>
+            <AvatarWithFrame
+              photoUrl={opponent?.photo_url}
+              name={opponent?.name || 'Соперник'}
+              frameKey={opponent?.equipped_frame}
+              size={48}
+              showGlow={false}
+            />
             <div className="flex flex-col items-end">
               <span className="text-2xl font-black text-white">{score.opponent}</span>
               <span className="text-[10px] text-white/60 uppercase tracking-wide">{opponentLiveStatus}</span>
@@ -330,9 +326,14 @@ export function DuelFinishedView({ score, totalRounds, duel, user, opponent, rou
           </div>
           <div className="text-white/20 font-black text-2xl">VS</div>
           <div className="text-center">
-            <div className="w-16 h-16 rounded-full bg-white/10 mx-auto flex items-center justify-center text-2xl border-2 border-white/10">
-              {opponent?.photo_url ? <img src={opponent.photo_url} className="w-full h-full rounded-full object-cover" /> : (opponent?.name?.[0] || '?')}
-            </div>
+            <AvatarWithFrame
+              photoUrl={opponent?.photo_url}
+              name={opponent?.name || 'Соперник'}
+              frameKey={opponent?.equipped_frame}
+              size={64}
+              showGlow={false}
+              className="mx-auto"
+            />
             <div className="text-3xl font-bold text-white/60 mt-2">{score.opponent}</div>
           </div>
         </div>

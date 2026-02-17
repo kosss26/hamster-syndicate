@@ -156,6 +156,8 @@ function handleCreateDuel($container, ?array $telegramUser, array $body): void
             'opponent' => $duel->initiator ? [
                 'name' => $duel->initiator->first_name,
                 'rating' => $duel->initiator->profile ? $duel->initiator->profile->rating : 0,
+                'photo_url' => $duel->initiator->photo_url,
+                'equipped_frame' => $duel->initiator->profile ? ($duel->initiator->profile->equipped_frame ?? 'default') : 'default',
             ] : null,
             'matched' => true,
             'mode' => 'random',
@@ -438,6 +440,7 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
             'name' => $duel->initiator->first_name,
             'rating' => $duel->initiator->profile ? $duel->initiator->profile->rating : 0,
             'photo_url' => $duel->initiator->photo_url,
+            'equipped_frame' => $duel->initiator->profile ? ($duel->initiator->profile->equipped_frame ?? 'default') : 'default',
         ] : null,
         'opponent' => $duel->opponent ? [
             'id' => $duel->opponent->getKey(),
@@ -446,6 +449,7 @@ function handleGetDuel($container, ?array $telegramUser, int $duelId): void
                 ? (int) ($duelSettings['ghost_source_rating'] ?? ($duel->opponent->profile ? $duel->opponent->profile->rating : 0))
                 : ($duel->opponent->profile ? $duel->opponent->profile->rating : 0),
             'photo_url' => $duel->opponent->photo_url,
+            'equipped_frame' => $duel->opponent->profile ? ($duel->opponent->profile->equipped_frame ?? 'default') : 'default',
             'is_ghost' => $isGhostMatch,
         ] : null,
         'question' => $question,
@@ -683,6 +687,7 @@ function handleGetIncomingRematch($container, ?array $telegramUser): void
                 'name' => (string) ($invite->initiator->first_name ?: 'Соперник'),
                 'rating' => (int) ($invite->initiator->profile ? $invite->initiator->profile->rating : 0),
                 'photo_url' => $invite->initiator->photo_url,
+                'equipped_frame' => $invite->initiator->profile ? ($invite->initiator->profile->equipped_frame ?? 'default') : 'default',
             ] : null,
             'reward_factor' => (float) ($settings['reward_factor'] ?? \QuizBot\Application\Services\DuelService::REMATCH_REWARD_COEFFICIENT),
         ],
@@ -892,6 +897,7 @@ function handleJoinDuel($container, ?array $telegramUser, array $body): void
             'id' => $duel->initiator->getKey(),
             'name' => $duel->initiator->first_name,
             'photo_url' => $duel->initiator->photo_url,
+            'equipped_frame' => $duel->initiator->profile ? ($duel->initiator->profile->equipped_frame ?? 'default') : 'default',
         ] : null,
     ]);
 }

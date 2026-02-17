@@ -47,15 +47,14 @@ function PodiumCard({ player, place, tab }) {
   return (
     <div className={`rounded-2xl border p-3 text-center ${meta.ring}`}>
       <div className="text-xl mb-2">{meta.medal}</div>
-      <div className="w-14 h-14 mx-auto rounded-full overflow-hidden bg-black/25 border border-white/10">
-        {player?.photo_url ? (
-          <img src={player.photo_url} alt={player?.name || 'Игрок'} className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-white font-bold">
-            {player?.name?.[0] || '?'}
-          </div>
-        )}
-      </div>
+      <AvatarWithFrame
+        photoUrl={player?.photo_url}
+        name={player?.name || 'Игрок'}
+        frameKey={player?.equipped_frame}
+        size={56}
+        showGlow={false}
+        className="mx-auto"
+      />
       <div className="mt-2 text-sm font-semibold text-white truncate">{player?.name || '—'}</div>
       <div className={`text-base font-black ${meta.score}`}>{value}</div>
     </div>
@@ -66,15 +65,13 @@ function RankRow({ player, place, tab, isMe, isAdmin }) {
   return (
     <div className={`rounded-2xl border px-3 py-3 flex items-center gap-3 ${isMe ? 'border-cyan-300/35 bg-cyan-500/12' : 'border-white/10 bg-white/5'}`}>
       <div className="w-10 text-center text-sm font-semibold text-white/55">{rankMarker(place)}</div>
-      <div className="w-10 h-10 rounded-full overflow-hidden bg-black/25 border border-white/10 shrink-0">
-        {player?.photo_url ? (
-          <img src={player.photo_url} alt={player?.name || 'Игрок'} className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-white font-bold text-sm">
-            {player?.name?.[0] || '?'}
-          </div>
-        )}
-      </div>
+      <AvatarWithFrame
+        photoUrl={player?.photo_url}
+        name={player?.name || 'Игрок'}
+        frameKey={player?.equipped_frame}
+        size={40}
+        showGlow={false}
+      />
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 min-w-0">

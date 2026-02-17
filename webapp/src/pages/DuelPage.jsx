@@ -47,6 +47,7 @@ function DuelPage() {
   const [opponent, setOpponent] = useState(null) // Данные оппонента {name, rating}
   const [incomingRematch, setIncomingRematch] = useState(null)
   const [myRating, setMyRating] = useState(0) // Мой рейтинг
+  const [myFrameKey, setMyFrameKey] = useState('default')
   
   const currentQuestionId = useRef(null)
   const timerRef = useRef(null)
@@ -312,6 +313,7 @@ function DuelPage() {
       if (response.success) {
         setCoins(response.data.coins || 0)
         setMyRating(response.data.rating ?? 0)
+        setMyFrameKey(response.data.equipped_frame || 'default')
       }
     } catch (err) {
       console.error('Failed to load profile:', err)
@@ -605,7 +607,8 @@ function DuelPage() {
         setOpponent({
           name: data.opponent.name || 'Соперник',
           rating: data.opponent.rating ?? 0,
-          photo_url: data.opponent.photo_url
+          photo_url: data.opponent.photo_url,
+          equipped_frame: data.opponent.equipped_frame || 'default',
         })
       }
       enterFoundState()
@@ -790,7 +793,8 @@ function DuelPage() {
             setOpponent({
               name: data.opponent.name || 'Соперник',
               rating: data.opponent.rating ?? 0,
-              photo_url: data.opponent.photo_url
+              photo_url: data.opponent.photo_url,
+              equipped_frame: data.opponent.equipped_frame || 'default',
             })
           }
           enterFoundState()
@@ -889,7 +893,8 @@ function DuelPage() {
            setOpponent({
              name: data.initiator.name || 'Игрок',
              rating: data.initiator.rating ?? 0,
-             photo_url: data.initiator.photo_url
+             photo_url: data.initiator.photo_url,
+             equipped_frame: data.initiator.equipped_frame || 'default',
            })
         }
         
@@ -1066,6 +1071,8 @@ function DuelPage() {
     return 'opacity-50'
   }
 
+  const duelUser = user ? { ...user, equipped_frame: myFrameKey } : { equipped_frame: myFrameKey }
+
   // Меню выбора режима
   if (state === STATES.MENU) {
     return (
@@ -1130,7 +1137,7 @@ function DuelPage() {
   if (state === STATES.FOUND) {
     return (
       <DuelFoundView
-        user={user}
+        user={duelUser}
         myRating={myRating}
         opponent={opponent}
         duel={duel}
@@ -1153,7 +1160,7 @@ function DuelPage() {
         round={round}
         totalRounds={totalRounds}
         score={score}
-        user={user}
+        user={duelUser}
         opponent={opponent}
         duel={duel}
         hiddenAnswers={hiddenAnswers}
@@ -1174,7 +1181,7 @@ function DuelPage() {
         score={score}
         totalRounds={totalRounds}
         duel={duel}
-        user={user}
+        user={duelUser}
         opponent={opponent}
         roundHistory={roundHistory}
         onRematch={() => {
