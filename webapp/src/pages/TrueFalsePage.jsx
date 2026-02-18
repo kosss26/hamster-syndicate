@@ -44,7 +44,7 @@ function TrueFalseAnswerButton({
       : isWrongSelected
         ? 'ring-2 ring-red-400/50 bg-red-500/10'
         : 'opacity-35 grayscale'
-    : 'hover:brightness-110 active:brightness-95'
+    : 'hover:brightness-110 active:brightness-95 ring-1 ring-white/15'
 
   const fallbackStateClass = disabled
     ? isCorrect
@@ -62,24 +62,24 @@ function TrueFalseAnswerButton({
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
-      className={`group relative h-20 rounded-3xl font-bold text-xl overflow-hidden transition-all ${failed ? fallbackStateClass : imageStateClass}`}
+      className={`group relative h-28 rounded-[28px] font-bold text-xl overflow-hidden transition-all ${failed ? fallbackStateClass : imageStateClass}`}
     >
       {!failed ? (
         <>
           <img
             src={imageSrc}
             alt={label}
-            className="absolute inset-0 w-full h-full object-contain"
+            className="absolute inset-0 w-full h-full object-contain scale-[2.05]"
             onError={() => setFailed(true)}
           />
           <span className="sr-only">{label}</span>
         </>
       ) : (
         <>
-          <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 rounded-3xl" />
+          <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 rounded-[28px]" />
           <div className="relative flex flex-col items-center justify-center h-full">
-            <span className="text-2xl mb-1">{fallbackIcon}</span>
-            <span className="text-white text-sm">{label}</span>
+            <span className="text-3xl mb-1">{fallbackIcon}</span>
+            <span className="text-white text-base">{label}</span>
           </div>
         </>
       )}
@@ -522,7 +522,7 @@ function TrueFalsePage() {
         </div>
 
         {/* Controls */}
-        <div className="grid grid-cols-2 gap-3 mt-4 mb-2">
+        <div className="grid grid-cols-2 gap-1 mt-3 mb-1">
           <TrueFalseAnswerButton
             imageSrc="/api/images/ui/truefalse_btn_true.png"
             fallbackIcon="✅"
