@@ -84,15 +84,15 @@ export default function BottomMenu() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 px-4 pb-4 pt-2">
-      <div className="absolute inset-0 bg-gradient-to-t from-[#07070d] via-[#090a12]/90 to-transparent pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/85 to-transparent pointer-events-none" />
 
       <motion.div
         initial={{ y: 90, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.35, ease: 'easeOut' }}
-        className="home-classic-dock relative p-1.5"
+        className="relative rounded-[28px] border border-white/10 bg-black/45 backdrop-blur-2xl p-1.5 shadow-[0_20px_40px_rgba(0,0,0,0.45)]"
       >
-        <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-amber-200/45 to-transparent" />
+        <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/35 to-transparent" />
         <div className="grid grid-cols-5 gap-1">
           {tabs.map((tab) => {
             const isActive = isTabActive(tab.path)
@@ -107,20 +107,20 @@ export default function BottomMenu() {
                 {isActive && (
                   <motion.div
                     layoutId="activeDockTab"
-                    className="home-classic-dock-active absolute inset-0"
+                    className="absolute inset-0 rounded-2xl border border-cyan-300/35 bg-gradient-to-b from-cyan-300/20 to-blue-500/15"
                     initial={false}
                     transition={{ type: 'spring', stiffness: 420, damping: 32 }}
                   />
                 )}
 
-                <div className={`relative z-10 flex flex-col items-center transition-colors ${isActive ? 'text-cyan-200' : 'text-[#dbc8a8]/70 group-hover:text-[#f7e5c2]'}`}>
+                <div className={`relative z-10 flex flex-col items-center transition-colors ${isActive ? 'text-cyan-200' : 'text-white/45 group-hover:text-white/70'}`}>
                   {showNotifBadge && (
                     <span className="absolute -top-1 -right-3 min-w-4 h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold leading-4 text-center">
                       {notificationCount > 99 ? '99+' : notificationCount}
                     </span>
                   )}
                   {tab.icon(isActive)}
-                  <span className={`text-[10px] mt-0.5 ${isActive ? 'text-white' : 'text-[#d7c2a1]/70'}`}>{tab.label}</span>
+                  <span className={`text-[10px] mt-0.5 ${isActive ? 'text-white' : 'text-white/45'}`}>{tab.label}</span>
                 </div>
               </Link>
             )
