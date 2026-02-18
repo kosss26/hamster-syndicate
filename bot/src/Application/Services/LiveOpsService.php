@@ -6,6 +6,7 @@ namespace QuizBot\Application\Services;
 
 use Illuminate\Support\Carbon;
 use Monolog\Logger;
+use QuizBot\Domain\Model\Category;
 use QuizBot\Domain\Model\Duel;
 use QuizBot\Domain\Model\DuelResult;
 use QuizBot\Domain\Model\ShopPurchase;
@@ -32,17 +33,24 @@ class LiveOpsService
         $profile = $user->profile;
         $now = Carbon::now();
 
-        $weekly = $this->buildWeeklyChallenge($user, $now);
-        $missions = $this->buildMissions($user, $now);
+        $dailyMissions = $this->buildDailyMissions($user, $now);
+        $weeklyMissions = $this->buildWeeklyMissions($user, $now);
+        $missions = array_merge($dailyMissions, $weeklyMissions);
         $season = $this->buildSeasonProgress($user, $now);
+        $availableClaims = count(array_filter($missions, static fn (array $item): bool => (bool) ($item['can_claim'] ?? false)));
+        $weeklyHighlight = $weeklyMissions[0] ?? null;
 
         return [
             'generated_at' => $now->toIso8601String(),
-            'weekly_challenge' => $weekly,
+            'weekly_challenge' => $weeklyHighlight,
+            'daily_missions' => $dailyMissions,
+            'weekly_missions' => $weeklyMissions,
             'missions' => $missions,
             'season' => $season,
             'summary' => [
-                'available_claims' => (int) ($weekly['can_claim'] ? 1 : 0) + count(array_filter($missions, static fn (array $item): bool => (bool) ($item['can_claim'] ?? false))),
+                'available_claims' => $availableClaims,
+                'daily_missions_count' => count($dailyMissions),
+                'weekly_missions_count' => count($weeklyMissions),
                 'duel_wins_total' => (int) ($profile->duel_wins ?? 0),
                 'tickets' => (int) ($profile->lives ?? 0),
             ],
@@ -107,11 +115,15 @@ class LiveOpsService
             return $weekly;
         }
 
-        $missions = $dashboard['missions'] ?? [];
-        if (is_array($missions)) {
-            foreach ($missions as $mission) {
-                if (is_array($mission) && (string) ($mission['claim_key'] ?? '') === $claimKey) {
-                    return $mission;
+        foreach (['daily_missions', 'weekly_missions', 'missions'] as $collectionKey) {
+            $items = $dashboard[$collectionKey] ?? [];
+            if (!is_array($items)) {
+                continue;
+            }
+
+            foreach ($items as $item) {
+                if (is_array($item) && (string) ($item['claim_key'] ?? '') === $claimKey) {
+                    return $item;
                 }
             }
         }
@@ -119,118 +131,216 @@ class LiveOpsService
         return null;
     }
 
-    private function buildWeeklyChallenge(User $user, Carbon $now): array
+    private function buildDailyMissions(User $user, Carbon $now): array
+    {
+        $dayStart = $now->copy()->startOfDay();
+        $dayEnd = $dayStart->copy()->addDay();
+        $sportsCategory = $this->resolveSportsCategory();
+        $sportsCategoryId = $sportsCategory ? (int) $sportsCategory->getKey() : null;
+
+        $definitions = [
+            [
+                'id' => 'daily_finish_duels',
+                'title' => 'Ежедневка: сыграй дуэли',
+                'description' => 'Заверши 3 дуэли за день',
+                'target' => 3,
+                'value' => $this->countFinishedDuels($user, $dayStart, $dayEnd),
+                'reward' => ['coins' => 120, 'experience' => 60, 'tickets' => 0],
+            ],
+            [
+                'id' => 'daily_truefalse_correct',
+                'title' => 'Ежедневка: правда или ложь',
+                'description' => 'Ответь правильно на 5 фактов в режиме П/Л',
+                'target' => 5,
+                'value' => $this->countCorrectAnswers($user, $dayStart, $dayEnd, 'truefalse'),
+                'reward' => ['coins' => 140, 'experience' => 70, 'tickets' => 1],
+            ],
+            [
+                'id' => 'daily_sports_correct_10',
+                'title' => 'Ежедневка: спорт',
+                'description' => $sportsCategory
+                    ? sprintf('Ответь правильно на 10 вопросов из категории %s', $sportsCategory->title)
+                    : 'Ответь правильно на 10 вопросов из категории Спорт',
+                'target' => 10,
+                'value' => $sportsCategoryId ? $this->countCorrectAnswers($user, $dayStart, $dayEnd, null, $sportsCategoryId) : 0,
+                'reward' => ['coins' => 180, 'experience' => 100, 'tickets' => 1],
+                'meta' => [
+                    'category_id' => $sportsCategoryId,
+                    'category_title' => $sportsCategory ? (string) $sportsCategory->title : 'Спорт',
+                ],
+            ],
+        ];
+
+        return $this->buildMissionCollection(
+            $user,
+            $definitions,
+            $dayStart,
+            $dayEnd,
+            'daily',
+            $dayStart->format('Ymd')
+        );
+    }
+
+    private function buildWeeklyMissions(User $user, Carbon $now): array
     {
         $weekStart = $now->copy()->startOfWeek(Carbon::MONDAY)->startOfDay();
         $weekEnd = $weekStart->copy()->addWeek();
-        $target = 5;
 
-        $wins = DuelResult::query()
-            ->where('winner_user_id', $user->getKey())
-            ->where('created_at', '>=', $weekStart)
-            ->where('created_at', '<', $weekEnd)
-            ->count();
-
-        $claimKey = sprintf('weekly_duel_wins_%s', $weekStart->format('oW'));
-        $claimed = $this->isClaimed((int) $user->getKey(), $claimKey);
-
-        return [
-            'id' => 'weekly_duel_wins',
-            'title' => 'Недельный челлендж: победы в дуэлях',
-            'description' => 'Выиграй 5 дуэлей за неделю',
-            'period' => [
-                'start' => $weekStart->toIso8601String(),
-                'end' => $weekEnd->toIso8601String(),
-                'key' => $weekStart->format('o-W'),
+        $definitions = [
+            [
+                'id' => 'weekly_duel_wins',
+                'title' => 'Недельный челлендж: победы',
+                'description' => 'Выиграй 8 дуэлей за неделю',
+                'target' => 8,
+                'value' => $this->countDuelWins($user, $weekStart, $weekEnd),
+                'reward' => ['coins' => 320, 'experience' => 180, 'tickets' => 1],
             ],
-            'target' => $target,
-            'progress' => min($target, (int) $wins),
-            'claimed' => $claimed,
-            'claim_key' => $claimKey,
-            'can_claim' => !$claimed && $wins >= $target,
-            'reward' => [
-                'coins' => 220,
-                'experience' => 120,
-                'tickets' => 1,
+            [
+                'id' => 'weekly_friend_invites',
+                'title' => 'Недельная миссия: с друзьями',
+                'description' => 'Создай 3 приватные дуэли за неделю',
+                'target' => 3,
+                'value' => $this->countFriendInvites($user, $weekStart, $weekEnd),
+                'reward' => ['coins' => 260, 'experience' => 140, 'tickets' => 1],
+            ],
+            [
+                'id' => 'weekly_correct_answers',
+                'title' => 'Недельная миссия: точность',
+                'description' => 'Дай 60 правильных ответов в любых режимах',
+                'target' => 60,
+                'value' => $this->countCorrectAnswers($user, $weekStart, $weekEnd),
+                'reward' => ['coins' => 360, 'experience' => 210, 'tickets' => 2],
             ],
         ];
+
+        return $this->buildMissionCollection(
+            $user,
+            $definitions,
+            $weekStart,
+            $weekEnd,
+            'weekly',
+            $weekStart->format('oW')
+        );
     }
 
-    private function buildMissions(User $user, Carbon $now): array
+    /**
+     * @param array<int, array<string, mixed>> $definitions
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildMissionCollection(User $user, array $definitions, Carbon $periodStart, Carbon $periodEnd, string $frequency, string $periodKey): array
     {
-        $accountAgeDays = max(0, (int) $user->created_at?->startOfDay()->diffInDays($now->copy()->startOfDay()));
+        $missions = [];
 
-        $totalFinishedDuels = Duel::query()
+        foreach ($definitions as $def) {
+            $id = (string) ($def['id'] ?? '');
+            if ($id === '') {
+                continue;
+            }
+
+            $claimKey = sprintf('%s_%s', $id, $periodKey);
+            $target = (int) ($def['target'] ?? 1);
+            $value = (int) ($def['value'] ?? 0);
+            $claimed = $this->isClaimed((int) $user->getKey(), $claimKey);
+
+            $missions[] = [
+                'id' => $id,
+                'frequency' => $frequency,
+                'title' => (string) ($def['title'] ?? $id),
+                'description' => (string) ($def['description'] ?? ''),
+                'period' => [
+                    'start' => $periodStart->toIso8601String(),
+                    'end' => $periodEnd->toIso8601String(),
+                    'key' => $periodKey,
+                ],
+                'locked' => false,
+                'target' => $target,
+                'progress' => min($target, $value),
+                'claimed' => $claimed,
+                'claim_key' => $claimKey,
+                'can_claim' => !$claimed && $value >= $target,
+                'reward' => is_array($def['reward'] ?? null) ? $def['reward'] : [],
+                'meta' => is_array($def['meta'] ?? null) ? $def['meta'] : null,
+            ];
+        }
+
+        return $missions;
+    }
+
+    private function resolveSportsCategory(): ?Category
+    {
+        return Category::query()
+            ->where('is_active', true)
+            ->where(function ($q): void {
+                $q->where('title', 'Спорт')
+                    ->orWhere('title', 'like', '%Спорт%')
+                    ->orWhere('code', 'sports')
+                    ->orWhere('code', 'sport')
+                    ->orWhere('code', 'like', 'sports%')
+                    ->orWhere('code', 'like', 'sport%');
+            })
+            ->orderByRaw("CASE WHEN title = 'Спорт' THEN 0 ELSE 1 END")
+            ->orderBy('id')
+            ->first();
+    }
+
+    private function countFinishedDuels(User $user, Carbon $start, Carbon $end): int
+    {
+        return Duel::query()
             ->where('status', 'finished')
+            ->where(function ($q) use ($start, $end): void {
+                $q->where(function ($inner) use ($start, $end): void {
+                    $inner->whereNotNull('finished_at')
+                        ->where('finished_at', '>=', $start)
+                        ->where('finished_at', '<', $end);
+                })->orWhere(function ($inner) use ($start, $end): void {
+                    $inner->whereNull('finished_at')
+                        ->where('created_at', '>=', $start)
+                        ->where('created_at', '<', $end);
+                });
+            })
             ->where(function ($q) use ($user): void {
                 $q->where('initiator_user_id', $user->getKey())
                     ->orWhere('opponent_user_id', $user->getKey());
             })
             ->count();
+    }
 
-        $duelWinsTotal = (int) ($user->profile?->duel_wins ?? 0);
+    private function countDuelWins(User $user, Carbon $start, Carbon $end): int
+    {
+        return DuelResult::query()
+            ->where('winner_user_id', $user->getKey())
+            ->where('created_at', '>=', $start)
+            ->where('created_at', '<', $end)
+            ->count();
+    }
 
-        $friendInvitesStarted = Duel::query()
+    private function countFriendInvites(User $user, Carbon $start, Carbon $end): int
+    {
+        return Duel::query()
             ->where('initiator_user_id', $user->getKey())
             ->where('settings', 'like', '%"awaiting_target":true%')
+            ->where('created_at', '>=', $start)
+            ->where('created_at', '<', $end)
             ->count();
+    }
 
-        $definitions = [
-            [
-                'id' => 'mission_day1_play_duel',
-                'title' => 'Миссия 1-го дня',
-                'description' => 'Сыграй 1 завершённую дуэль',
-                'unlock_after_days' => 0,
-                'target' => 1,
-                'value' => $totalFinishedDuels,
-                'reward' => ['coins' => 120, 'experience' => 60, 'tickets' => 0],
-            ],
-            [
-                'id' => 'mission_day3_win_duels',
-                'title' => 'Миссия 3-го дня',
-                'description' => 'Выиграй 3 дуэли',
-                'unlock_after_days' => 2,
-                'target' => 3,
-                'value' => $duelWinsTotal,
-                'reward' => ['coins' => 180, 'experience' => 90, 'tickets' => 1],
-            ],
-            [
-                'id' => 'mission_day7_invite_friend',
-                'title' => 'Миссия 7-го дня',
-                'description' => 'Создай 1 приватную дуэль с другом',
-                'unlock_after_days' => 6,
-                'target' => 1,
-                'value' => $friendInvitesStarted,
-                'reward' => ['coins' => 260, 'experience' => 140, 'tickets' => 1],
-            ],
-        ];
+    private function countCorrectAnswers(User $user, Carbon $start, Carbon $end, ?string $mode = null, ?int $categoryId = null): int
+    {
+        $query = UserAnswerHistory::query()
+            ->where('user_id', $user->getKey())
+            ->where('is_correct', true)
+            ->where('created_at', '>=', $start)
+            ->where('created_at', '<', $end);
 
-        $missions = [];
-
-        foreach ($definitions as $def) {
-            $claimKey = (string) ($def['id'] ?? '');
-            $target = (int) ($def['target'] ?? 1);
-            $value = (int) ($def['value'] ?? 0);
-            $locked = $accountAgeDays < (int) ($def['unlock_after_days'] ?? 0);
-            $claimed = $this->isClaimed((int) $user->getKey(), $claimKey);
-
-            $missions[] = [
-                'id' => $claimKey,
-                'title' => (string) ($def['title'] ?? $claimKey),
-                'description' => (string) ($def['description'] ?? ''),
-                'unlock_after_days' => (int) ($def['unlock_after_days'] ?? 0),
-                'account_age_days' => $accountAgeDays,
-                'locked' => $locked,
-                'target' => $target,
-                'progress' => min($target, $value),
-                'claimed' => $claimed,
-                'claim_key' => $claimKey,
-                'can_claim' => !$locked && !$claimed && $value >= $target,
-                'reward' => $def['reward'],
-            ];
+        if ($mode !== null && $mode !== '') {
+            $query->where('mode', $mode);
         }
 
-        return $missions;
+        if ($categoryId !== null && $categoryId > 0) {
+            $query->where('category_id', $categoryId);
+        }
+
+        return $query->count();
     }
 
     private function buildSeasonProgress(User $user, Carbon $now): array

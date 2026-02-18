@@ -11,59 +11,6 @@ import ModeTrueFalseIcon from '../components/ModeTrueFalseIcon'
 import ReferralIcon from '../components/ReferralIcon'
 import { getNotificationItems, subscribeNotifications } from '../utils/notificationInbox'
 
-const LOCALE_RU = 'ru-RU'
-
-function formatShortDate(isoString) {
-  if (!isoString) return '—'
-  try {
-    return new Date(isoString).toLocaleDateString(LOCALE_RU, {
-      day: '2-digit',
-      month: '2-digit',
-    })
-  } catch (_) {
-    return '—'
-  }
-}
-
-function formatCount(value) {
-  const number = Number(value || 0)
-  if (!Number.isFinite(number)) return '0'
-  return number.toLocaleString(LOCALE_RU)
-}
-
-function getSeasonProgressPercent(season) {
-  const current = Number(season?.points_into_level || 0)
-  const perLevel = Number(season?.points_per_level || 100)
-  if (!Number.isFinite(current) || !Number.isFinite(perLevel) || perLevel <= 0) return 0
-  return Math.max(0, Math.min(100, (current / perLevel) * 100))
-}
-
-function LiveOpsRewardChips({ reward }) {
-  const coins = Math.max(0, Number(reward?.coins || 0))
-  const experience = Math.max(0, Number(reward?.experience || 0))
-  const tickets = Math.max(0, Number(reward?.tickets || 0))
-
-  return (
-    <div className="flex items-center gap-2 text-[11px] text-white/75 flex-wrap">
-      {coins > 0 && (
-        <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/35 bg-amber-500/12 px-2 py-1">
-          <CoinIcon className="w-3.5 h-3.5" />+{coins}
-        </span>
-      )}
-      {experience > 0 && (
-        <span className="inline-flex items-center gap-1 rounded-full border border-violet-300/35 bg-violet-500/12 px-2 py-1">
-          ⭐ +{experience} XP
-        </span>
-      )}
-      {tickets > 0 && (
-        <span className="inline-flex items-center gap-1 rounded-full border border-cyan-300/35 bg-cyan-500/12 px-2 py-1">
-          <TicketIcon className="w-3.5 h-3.5" />+{tickets}
-        </span>
-      )}
-    </div>
-  )
-}
-
 function HomePage() {
   const { user, webApp } = useTelegram()
   const navigate = useNavigate()
@@ -78,7 +25,6 @@ function HomePage() {
   const [incomingRematch, setIncomingRematch] = useState(null)
   const [rematchLoading, setRematchLoading] = useState(false)
   const [liveOps, setLiveOps] = useState(null)
-  const [claimingRewardKey, setClaimingRewardKey] = useState('')
 
   useEffect(() => {
     checkActiveDuel()
@@ -318,27 +264,6 @@ function HomePage() {
     }
   }
 
-  const claimLiveOpsReward = async (claimKey) => {
-    if (!claimKey || claimingRewardKey) return
-    setClaimingRewardKey(claimKey)
-    try {
-      const response = await api.claimLiveOpsReward(claimKey)
-      if (response.success) {
-        hapticFeedback('success')
-        if (response.data?.dashboard) {
-          setLiveOps(response.data.dashboard)
-        } else {
-          await loadLiveOps()
-        }
-        await loadProfile()
-      }
-    } catch (err) {
-      hapticFeedback('error')
-    } finally {
-      setClaimingRewardKey('')
-    }
-  }
-
   return (
     <div className="min-h-dvh bg-aurora bg-page-home relative flex flex-col overflow-hidden">
       <div className="aurora-blob aurora-blob-1" />
@@ -432,155 +357,30 @@ function HomePage() {
           </div>
         </motion.div>
 
-        {liveOps && (
-          <div className="space-y-3 mb-4">
-            <section className="rounded-2xl border border-white/10 bg-black/25 backdrop-blur-xl p-4">
-              <div className="flex items-start justify-between gap-3 mb-2">
-                <div>
-                  <p className="text-[10px] uppercase tracking-wider text-white/45 mb-1">Недельный челлендж</p>
-                  <h3 className="text-white font-semibold text-sm">{liveOps.weekly_challenge?.title || 'Челлендж недели'}</h3>
-                  <p className="text-white/55 text-xs mt-1">{liveOps.weekly_challenge?.description || ''}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-cyan-200 text-sm font-semibold">
-                    {formatCount(liveOps.weekly_challenge?.progress)}/{formatCount(liveOps.weekly_challenge?.target)}
-                  </p>
-                  <p className="text-white/40 text-[10px]">
-                    {formatShortDate(liveOps.weekly_challenge?.period?.start)} - {formatShortDate(liveOps.weekly_challenge?.period?.end)}
-                  </p>
-                </div>
-              </div>
-
-              <div className="h-2 rounded-full bg-white/10 overflow-hidden mb-3">
-                <div
-                  className="h-full bg-gradient-to-r from-cyan-400 to-emerald-400"
-                  style={{
-                    width: `${Math.max(
-                      0,
-                      Math.min(
-                        100,
-                        (Number(liveOps.weekly_challenge?.progress || 0) / Math.max(1, Number(liveOps.weekly_challenge?.target || 1))) * 100
-                      )
-                    )}%`,
-                  }}
-                />
-              </div>
-
-              <LiveOpsRewardChips reward={liveOps.weekly_challenge?.reward} />
-
-              <button
-                onClick={() => claimLiveOpsReward(liveOps.weekly_challenge?.claim_key)}
-                disabled={
-                  !liveOps.weekly_challenge?.can_claim
-                  || liveOps.weekly_challenge?.claimed
-                  || claimingRewardKey === liveOps.weekly_challenge?.claim_key
-                }
-                className="mt-3 w-full rounded-xl py-2.5 text-sm font-semibold border border-emerald-300/35 bg-emerald-500/15 text-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {liveOps.weekly_challenge?.claimed
-                  ? 'Награда получена'
-                  : claimingRewardKey === liveOps.weekly_challenge?.claim_key
-                    ? 'Забираем...'
-                    : liveOps.weekly_challenge?.can_claim
-                      ? 'Забрать награду'
-                      : 'Выполни условия'}
-              </button>
-            </section>
-
-            <section className="rounded-2xl border border-white/10 bg-black/25 backdrop-blur-xl p-4">
-              <div className="flex items-center justify-between gap-3 mb-2">
-                <div>
-                  <p className="text-[10px] uppercase tracking-wider text-white/45 mb-1">Сезон</p>
-                  <h3 className="text-white font-semibold text-sm">{liveOps.season?.title || 'Сезонный прогресс'}</h3>
-                </div>
-                <div className="text-right">
-                  <p className="text-white font-bold text-lg leading-none">LVL {liveOps.season?.level || 1}</p>
-                  <p className="text-white/45 text-[10px]">{liveOps.season?.season_key || ''}</p>
-                </div>
-              </div>
-
-              <div className="h-2 rounded-full bg-white/10 overflow-hidden mb-2">
-                <div
-                  className="h-full bg-gradient-to-r from-fuchsia-400 to-cyan-400"
-                  style={{ width: `${getSeasonProgressPercent(liveOps.season)}%` }}
-                />
-              </div>
-
-              <div className="text-[11px] text-white/65 mb-3">
-                {formatCount(liveOps.season?.points_into_level)} / {formatCount(liveOps.season?.points_per_level)} очков до уровня
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 text-[11px]">
-                <div className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-2 text-white/75">
-                  Победы в дуэлях: <span className="text-white">{formatCount(liveOps.season?.sources?.duel_wins)}</span>
-                </div>
-                <div className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-2 text-white/75">
-                  Верно П/Л: <span className="text-white">{formatCount(liveOps.season?.sources?.truefalse_correct)}</span>
-                </div>
-                <div className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-2 text-white/75">
-                  Покупки: <span className="text-white">{formatCount(liveOps.season?.sources?.shop_purchases)}</span>
-                </div>
-                <div className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-2 text-white/75">
-                  Инвайты: <span className="text-white">{formatCount(liveOps.season?.sources?.friend_invites)}</span>
-                </div>
-              </div>
-            </section>
-
-            {Array.isArray(liveOps.missions) && liveOps.missions.length > 0 && (
-              <section className="rounded-2xl border border-white/10 bg-black/25 backdrop-blur-xl p-4">
-                <div className="flex items-center justify-between gap-2 mb-3">
-                  <h3 className="text-white font-semibold text-sm">Миссии 1 / 3 / 7 дней</h3>
-                  <span className="text-[11px] text-white/50">
-                    {formatCount(liveOps.summary?.available_claims)} доступно
-                  </span>
-                </div>
-
-                <div className="space-y-2">
-                  {liveOps.missions.map((mission) => {
-                    const progress = Math.max(0, Number(mission?.progress || 0))
-                    const target = Math.max(1, Number(mission?.target || 1))
-                    const isLocked = Boolean(mission?.locked)
-                    const isClaimed = Boolean(mission?.claimed)
-                    const isClaiming = claimingRewardKey === mission?.claim_key
-                    return (
-                      <div key={mission.id} className="rounded-xl border border-white/10 bg-white/5 p-3">
-                        <div className="flex items-start justify-between gap-3 mb-2">
-                          <div className="min-w-0">
-                            <p className="text-white text-sm font-medium">{mission.title}</p>
-                            <p className="text-white/55 text-xs">{mission.description}</p>
-                          </div>
-                          <span className="text-[11px] text-cyan-200 whitespace-nowrap">
-                            {formatCount(progress)}/{formatCount(target)}
-                          </span>
-                        </div>
-
-                        <div className="h-1.5 rounded-full bg-white/10 overflow-hidden mb-2">
-                          <div
-                            className="h-full bg-gradient-to-r from-emerald-400 to-cyan-400"
-                            style={{ width: `${Math.max(0, Math.min(100, (progress / target) * 100))}%` }}
-                          />
-                        </div>
-
-                        <div className="flex items-center justify-between gap-2">
-                          <LiveOpsRewardChips reward={mission.reward} />
-                          <button
-                            onClick={() => claimLiveOpsReward(mission.claim_key)}
-                            disabled={isLocked || isClaimed || !mission.can_claim || isClaiming}
-                            className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold border border-cyan-300/35 bg-cyan-500/15 text-cyan-100 disabled:opacity-45 disabled:cursor-not-allowed"
-                          >
-                            {isClaimed ? 'Получено' : isLocked ? `День ${Number(mission.unlock_after_days || 0) + 1}` : isClaiming ? '...' : mission.can_claim ? 'Забрать' : 'В процессе'}
-                          </button>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </section>
-            )}
-          </div>
-        )}
-
         <div className="grid grid-cols-2 gap-3">
+          <motion.button
+            whileTap={{ scale: 0.98 }}
+            onClick={() => navigate('/tasks')}
+            className="col-span-2 rounded-2xl border border-violet-300/25 bg-violet-500/10 p-4 text-left"
+          >
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <div className="text-white font-semibold text-sm mb-1">Задания и сезон</div>
+                <div className="text-white/65 text-xs">
+                  {liveOps?.summary?.available_claims
+                    ? `Доступно наград: ${liveOps.summary.available_claims}`
+                    : 'Ежедневные и еженедельные задания + сезонный прогресс'}
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="text-violet-200 text-xs font-semibold">Открыть</div>
+                <div className="text-white/65 text-[11px] mt-1">
+                  LVL {Number(liveOps?.season?.level || 1)}
+                </div>
+              </div>
+            </div>
+          </motion.button>
+
           {incomingRematch && (
             <motion.div
               whileTap={{ scale: 0.98 }}

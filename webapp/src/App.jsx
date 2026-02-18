@@ -9,6 +9,7 @@ import ProfilePage from './pages/ProfilePage'
 import LeaderboardPage from './pages/LeaderboardPage'
 import StatsPage from './pages/StatsPage'
 import TrueFalsePage from './pages/TrueFalsePage'
+import TasksPage from './pages/TasksPage'
 import ReferralPage from './pages/ReferralPage'
 import SupportPage from './pages/SupportPage'
 import AdminPage from './pages/AdminPage'
@@ -139,6 +140,7 @@ function App() {
             <Route element={<Layout />}>
               <Route path="/" element={<HomePage />} />
               <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/tasks" element={<TasksPage />} />
               <Route path="/stats" element={<StatsPage />} />
               <Route path="/leaderboard" element={<LeaderboardPage />} />
               <Route path="/referral" element={<ReferralPage />} />
