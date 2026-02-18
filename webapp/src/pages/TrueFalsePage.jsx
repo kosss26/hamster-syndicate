@@ -40,11 +40,11 @@ function TrueFalseAnswerButton({
 
   const imageStateClass = disabled
     ? isCorrect
-      ? 'brightness-110 drop-shadow-[0_0_22px_rgba(52,211,153,0.45)]'
+      ? 'ring-4 ring-game-success/35 bg-game-success/10'
       : isWrongSelected
-        ? 'brightness-90 saturate-125 drop-shadow-[0_0_18px_rgba(239,68,68,0.45)]'
+        ? 'ring-2 ring-red-400/50 bg-red-500/10'
         : 'opacity-35 grayscale'
-    : 'hover:brightness-110 active:brightness-95 shadow-[0_12px_30px_rgba(3,7,18,0.45)]'
+    : 'hover:brightness-110 active:brightness-95 ring-1 ring-white/15'
 
   const fallbackStateClass = disabled
     ? isCorrect
@@ -62,14 +62,14 @@ function TrueFalseAnswerButton({
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
-      className={`group relative h-36 rounded-[30px] font-bold text-xl overflow-hidden transition-all focus:outline-none ${failed ? fallbackStateClass : imageStateClass}`}
+      className={`group relative h-28 rounded-[28px] font-bold text-xl overflow-hidden transition-all ${failed ? fallbackStateClass : imageStateClass}`}
     >
       {!failed ? (
         <>
           <img
             src={imageSrc}
             alt={label}
-            className="absolute inset-0 w-full h-full object-contain scale-[2.45]"
+            className="absolute inset-0 w-full h-full object-contain scale-[2.05]"
             onError={() => setFailed(true)}
           />
           <span className="sr-only">{label}</span>
@@ -358,16 +358,10 @@ function TrueFalsePage() {
   const timerColor = timeLeft <= 5 ? '#ef4444' : timeLeft <= 10 ? '#f59e0b' : '#a855f7'
   const nextMilestone = Math.max(5, Math.ceil(Math.max(streak, 1) / 5) * 5)
   const streakMilestoneProgress = Math.min(1, streak / nextMilestone)
-  const answerLocked = answered || phase === 'break'
-  const trueIsCorrect = Boolean(answerLocked && result?.correctAnswer === true)
-  const falseIsCorrect = Boolean(answerLocked && result?.correctAnswer === false)
-  const trueIsWrongSelected = Boolean(answerLocked && selectedChoice === true && result?.correctAnswer !== true)
-  const falseIsWrongSelected = Boolean(answerLocked && selectedChoice === false && result?.correctAnswer !== false)
 
   return (
-    <div className="min-h-dvh bg-aurora relative overflow-hidden">
-      <div className="aurora-blob aurora-blob-1" style={{ opacity: 0.35 }} />
-      <div className="aurora-blob aurora-blob-3" style={{ opacity: 0.45 }} />
+    <div className="min-h-dvh bg-aurora relative overflow-hidden flex flex-col">
+      <div className="aurora-blob aurora-blob-3" style={{ opacity: 0.4 }} />
       <div className="noise-overlay" />
       <RewardNotifications items={rewardNotifications} onDismiss={dismissRewardNotification} />
 
@@ -392,124 +386,113 @@ function TrueFalsePage() {
         )}
       </AnimatePresence>
 
-      <div className="relative z-10 px-4 pt-4 pb-3 safe-top safe-bottom flex min-h-dvh flex-col">
-        <section className="rounded-[28px] border border-white/12 bg-black/35 backdrop-blur-xl p-4 mb-3">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate('/')}
-              className="w-10 h-10 rounded-full bg-white/5 border border-white/15 flex items-center justify-center text-white/75 active:scale-95 transition-all"
-              aria-label="Назад"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-            </button>
+      <div className="relative z-10 p-6 flex-1 flex flex-col safe-top safe-bottom">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-5">
+          <button 
+            onClick={() => navigate('/')}
+            className="w-10 h-10 rounded-full glass flex items-center justify-center text-white/60 hover:text-white active:scale-95 transition-all"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
 
-            <div className="min-w-0 flex-1">
-              <p className="text-white/40 text-[10px] uppercase tracking-[0.22em] mb-1">Режим</p>
-              <h1 className="text-white font-black text-xl leading-none">Правда или Ложь</h1>
-              <p className="text-white/55 text-xs mt-1">Держи темп, чтобы не терять серию</p>
-            </div>
-
-            <div className="relative w-14 h-14 shrink-0">
-              <svg className="w-full h-full -rotate-90">
-                <circle cx="28" cy="28" r="24" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="3" />
-                <motion.circle
-                  cx="28" cy="28" r="24"
-                  fill="none"
-                  stroke={timerColor}
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  strokeDasharray={151}
-                  strokeDashoffset={151 - (151 * timerProgress)}
-                  initial={{ strokeDashoffset: 151 }}
-                  animate={{ strokeDashoffset: 151 - (151 * timerProgress) }}
-                  className="timer-glow"
-                />
-              </svg>
-              <div className={`absolute inset-0 flex items-center justify-center font-black text-lg ${timeLeft <= 5 && !answerLocked ? 'text-game-danger animate-pulse' : 'text-white'}`}>
-                {timeLeft}
-              </div>
+          {/* Timer */}
+          <div className="relative w-14 h-14">
+            <svg className="w-full h-full -rotate-90">
+              <circle cx="28" cy="28" r="24" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="3" />
+              <motion.circle
+                cx="28" cy="28" r="24"
+                fill="none"
+                stroke={timerColor}
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeDasharray={151}
+                strokeDashoffset={151 - (151 * timerProgress)}
+                initial={{ strokeDashoffset: 151 }}
+                animate={{ strokeDashoffset: 151 - (151 * timerProgress) }}
+                className="timer-glow"
+              />
+            </svg>
+            <div className={`absolute inset-0 flex items-center justify-center font-bold ${timeLeft <= 5 ? 'text-game-danger animate-pulse' : 'text-white'}`}>
+              {timeLeft}
             </div>
           </div>
-
-          <div className="grid grid-cols-2 gap-2 mt-3">
-            <div className="rounded-2xl border border-amber-300/25 bg-amber-500/10 px-3 py-2 flex items-center gap-2">
+          
+          <div className="flex items-center gap-2">
+            <div className="glass rounded-full px-4 py-2 flex items-center gap-2">
               <UiImageIcon
                 src="/api/images/ui/truefalse_streak.png"
                 alt="Серия"
                 fallback="🔥"
                 className="w-5 h-5 object-contain"
               />
-              <div>
-                <p className="text-[10px] uppercase tracking-wide text-white/45">Серия</p>
-                <p className="text-white font-extrabold leading-none text-lg">{streak}</p>
-              </div>
+              <span className="font-bold text-white">{streak}</span>
             </div>
-            <div className="rounded-2xl border border-cyan-300/25 bg-cyan-500/10 px-3 py-2">
-              <p className="text-[10px] uppercase tracking-wide text-white/45 mb-0.5">Рекорд</p>
-              <p className="text-cyan-100 font-extrabold leading-none text-lg">{record}</p>
+            <div className="glass rounded-full px-3 py-2">
+              <span className="text-xs text-white/80">Рекорд: <span className="font-bold text-gradient-gold">{record}</span></span>
             </div>
           </div>
+        </div>
 
-          <div className="mt-3">
-            <div className="flex items-center justify-between text-[11px] text-white/60 mb-2">
-              <span>Прогресс серии</span>
-              <span>{streak}/{nextMilestone}</span>
-            </div>
-            <div className="h-2.5 rounded-full bg-white/10 overflow-hidden">
-              <motion.div
-                className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-lime-300 to-yellow-300"
-                initial={{ width: 0 }}
-                animate={{ width: `${streakMilestoneProgress * 100}%` }}
-                transition={{ duration: 0.35 }}
-              />
-            </div>
+        <div className="mb-3">
+          <div className="flex items-center justify-between text-xs text-white/50 mb-2">
+            <span>Прогресс серии</span>
+            <span>{streak}/{nextMilestone}</span>
           </div>
-        </section>
+          <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
+            <motion.div
+              className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-lime-300 to-yellow-300"
+              initial={{ width: 0 }}
+              animate={{ width: `${streakMilestoneProgress * 100}%` }}
+              transition={{ duration: 0.35 }}
+            />
+          </div>
+        </div>
 
-        <div className="flex-1 flex flex-col justify-center">
+        {/* Fact Card - Centered */}
+        <div className="flex-1 flex flex-col justify-start pt-1 mb-4">
           <motion.div
             key={fact?.id}
-            initial={{ opacity: 0, y: 14, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            className="mb-4"
+            initial={{ opacity: 0, scale: 0.9, rotateX: -15 }}
+            animate={{ opacity: 1, scale: 1, rotateX: 0 }}
+            className="perspective-1000"
           >
-            <div className={`relative rounded-[30px] border bg-[radial-gradient(circle_at_20%_20%,rgba(147,51,234,0.28),transparent_45%),radial-gradient(circle_at_85%_85%,rgba(34,211,238,0.16),transparent_48%),linear-gradient(160deg,rgba(30,41,59,0.66),rgba(15,23,42,0.88))] p-8 min-h-[290px] flex flex-col items-center justify-center text-center transition-all ${
+            <div className={`bento-card card-shine p-8 min-h-[240px] flex flex-col items-center justify-center text-center transition-all ${
               phase === 'break'
                 ? result?.isCorrect
-                  ? 'border-emerald-300/40 shadow-[0_0_36px_rgba(52,211,153,0.2)]'
-                  : 'border-red-300/35 shadow-[0_0_36px_rgba(239,68,68,0.2)]'
-                : 'border-white/15'
+                  ? 'border border-game-success/35'
+                  : 'border border-game-danger/35'
+                : ''
             }`}>
-              <div className={`pointer-events-none absolute -inset-10 blur-3xl ${
+              <div className={`bento-glow blur-2xl ${
                 phase === 'break'
                   ? result?.isCorrect
-                    ? 'bg-emerald-500/10'
-                    : 'bg-red-500/10'
-                  : 'bg-indigo-500/10'
+                    ? 'bg-gradient-to-br from-emerald-500/20 via-green-400/10 to-transparent'
+                    : 'bg-gradient-to-br from-red-500/20 via-rose-400/10 to-transparent'
+                  : 'bg-gradient-to-br from-purple-500/20 via-pink-500/10 to-transparent'
               }`} />
-
+              
               <UiImageIcon
                 src="/api/images/ui/truefalse_question.png"
                 alt="Вопрос"
                 fallback="🤔"
-                className="w-20 h-20 mb-6 object-contain"
+                className="w-16 h-16 mb-6 object-contain"
               />
-              <p className="relative text-[30px] leading-tight font-semibold text-white max-w-[17ch]">
+              <p className="relative text-xl md:text-2xl font-medium leading-relaxed text-white">
                 {fact?.statement}
               </p>
             </div>
           </motion.div>
 
+          {/* Success Overlay inside layout */}
           <AnimatePresence>
             {result && phase === 'break' && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
-                className={`mb-3 rounded-2xl border backdrop-blur-xl p-4 flex items-start gap-3 ${
-                  result.isCorrect
-                    ? 'border-emerald-300/35 bg-emerald-500/10'
-                    : 'border-red-300/35 bg-red-500/10'
+                className={`mt-4 glass rounded-2xl p-4 flex items-start gap-3 ${
+                  result.isCorrect ? 'border border-game-success/30' : 'border border-game-danger/35'
                 }`}
               >
                 <div className={`p-2 rounded-full ${result.isCorrect ? 'bg-game-success/20 text-game-success' : 'bg-game-danger/20 text-game-danger'}`}>
@@ -523,14 +506,14 @@ function TrueFalsePage() {
                   <p className={`font-bold mb-1 ${result.isCorrect ? 'text-game-success' : 'text-game-danger'}`}>
                     {result.isCorrect ? 'Верно!' : (result.timedOut ? 'Время вышло' : 'Неверно')}
                   </p>
-                  <p className="text-sm text-white/70 mb-1">
+                  <p className="text-sm text-white/65 mb-1">
                     Правильный ответ: <span className={result.correctAnswer ? 'text-game-success' : 'text-game-danger'}>
                       {result.correctAnswer ? 'Правда' : 'Ложь'}
                     </span>
                   </p>
-                  {result.explanation && <p className="text-sm text-white/65">{result.explanation}</p>}
+                  {result.explanation && <p className="text-sm text-white/60">{result.explanation}</p>}
                   {!result.isCorrect && (
-                    <p className="text-xs text-white/55 mt-1">Серия прервана: {result.brokenStreak || 0} → 0</p>
+                    <p className="text-xs text-white/45 mt-1">Серия прервана: {result.brokenStreak || 0} → 0</p>
                   )}
                 </div>
               </motion.div>
@@ -538,40 +521,30 @@ function TrueFalsePage() {
           </AnimatePresence>
         </div>
 
-        <section className="rounded-[30px] border border-white/12 bg-black/35 backdrop-blur-xl p-2.5 mt-1">
-          <div className="px-2 pb-2 flex items-center justify-between text-xs">
-            <span className="text-white/70">
-              {answerLocked ? 'Ответ принят' : 'Выбери ответ'}
-            </span>
-            <span className={timeLeft <= 5 && !answerLocked ? 'text-red-300 font-semibold' : 'text-white/55'}>
-              {answerLocked ? 'Готовлю следующий факт…' : `Осталось ${timeLeft}с`}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-1.5">
-            <TrueFalseAnswerButton
-              imageSrc="/api/images/ui/truefalse_btn_true.png"
-              fallbackIcon="✅"
-              label="Правда"
-              onClick={() => handleAnswer(true)}
-              disabled={answerLocked}
-              isCorrect={trueIsCorrect}
-              isWrongSelected={trueIsWrongSelected}
-              isPositive
-            />
-
-            <TrueFalseAnswerButton
-              imageSrc="/api/images/ui/truefalse_btn_false.png"
-              fallbackIcon="❌"
-              label="Ложь"
-              onClick={() => handleAnswer(false)}
-              disabled={answerLocked}
-              isCorrect={falseIsCorrect}
-              isWrongSelected={falseIsWrongSelected}
-              isPositive={false}
-            />
-          </div>
-        </section>
+        {/* Controls */}
+        <div className="grid grid-cols-1 gap-2 mt-2 mb-1">
+          <TrueFalseAnswerButton
+            imageSrc="/api/images/ui/truefalse_btn_true.png"
+            fallbackIcon="✅"
+            label="Правда"
+            onClick={() => handleAnswer(true)}
+            disabled={answered || phase === 'break'}
+            isCorrect={Boolean((answered || phase === 'break') && result?.correctAnswer === true)}
+            isWrongSelected={Boolean((answered || phase === 'break') && selectedChoice === true && result?.correctAnswer !== true)}
+            isPositive
+          />
+          
+          <TrueFalseAnswerButton
+            imageSrc="/api/images/ui/truefalse_btn_false.png"
+            fallbackIcon="❌"
+            label="Ложь"
+            onClick={() => handleAnswer(false)}
+            disabled={answered || phase === 'break'}
+            isCorrect={Boolean((answered || phase === 'break') && result?.correctAnswer === false)}
+            isWrongSelected={Boolean((answered || phase === 'break') && selectedChoice === false && result?.correctAnswer !== false)}
+            isPositive={false}
+          />
+        </div>
       </div>
     </div>
   )
