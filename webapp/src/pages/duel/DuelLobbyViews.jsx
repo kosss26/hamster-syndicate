@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion'
 import AvatarWithFrame from '../../components/AvatarWithFrame'
-import ModeDuelIcon from '../../components/ModeDuelIcon'
 import ReferralIcon from '../../components/ReferralIcon'
 import { STATES } from './constants'
 
@@ -89,7 +88,7 @@ export function DuelMenuView({
           <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
           <div className="relative bg-[#0F172A]/40 backdrop-blur-sm rounded-[28px] p-6 flex items-center gap-5">
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-white/20 to-white/5 flex items-center justify-center text-3xl shadow-inner border border-white/10">
-              <ModeDuelIcon className="w-9 h-9" />
+              <span role="img" aria-label="Случайный бой">🎲</span>
             </div>
             <div>
               <h3 className="font-bold text-xl text-white mb-1">Случайный бой</h3>
@@ -210,7 +209,7 @@ export function DuelWaitingView({
               className="absolute inset-0 bg-gradient-to-t from-game-primary/20 to-transparent w-full h-1/2 origin-bottom"
             />
             <div className="text-4xl relative z-10">
-              {isInvite ? '📨' : isRematchWaiting ? '♻️' : '🔭'}
+              {isInvite ? '📨' : isRematchWaiting ? '♻️' : '🎲'}
             </div>
           </div>
         </div>

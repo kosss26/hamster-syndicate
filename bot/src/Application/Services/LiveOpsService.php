@@ -135,8 +135,9 @@ class LiveOpsService
     {
         $dayStart = $now->copy()->startOfDay();
         $dayEnd = $dayStart->copy()->addDay();
-        $sportsCategory = $this->resolveSportsCategory();
-        $sportsCategoryId = $sportsCategory ? (int) $sportsCategory->getKey() : null;
+        $dailyCategory = $this->resolveDailyChallengeCategory($dayStart);
+        $dailyCategoryId = $dailyCategory ? (int) $dailyCategory->getKey() : null;
+        $dailyCategoryTitle = $dailyCategory ? (string) $dailyCategory->title : 'Общие знания';
 
         $definitions = [
             [
@@ -150,23 +151,21 @@ class LiveOpsService
             [
                 'id' => 'daily_truefalse_correct',
                 'title' => 'Ежедневка: правда или ложь',
-                'description' => 'Ответь правильно на 5 фактов в режиме П/Л',
-                'target' => 5,
+                'description' => 'Ответь правильно на 10 фактов в режиме П/Л',
+                'target' => 10,
                 'value' => $this->countCorrectAnswers($user, $dayStart, $dayEnd, 'truefalse'),
                 'reward' => ['coins' => 140, 'experience' => 70, 'tickets' => 1],
             ],
             [
-                'id' => 'daily_sports_correct_10',
-                'title' => 'Ежедневка: спорт',
-                'description' => $sportsCategory
-                    ? sprintf('Ответь правильно на 10 вопросов из категории %s', $sportsCategory->title)
-                    : 'Ответь правильно на 10 вопросов из категории Спорт',
+                'id' => 'daily_category_correct_10',
+                'title' => 'Ежедневка: категория дня',
+                'description' => sprintf('Ответь правильно на 10 вопросов из категории %s', $dailyCategoryTitle),
                 'target' => 10,
-                'value' => $sportsCategoryId ? $this->countCorrectAnswers($user, $dayStart, $dayEnd, null, $sportsCategoryId) : 0,
+                'value' => $dailyCategoryId ? $this->countCorrectAnswers($user, $dayStart, $dayEnd, null, $dailyCategoryId) : 0,
                 'reward' => ['coins' => 180, 'experience' => 100, 'tickets' => 1],
                 'meta' => [
-                    'category_id' => $sportsCategoryId,
-                    'category_title' => $sportsCategory ? (string) $sportsCategory->title : 'Спорт',
+                    'category_id' => $dailyCategoryId,
+                    'category_title' => $dailyCategoryTitle,
                 ],
             ],
         ];
@@ -266,21 +265,25 @@ class LiveOpsService
         return $missions;
     }
 
-    private function resolveSportsCategory(): ?Category
+    private function resolveDailyChallengeCategory(Carbon $dayStart): ?Category
     {
-        return Category::query()
+        $categories = Category::query()
             ->where('is_active', true)
-            ->where(function ($q): void {
-                $q->where('title', 'Спорт')
-                    ->orWhere('title', 'like', '%Спорт%')
-                    ->orWhere('code', 'sports')
-                    ->orWhere('code', 'sport')
-                    ->orWhere('code', 'like', 'sports%')
-                    ->orWhere('code', 'like', 'sport%');
+            ->whereHas('questions', function ($q): void {
+                $q->where('is_active', true);
             })
-            ->orderByRaw("CASE WHEN title = 'Спорт' THEN 0 ELSE 1 END")
             ->orderBy('id')
-            ->first();
+            ->get();
+
+        $count = $categories->count();
+        if ($count === 0) {
+            return null;
+        }
+
+        $dayIndex = max(0, ((int) $dayStart->dayOfYear) - 1);
+        $slot = $dayIndex % $count;
+
+        return $categories->values()->get($slot);
     }
 
     private function countFinishedDuels(User $user, Carbon $start, Carbon $end): int

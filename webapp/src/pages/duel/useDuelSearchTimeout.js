@@ -22,6 +22,9 @@ export function useDuelSearchTimeout({
   const fallbackTimerRef = useRef(null)
 
   useEffect(() => {
+    const isSearching = state === STATES.SEARCHING
+    const isWaitingOpponent = state === STATES.WAITING_OPPONENT
+
     const clearTimers = () => {
       if (searchTimerRef.current) {
         clearInterval(searchTimerRef.current)
@@ -33,7 +36,7 @@ export function useDuelSearchTimeout({
       }
     }
 
-    if (state !== STATES.WAITING_OPPONENT) {
+    if (!isSearching && !isWaitingOpponent) {
       clearTimers()
       setGhostFallbackPending(false)
       ghostPoolAvailableRef.current = null
@@ -45,6 +48,9 @@ export function useDuelSearchTimeout({
     let cancelled = false
     const isStillWaiting = () => !cancelled && duelStateRef.current === STATES.WAITING_OPPONENT
 
+    if (isSearching) {
+      ghostPoolAvailableRef.current = null
+    }
     setSearchTimeLeft(30)
     setGhostFallbackPending(false)
 
@@ -52,6 +58,11 @@ export function useDuelSearchTimeout({
       setSearchTimeLeft((prev) => {
         if (prev > 1) {
           return prev - 1
+        }
+
+        if (isSearching) {
+          clearTimers()
+          return 0
         }
 
         clearTimers()
