@@ -475,6 +475,176 @@ function handleAdminQuestionAnalytics($container, ?array $telegramUser, array $q
     ]);
 }
 
+/**
+ * Экономическая аналитика для балансировки магазина
+ * GET /admin/analytics/economy
+ */
+function handleAdminEconomyAnalytics($container, ?array $telegramUser, array $query): void
+{
+    if (!isAdmin($telegramUser, $container)) {
+        jsonError('Доступ запрещён', 403);
+    }
+
+    $days = max(1, min(365, (int) ($query['days'] ?? 30)));
+    $from = \Illuminate\Support\Carbon::now()->subDays($days)->startOfDay();
+
+    $activeUsers = \QuizBot\Domain\Model\User::query()
+        ->where('updated_at', '>=', $from)
+        ->count();
+    $newUsers = \QuizBot\Domain\Model\User::query()
+        ->where('created_at', '>=', $from)
+        ->count();
+
+    $purchaseSummary = \Illuminate\Database\Capsule\Manager::table('shop_purchases')
+        ->selectRaw('COUNT(*) as purchases, COUNT(DISTINCT user_id) as buyers, COALESCE(SUM(price_coins),0) as total_coins_spent, COALESCE(SUM(price_gems),0) as total_gems_spent')
+        ->where('created_at', '>=', $from)
+        ->first();
+
+    $purchases = (int) ($purchaseSummary->purchases ?? 0);
+    $buyers = (int) ($purchaseSummary->buyers ?? 0);
+    $totalCoinsSpent = (int) ($purchaseSummary->total_coins_spent ?? 0);
+    $totalGemsSpent = (int) ($purchaseSummary->total_gems_spent ?? 0);
+
+    $conversionPercent = $activeUsers > 0 ? round(($buyers / $activeUsers) * 100, 2) : 0.0;
+    $coinsArpdau = $activeUsers > 0 ? round($totalCoinsSpent / $activeUsers, 2) : 0.0;
+    $gemsArpdau = $activeUsers > 0 ? round($totalGemsSpent / $activeUsers, 2) : 0.0;
+    $avgCheckCoins = $purchases > 0 ? round($totalCoinsSpent / $purchases, 2) : 0.0;
+    $avgCheckGems = $purchases > 0 ? round($totalGemsSpent / $purchases, 2) : 0.0;
+
+    $firstPurchases = \Illuminate\Database\Capsule\Manager::table('shop_purchases')
+        ->selectRaw('user_id, MIN(created_at) as first_purchase_at')
+        ->groupBy('user_id')
+        ->get();
+
+    $firstPurchaseUserIds = $firstPurchases
+        ->map(static fn ($row): int => (int) ($row->user_id ?? 0))
+        ->filter(static fn (int $id): bool => $id > 0)
+        ->values()
+        ->all();
+
+    $usersById = [];
+    if ($firstPurchaseUserIds !== []) {
+        $usersById = \QuizBot\Domain\Model\User::query()
+            ->whereIn('id', $firstPurchaseUserIds)
+            ->get()
+            ->keyBy('id')
+            ->all();
+    }
+
+    $hoursToFirstPurchase = [];
+    foreach ($firstPurchases as $row) {
+        $uid = (int) ($row->user_id ?? 0);
+        $firstPurchaseAt = (string) ($row->first_purchase_at ?? '');
+        if ($uid <= 0 || $firstPurchaseAt === '' || !isset($usersById[$uid])) {
+            continue;
+        }
+
+        /** @var \QuizBot\Domain\Model\User $user */
+        $user = $usersById[$uid];
+        if (!$user->created_at) {
+            continue;
+        }
+
+        try {
+            $purchaseAt = \Illuminate\Support\Carbon::parse($firstPurchaseAt);
+            $hours = max(0.0, $user->created_at->diffInSeconds($purchaseAt, false) / 3600);
+            $hoursToFirstPurchase[] = round($hours, 2);
+        } catch (\Throwable $e) {
+            // ignore broken rows
+        }
+    }
+
+    sort($hoursToFirstPurchase);
+    $ttfpCount = count($hoursToFirstPurchase);
+    $ttfpAvg = $ttfpCount > 0 ? round(array_sum($hoursToFirstPurchase) / $ttfpCount, 2) : null;
+    $ttfpMedian = null;
+    if ($ttfpCount > 0) {
+        $middle = intdiv($ttfpCount, 2);
+        if (($ttfpCount % 2) === 0) {
+            $ttfpMedian = round((($hoursToFirstPurchase[$middle - 1] ?? 0) + ($hoursToFirstPurchase[$middle] ?? 0)) / 2, 2);
+        } else {
+            $ttfpMedian = $hoursToFirstPurchase[$middle] ?? null;
+        }
+    }
+
+    $dailyTrend = \Illuminate\Database\Capsule\Manager::table('shop_purchases')
+        ->selectRaw('DATE(created_at) as day, COUNT(*) as purchases, COUNT(DISTINCT user_id) as buyers, COALESCE(SUM(price_coins),0) as coins_spent, COALESCE(SUM(price_gems),0) as gems_spent')
+        ->where('created_at', '>=', $from)
+        ->groupBy(\Illuminate\Database\Capsule\Manager::raw('DATE(created_at)'))
+        ->orderBy('day')
+        ->get()
+        ->map(static function ($row): array {
+            return [
+                'day' => (string) ($row->day ?? ''),
+                'purchases' => (int) ($row->purchases ?? 0),
+                'buyers' => (int) ($row->buyers ?? 0),
+                'coins_spent' => (int) ($row->coins_spent ?? 0),
+                'gems_spent' => (int) ($row->gems_spent ?? 0),
+            ];
+        })
+        ->values()
+        ->all();
+
+    $topItems = \Illuminate\Database\Capsule\Manager::table('shop_purchases as p')
+        ->join('shop_items as i', 'i.id', '=', 'p.item_id')
+        ->where('p.created_at', '>=', $from)
+        ->selectRaw('
+            i.id as item_id,
+            i.name as item_name,
+            i.type as item_type,
+            i.rarity as rarity,
+            COUNT(p.id) as purchases,
+            COUNT(DISTINCT p.user_id) as buyers,
+            COALESCE(SUM(p.quantity),0) as units,
+            COALESCE(SUM(p.price_coins),0) as coins_spent,
+            COALESCE(SUM(p.price_gems),0) as gems_spent
+        ')
+        ->groupBy('i.id', 'i.name', 'i.type', 'i.rarity')
+        ->orderByDesc('units')
+        ->limit(15)
+        ->get()
+        ->map(static function ($row): array {
+            return [
+                'item_id' => (int) ($row->item_id ?? 0),
+                'item_name' => (string) ($row->item_name ?? ''),
+                'item_type' => (string) ($row->item_type ?? ''),
+                'rarity' => (string) ($row->rarity ?? 'common'),
+                'purchases' => (int) ($row->purchases ?? 0),
+                'buyers' => (int) ($row->buyers ?? 0),
+                'units' => (int) ($row->units ?? 0),
+                'coins_spent' => (int) ($row->coins_spent ?? 0),
+                'gems_spent' => (int) ($row->gems_spent ?? 0),
+            ];
+        })
+        ->values()
+        ->all();
+
+    jsonResponse([
+        'filters' => [
+            'days' => $days,
+            'from' => $from->toIso8601String(),
+        ],
+        'summary' => [
+            'active_users' => $activeUsers,
+            'new_users' => $newUsers,
+            'buyers' => $buyers,
+            'purchases' => $purchases,
+            'conversion_percent' => $conversionPercent,
+            'total_coins_spent' => $totalCoinsSpent,
+            'total_gems_spent' => $totalGemsSpent,
+            'coins_arpdau' => $coinsArpdau,
+            'gems_arpdau' => $gemsArpdau,
+            'avg_check_coins' => $avgCheckCoins,
+            'avg_check_gems' => $avgCheckGems,
+            'time_to_first_purchase_hours_avg' => $ttfpAvg,
+            'time_to_first_purchase_hours_median' => $ttfpMedian,
+            'time_to_first_purchase_sample' => $ttfpCount,
+        ],
+        'daily_trend' => $dailyTrend,
+        'top_items' => $topItems,
+    ]);
+}
+
 function resolveAdminDifficultyBand(float $accuracyPercent, int $attempts): string
 {
     if ($attempts < 15) {

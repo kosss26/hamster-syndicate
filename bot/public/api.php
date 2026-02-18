@@ -139,6 +139,7 @@ require_once __DIR__ . '/handlers/duel_handlers.php';
 require_once __DIR__ . '/handlers/truefalse_handlers.php';
 require_once __DIR__ . '/handlers/admin_handlers.php';
 require_once __DIR__ . '/handlers/user_handlers.php';
+require_once __DIR__ . '/handlers/liveops_handlers.php';
 
 // Роутинг
 try {
@@ -251,6 +252,16 @@ try {
             handleGetQuickStatistics($container, $telegramUser);
             break;
 
+        // GET /liveops/dashboard - получить live-ops прогресс (миссии/неделя/сезон)
+        case $path === '/liveops/dashboard' && $requestMethod === 'GET':
+            handleGetLiveOpsDashboard($container, $telegramUser);
+            break;
+
+        // POST /liveops/claim - получить награду миссии/челленджа
+        case $path === '/liveops/claim' && $requestMethod === 'POST':
+            handleClaimLiveOpsReward($container, $telegramUser, $body);
+            break;
+
         // GET /referral/stats - получить реферальную статистику
         case $path === '/referral/stats' && $requestMethod === 'GET':
             handleGetReferralStats($container, $telegramUser);
@@ -279,6 +290,11 @@ try {
         // GET /admin/analytics/questions - аналитика по вопросам
         case $path === '/admin/analytics/questions' && $requestMethod === 'GET':
             handleAdminQuestionAnalytics($container, $telegramUser, $_GET);
+            break;
+
+        // GET /admin/analytics/economy - экономика (ARPDAU/конверсия/TTFP)
+        case $path === '/admin/analytics/economy' && $requestMethod === 'GET':
+            handleAdminEconomyAnalytics($container, $telegramUser, $_GET);
             break;
 
         // GET /admin/users - список пользователей с фильтрами

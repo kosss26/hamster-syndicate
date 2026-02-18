@@ -30,6 +30,7 @@ use QuizBot\Application\Services\TelegramPhotoService;
 use QuizBot\Application\Services\AchievementService;
 use QuizBot\Application\Services\AchievementTrackerService;
 use QuizBot\Application\Services\CollectionService;
+use QuizBot\Application\Services\LiveOpsService;
 use QuizBot\Database\Seeders\SampleDataSeeder;
 
 final class AppBootstrap
@@ -242,6 +243,13 @@ final class AppBootstrap
                 return new \QuizBot\Application\Services\TicketService(
                     $c->get(Logger::class),
                     $c->get(UserService::class)
+                );
+            },
+            LiveOpsService::class => function (Container $c) {
+                return new LiveOpsService(
+                    $c->get(Logger::class),
+                    $c->get(UserService::class),
+                    $c->get(\QuizBot\Application\Services\TicketService::class)
                 );
             },
             AchievementService::class => function (Container $c) {

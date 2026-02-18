@@ -7,6 +7,7 @@ import { hapticFeedback, showBackButton } from '../hooks/useTelegram'
 const TABS = [
   { id: 'overview', label: 'Обзор' },
   { id: 'analytics', label: 'Аналитика' },
+  { id: 'economy', label: 'Экономика' },
   { id: 'users', label: 'Игроки' },
   { id: 'duels', label: 'Дуэли' },
   { id: 'questions', label: 'Вопросы' },
@@ -56,6 +57,10 @@ function AdminPage() {
   const [analyticsQuestionSort, setAnalyticsQuestionSort] = useState('attempts')
   const [analyticsQuestionOrder, setAnalyticsQuestionOrder] = useState('desc')
   const [analyticsQuestionQuery, setAnalyticsQuestionQuery] = useState('')
+  const [economyDays, setEconomyDays] = useState(30)
+  const [economySummary, setEconomySummary] = useState(null)
+  const [economyTrend, setEconomyTrend] = useState([])
+  const [economyTopItems, setEconomyTopItems] = useState([])
 
   const [questionForm, setQuestionForm] = useState({
     category_id: '',
@@ -115,6 +120,8 @@ function AdminPage() {
         loadStats()
       } else if (activeTab === 'analytics') {
         loadAnalytics()
+      } else if (activeTab === 'economy') {
+        loadEconomyAnalytics()
       } else if (activeTab === 'users') {
         loadUsers()
       } else if (activeTab === 'duels') {
@@ -128,13 +135,13 @@ function AdminPage() {
       }
     }, 10000)
     return () => clearInterval(interval)
-  }, [autoRefresh, activeTab, userQuery, duelQuery, duelStatus, duelDateFrom, duelDateTo, factQuery, factTruth, analyticsDays, analyticsMode, analyticsMinAttempts, analyticsCategoryId, analyticsQuestionSort, analyticsQuestionOrder, analyticsQuestionQuery])
+  }, [autoRefresh, activeTab, userQuery, duelQuery, duelStatus, duelDateFrom, duelDateTo, factQuery, factTruth, analyticsDays, analyticsMode, analyticsMinAttempts, analyticsCategoryId, analyticsQuestionSort, analyticsQuestionOrder, analyticsQuestionQuery, economyDays])
 
   const loadAll = async () => {
     setLoading(true)
     setError(null)
     try {
-      await Promise.all([loadStats(), loadAnalytics(), loadUsers(), loadDuels(), loadFacts(), loadFrames(), loadAdminNotifications()])
+      await Promise.all([loadStats(), loadAnalytics(), loadEconomyAnalytics(), loadUsers(), loadDuels(), loadFacts(), loadFrames(), loadAdminNotifications()])
     } catch (e) {
       setError(e.message || 'Ошибка загрузки админки')
     } finally {
@@ -175,6 +182,18 @@ function AdminPage() {
     if (questionRes.success) {
       setQuestionAnalytics(questionRes.data.items || [])
       setAnalyticsSummary(questionRes.data.summary || null)
+    }
+  }
+
+  const loadEconomyAnalytics = async () => {
+    const response = await api.getAdminEconomyAnalytics({
+      days: economyDays,
+    })
+
+    if (response.success) {
+      setEconomySummary(response.data?.summary || null)
+      setEconomyTrend(response.data?.daily_trend || [])
+      setEconomyTopItems(response.data?.top_items || [])
     }
   }
 
@@ -233,6 +252,15 @@ function AdminPage() {
     if (h > 0) return `${h}ч ${m}м ${s}с`
     if (m > 0) return `${m}м ${s}с`
     return `${s}с`
+  }
+
+  const formatMetric = (value, fractionDigits = 2) => {
+    const number = Number(value)
+    if (!Number.isFinite(number)) return '—'
+    return number.toLocaleString('ru-RU', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: fractionDigits,
+    })
   }
 
   const loadFacts = async () => {
@@ -966,6 +994,89 @@ function AdminPage() {
                 ))}
                 {questionAnalytics.length === 0 && (
                   <div className="text-white/50 text-sm">Нет данных по выбранным фильтрам.</div>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'economy' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+            <div className="rounded-2xl border border-white/10 bg-black/25 p-4 space-y-3">
+              <div className="text-sm text-white/70">Экономические метрики для балансировки магазина</div>
+              <div className="grid md:grid-cols-3 gap-2">
+                <select
+                  value={economyDays}
+                  onChange={(e) => setEconomyDays(Number(e.target.value))}
+                  className="rounded-xl bg-black/30 border border-white/15 px-4 py-3 text-white"
+                >
+                  <option value={7}>За 7 дней</option>
+                  <option value={14}>За 14 дней</option>
+                  <option value={30}>За 30 дней</option>
+                  <option value={90}>За 90 дней</option>
+                </select>
+                <button onClick={loadEconomyAnalytics} className="rounded-xl bg-white/10 text-white/80 px-4 py-3">
+                  Обновить экономику
+                </button>
+                <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-white/70 text-sm">
+                  Фокус: ARPDAU / конверсия / TTFP
+                </div>
+              </div>
+            </div>
+
+            {economySummary && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <Kpi title="Активных пользователей" value={formatMetric(economySummary.active_users, 0)} />
+                <Kpi title="Платящих пользователей" value={formatMetric(economySummary.buyers, 0)} />
+                <Kpi title="Конверсия в покупку" value={`${formatMetric(economySummary.conversion_percent)}%`} />
+                <Kpi title="Покупок" value={formatMetric(economySummary.purchases, 0)} />
+                <Kpi title="Coins ARPDAU" value={formatMetric(economySummary.coins_arpdau)} />
+                <Kpi title="Gems ARPDAU" value={formatMetric(economySummary.gems_arpdau)} />
+                <Kpi title="Avg check (coins)" value={formatMetric(economySummary.avg_check_coins)} />
+                <Kpi title="Avg check (gems)" value={formatMetric(economySummary.avg_check_gems)} />
+                <Kpi title="TTFP среднее (ч)" value={formatMetric(economySummary.time_to_first_purchase_hours_avg)} />
+                <Kpi title="TTFP медиана (ч)" value={formatMetric(economySummary.time_to_first_purchase_hours_median)} />
+                <Kpi title="TTFP выборка" value={formatMetric(economySummary.time_to_first_purchase_sample, 0)} />
+                <Kpi title="Новых пользователей" value={formatMetric(economySummary.new_users, 0)} />
+              </div>
+            )}
+
+            <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
+              <div className="text-white text-sm font-semibold mb-3">Дневной тренд покупок</div>
+              <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+                {economyTrend.map((day) => (
+                  <div key={day.day} className="min-w-[148px] rounded-xl border border-white/10 bg-black/20 p-2.5 text-xs">
+                    <div className="text-white/60 mb-1">{day.day}</div>
+                    <div className="text-white">Покупки: {formatMetric(day.purchases, 0)}</div>
+                    <div className="text-white/80">Покупатели: {formatMetric(day.buyers, 0)}</div>
+                    <div className="text-amber-200/90">Coins: {formatMetric(day.coins_spent, 0)}</div>
+                    <div className="text-cyan-200/90">Gems: {formatMetric(day.gems_spent, 0)}</div>
+                  </div>
+                ))}
+                {economyTrend.length === 0 && (
+                  <div className="text-white/50 text-sm">Нет данных по тренду экономики.</div>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
+              <div className="text-white text-sm font-semibold mb-3">Топ товаров магазина</div>
+              <div className="space-y-2">
+                {economyTopItems.map((item) => (
+                  <div key={item.item_id} className="rounded-xl border border-white/10 bg-black/20 p-3 grid grid-cols-2 md:grid-cols-6 gap-2 text-xs">
+                    <div className="text-white">
+                      <div className="font-semibold">#{item.item_id} {item.item_name}</div>
+                      <div className="text-white/50">{item.item_type} · {item.rarity}</div>
+                    </div>
+                    <div className="text-white/70">Units: <span className="text-white">{formatMetric(item.units, 0)}</span></div>
+                    <div className="text-white/70">Покупок: <span className="text-white">{formatMetric(item.purchases, 0)}</span></div>
+                    <div className="text-white/70">Покупателей: <span className="text-white">{formatMetric(item.buyers, 0)}</span></div>
+                    <div className="text-amber-200/90">Coins: {formatMetric(item.coins_spent, 0)}</div>
+                    <div className="text-cyan-200/90">Gems: {formatMetric(item.gems_spent, 0)}</div>
+                  </div>
+                ))}
+                {economyTopItems.length === 0 && (
+                  <div className="text-white/50 text-sm">Покупки по товарам пока отсутствуют.</div>
                 )}
               </div>
             </div>

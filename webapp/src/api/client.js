@@ -290,6 +290,11 @@ export const api = {
   // Статистика
   getStatistics: () => request('/statistics'),
   getQuickStatistics: () => request('/statistics/quick'),
+  getLiveOpsDashboard: () => request('/liveops/dashboard'),
+  claimLiveOpsReward: (claimKey) => request('/liveops/claim', {
+    method: 'POST',
+    body: JSON.stringify({ claim_key: claimKey }),
+  }),
 
   // Реферальная система
   getReferralStats: () => request('/referral/stats'),
@@ -389,6 +394,10 @@ export const api = {
   getAdminQuestionAnalytics: (params = {}) => {
     const query = new URLSearchParams(params).toString()
     return request(`/admin/analytics/questions${query ? `?${query}` : ''}`)
+  },
+  getAdminEconomyAnalytics: (params = {}) => {
+    const query = new URLSearchParams(params).toString()
+    return request(`/admin/analytics/economy${query ? `?${query}` : ''}`)
   },
   getAdminUsers: (params = {}) => {
     const query = new URLSearchParams(params).toString()
