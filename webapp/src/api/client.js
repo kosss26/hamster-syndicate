@@ -276,6 +276,12 @@ export const api = {
     body: JSON.stringify({ factId, answer })
   }),
 
+  leaveTrueFalseRound: () => request('/truefalse/leave', {
+    method: 'POST',
+    keepalive: true,
+    body: JSON.stringify({})
+  }),
+
   // Рейтинг
   getLeaderboard: (type = 'duel') => request(`/leaderboard?type=${type}`),
   getLeaderboardCached: (type = 'duel', { maxAgeMs = 30000, forceRefresh = false } = {}) => (

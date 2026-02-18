@@ -105,12 +105,32 @@ function TrueFalsePage() {
   const breakTimerRef = useRef(null)
   const factRef = useRef(null)
   const questionDeadlineRef = useRef(null)
+  const answeredRef = useRef(false)
+  const phaseRef = useRef('playing')
+  const leaveRequestSentRef = useRef(false)
+
+  const submitLeaveIfNeeded = () => {
+    if (leaveRequestSentRef.current) return
+    if (answeredRef.current || phaseRef.current === 'break') return
+    if (!factRef.current) return
+
+    leaveRequestSentRef.current = true
+    api.leaveTrueFalseRound().catch((err) => {
+      console.warn('Failed to leave true/false round:', err)
+    })
+  }
+
+  const handleExit = () => {
+    submitLeaveIfNeeded()
+    navigate('/')
+  }
 
   useEffect(() => {
     showBackButton(true)
     loadQuestion()
 
     return () => {
+      submitLeaveIfNeeded()
       if (breakTimerRef.current) {
         clearTimeout(breakTimerRef.current)
         breakTimerRef.current = null
@@ -121,6 +141,14 @@ function TrueFalsePage() {
   useEffect(() => {
     factRef.current = fact
   }, [fact])
+
+  useEffect(() => {
+    answeredRef.current = answered
+  }, [answered])
+
+  useEffect(() => {
+    phaseRef.current = phase
+  }, [phase])
 
   const resolveTiming = (payload = {}) => {
     const timeLimitRaw = Number(payload?.time_limit || QUESTION_TIME_LIMIT)
@@ -160,16 +188,7 @@ function TrueFalsePage() {
     }
   }
 
-  const applyNextQuestion = (nextFact) => {
-    if (nextFact) {
-      applyQuestionPayload(nextFact, { triggerTimeoutIfExpired: true })
-      return
-    }
-
-    loadQuestion({ soft: true })
-  }
-
-  const scheduleNextQuestion = (nextFact = null) => {
+  const scheduleNextQuestion = () => {
     if (breakTimerRef.current) {
       clearTimeout(breakTimerRef.current)
       breakTimerRef.current = null
@@ -177,7 +196,7 @@ function TrueFalsePage() {
 
     setPhase('break')
     breakTimerRef.current = setTimeout(() => {
-      applyNextQuestion(nextFact)
+      loadQuestion({ soft: true })
     }, BREAK_STATE_MS)
   }
 
@@ -205,7 +224,7 @@ function TrueFalsePage() {
         setStreak(data.streak ?? 0)
         setRecord(data.record)
         hapticFeedback('error')
-        scheduleNextQuestion(data.next_fact || null)
+        scheduleNextQuestion()
       }
     } catch (err) {
       console.error('Timeout error:', err)
@@ -306,7 +325,7 @@ function TrueFalsePage() {
           hapticFeedback('error')
         }
 
-        scheduleNextQuestion(data.next_fact || null)
+        scheduleNextQuestion()
       }
     } catch (err) {
       console.error('Failed to submit answer:', err)
@@ -443,7 +462,7 @@ function TrueFalsePage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <button 
-            onClick={() => navigate('/')}
+            onClick={handleExit}
             className="w-10 h-10 rounded-full glass flex items-center justify-center text-white/60 hover:text-white active:scale-95 transition-all"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>

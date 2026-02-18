@@ -237,6 +237,11 @@ try {
             handleTrueFalseAnswer($container, $telegramUser, $body);
             break;
 
+        // POST /truefalse/leave - выйти из режима и завершить текущий вопрос как промах
+        case $path === '/truefalse/leave' && $requestMethod === 'POST':
+            handleLeaveTrueFalse($container, $telegramUser);
+            break;
+
         // GET /leaderboard - получить рейтинг
         case $path === '/leaderboard' && $requestMethod === 'GET':
             handleGetLeaderboard($container, $_GET['type'] ?? 'duel');

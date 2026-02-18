@@ -70,6 +70,7 @@ function handleGetTrueFalseQuestion($container, ?array $telegramUser): void
         jsonError('Не удалось загрузить факт', 500);
     }
 
+    $trueFalseService->ensureCurrentFactStarted($user);
     $timing = $trueFalseService->getCurrentTiming($user);
 
     jsonResponse(buildTrueFalseFactPayload($fact, $timing));
@@ -161,5 +162,31 @@ function handleTrueFalseAnswer($container, ?array $telegramUser, array $body): v
         'achievement_unlocks' => $achievementUnlocks,
         'collection_drops' => $collectionDrop ? [$collectionDrop] : [],
         'next_fact' => $nextFactPayload,
+    ]);
+}
+
+/**
+ * Выход из режима "Правда или ложь" с фиксацией промаха.
+ */
+function handleLeaveTrueFalse($container, ?array $telegramUser): void
+{
+    if (!$telegramUser) {
+        jsonError('Не авторизован', 401);
+    }
+
+    /** @var UserService $userService */
+    $userService = $container->get(UserService::class);
+    $user = $userService->findByTelegramId((int) $telegramUser['id']);
+
+    if (!$user) {
+        jsonError('Пользователь не найден', 404);
+    }
+
+    /** @var TrueFalseService $trueFalseService */
+    $trueFalseService = $container->get(TrueFalseService::class);
+    $trueFalseService->leaveCurrentQuestion($user);
+
+    jsonResponse([
+        'status' => 'ok',
     ]);
 }

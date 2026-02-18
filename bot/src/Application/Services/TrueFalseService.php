@@ -163,7 +163,8 @@ class TrueFalseService
 
         if ($nextFact instanceof TrueFalseFact) {
             $session['current_fact_id'] = $nextFact->getKey();
-            $session['current_fact_started_at'] = Carbon::now()->toIso8601String();
+            // Старт вопроса откладываем до фактического показа на клиенте.
+            $session['current_fact_started_at'] = null;
             $session['asked'][] = $nextFact->getKey();
             $this->pushRecentFactId($session, (int) $nextFact->getKey());
             if ($nextFact->is_true) {
@@ -251,6 +252,31 @@ class TrueFalseService
         return $fact;
     }
 
+    /**
+     * Завершает текущий вопрос как неудачный выход из режима.
+     * Текущий факт очищается, серия сбрасывается.
+     */
+    public function leaveCurrentQuestion(User $user): void
+    {
+        $user = $this->userService->ensureProfile($user);
+        $session = $this->getSession($user);
+
+        if (!is_array($session)) {
+            return;
+        }
+
+        $currentFactId = (int) ($session['current_fact_id'] ?? 0);
+        if ($currentFactId <= 0) {
+            return;
+        }
+
+        $session['streak'] = 0;
+        $session['current_fact_id'] = null;
+        $session['current_fact_started_at'] = null;
+
+        $this->saveSession($user, $session);
+    }
+
     public function getCurrentFact(User $user): ?TrueFalseFact
     {
         $session = $this->getSession($user);
@@ -263,6 +289,30 @@ class TrueFalseService
         return TrueFalseFact::query()
             ->where('is_active', true)
             ->find($currentId);
+    }
+
+    /**
+     * Запускает таймер текущего вопроса, если он еще не стартовал.
+     */
+    public function ensureCurrentFactStarted(User $user): void
+    {
+        $session = $this->getSession($user);
+        if (!is_array($session)) {
+            return;
+        }
+
+        $currentId = (int) ($session['current_fact_id'] ?? 0);
+        if ($currentId <= 0) {
+            return;
+        }
+
+        $startedAtRaw = $session['current_fact_started_at'] ?? null;
+        if (is_string($startedAtRaw) && trim($startedAtRaw) !== '') {
+            return;
+        }
+
+        $session['current_fact_started_at'] = Carbon::now()->toIso8601String();
+        $this->saveSession($user, $session);
     }
 
     /**
