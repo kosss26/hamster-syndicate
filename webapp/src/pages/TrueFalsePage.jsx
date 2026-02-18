@@ -9,6 +9,23 @@ import { addNotificationItems } from '../utils/notificationInbox'
 const QUESTION_TIME_LIMIT = 15
 const BREAK_STATE_MS = 3000
 
+function UiImageIcon({ src, alt, fallback, className = '' }) {
+  const [failed, setFailed] = useState(false)
+
+  if (failed) {
+    return <span className={className}>{fallback}</span>
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className={className}
+      onError={() => setFailed(true)}
+    />
+  )
+}
+
 function TrueFalsePage() {
   const navigate = useNavigate()
   const { user } = useTelegram()
@@ -342,7 +359,12 @@ function TrueFalsePage() {
           
           <div className="flex items-center gap-2">
             <div className="glass rounded-full px-4 py-2 flex items-center gap-2">
-              <span className="text-xl">🔥</span>
+              <UiImageIcon
+                src="/api/images/ui/truefalse_streak.png"
+                alt="Серия"
+                fallback="🔥"
+                className="w-5 h-5 object-contain"
+              />
               <span className="font-bold text-white">{streak}</span>
             </div>
             <div className="glass rounded-full px-3 py-2">
@@ -389,7 +411,12 @@ function TrueFalsePage() {
                   : 'bg-gradient-to-br from-purple-500/20 via-pink-500/10 to-transparent'
               }`} />
               
-              <div className="text-4xl mb-6">🤔</div>
+              <UiImageIcon
+                src="/api/images/ui/truefalse_question.png"
+                alt="Вопрос"
+                fallback="🤔"
+                className="w-16 h-16 mb-6 object-contain"
+              />
               <p className="relative text-xl md:text-2xl font-medium leading-relaxed text-white">
                 {fact?.statement}
               </p>
