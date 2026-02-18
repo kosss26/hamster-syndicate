@@ -226,7 +226,7 @@ function HomePage() {
   }
 
   return (
-    <div className="min-h-dvh bg-aurora relative flex flex-col overflow-hidden">
+    <div className="min-h-dvh bg-aurora bg-page-home relative flex flex-col overflow-hidden">
       <div className="aurora-blob aurora-blob-1" />
       <div className="aurora-blob aurora-blob-2" />
       <div className="noise-overlay" />

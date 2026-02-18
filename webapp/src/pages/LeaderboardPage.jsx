@@ -139,14 +139,14 @@ export default function LeaderboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-dvh bg-aurora flex items-center justify-center">
+      <div className="min-h-dvh bg-aurora bg-page-leaderboard flex items-center justify-center">
         <div className="spinner" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-dvh bg-aurora relative overflow-hidden pb-24">
+    <div className="min-h-dvh bg-aurora bg-page-leaderboard relative overflow-hidden pb-24">
       <div className="noise-overlay" />
 
       <div className="relative z-10 px-4 pt-4 space-y-4">

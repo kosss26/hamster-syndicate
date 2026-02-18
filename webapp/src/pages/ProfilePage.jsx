@@ -66,7 +66,7 @@ function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-dvh bg-aurora relative overflow-hidden flex items-center justify-center">
+      <div className="min-h-dvh bg-aurora bg-page-profile relative overflow-hidden flex items-center justify-center">
         <div className="aurora-blob aurora-blob-1" />
         <div className="aurora-blob aurora-blob-2" />
         <div className="noise-overlay" />
@@ -81,7 +81,7 @@ function ProfilePage() {
   // Показываем страницу даже при ошибке, если есть хотя бы частичные данные
   if (!profile && !loading) {
     return (
-      <div className="min-h-dvh bg-aurora relative overflow-hidden flex items-center justify-center p-6">
+      <div className="min-h-dvh bg-aurora bg-page-profile relative overflow-hidden flex items-center justify-center p-6">
         <div className="relative z-10 text-center">
           <div className="text-6xl mb-4">⚠️</div>
           <p className="text-white/60 mb-6">{error || 'Profile not found'}</p>
@@ -116,7 +116,7 @@ function ProfilePage() {
   const avatarProgressOffset = avatarCircumference * (1 - experienceProgress / 100)
 
   return (
-    <div className="min-h-dvh bg-aurora relative overflow-hidden flex flex-col pb-24">
+    <div className="min-h-dvh bg-aurora bg-page-profile relative overflow-hidden flex flex-col pb-24">
       <div className="aurora-blob aurora-blob-1 opacity-50" />
       <div className="aurora-blob aurora-blob-3 opacity-50" />
       <div className="noise-overlay" />
