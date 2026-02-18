@@ -26,6 +26,67 @@ function UiImageIcon({ src, alt, fallback, className = '' }) {
   )
 }
 
+function TrueFalseAnswerButton({
+  imageSrc,
+  fallbackIcon,
+  label,
+  onClick,
+  disabled,
+  isCorrect,
+  isWrongSelected,
+  isPositive,
+}) {
+  const [failed, setFailed] = useState(false)
+
+  const imageStateClass = disabled
+    ? isCorrect
+      ? 'ring-4 ring-game-success/35 bg-game-success/10'
+      : isWrongSelected
+        ? 'ring-2 ring-red-400/50 bg-red-500/10'
+        : 'opacity-35 grayscale'
+    : 'hover:brightness-110 active:brightness-95'
+
+  const fallbackStateClass = disabled
+    ? isCorrect
+      ? 'bg-game-success ring-4 ring-game-success/30'
+      : isWrongSelected
+        ? 'bg-red-500/70 ring-2 ring-red-400/40'
+        : 'bg-white/5 opacity-30 grayscale'
+    : (isPositive
+      ? 'bg-gradient-to-br from-green-500 to-emerald-600 shadow-glow-success'
+      : 'bg-gradient-to-br from-red-500 to-rose-600 shadow-glow-danger')
+
+  return (
+    <motion.button
+      whileTap={{ scale: 0.95 }}
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      className={`group relative h-20 rounded-3xl font-bold text-xl overflow-hidden transition-all ${failed ? fallbackStateClass : imageStateClass}`}
+    >
+      {!failed ? (
+        <>
+          <img
+            src={imageSrc}
+            alt={label}
+            className="absolute inset-0 w-full h-full object-contain"
+            onError={() => setFailed(true)}
+          />
+          <span className="sr-only">{label}</span>
+        </>
+      ) : (
+        <>
+          <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 rounded-3xl" />
+          <div className="relative flex flex-col items-center justify-center h-full">
+            <span className="text-2xl mb-1">{fallbackIcon}</span>
+            <span className="text-white text-sm">{label}</span>
+          </div>
+        </>
+      )}
+    </motion.button>
+  )
+}
+
 function TrueFalsePage() {
   const navigate = useNavigate()
   const { user } = useTelegram()
@@ -462,47 +523,27 @@ function TrueFalsePage() {
 
         {/* Controls */}
         <div className="grid grid-cols-2 gap-3 mt-4 mb-2">
-          <motion.button
-            whileTap={{ scale: 0.95 }}
+          <TrueFalseAnswerButton
+            imageSrc="/api/images/ui/truefalse_btn_true.png"
+            fallbackIcon="✅"
+            label="Правда"
             onClick={() => handleAnswer(true)}
             disabled={answered || phase === 'break'}
-            className={`group relative h-20 rounded-3xl font-bold text-xl overflow-hidden transition-all ${
-              answered || phase === 'break'
-                ? result?.correctAnswer === true
-                  ? 'bg-game-success ring-4 ring-game-success/30'
-                  : selectedChoice === true
-                    ? 'bg-red-500/70 ring-2 ring-red-400/40'
-                    : 'bg-white/5 opacity-30 grayscale'
-                : 'bg-gradient-to-br from-green-500 to-emerald-600 shadow-glow-success'
-            }`}
-          >
-            <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 rounded-3xl" />
-            <div className="relative flex flex-col items-center justify-center h-full">
-              <span className="text-2xl mb-1">✅</span>
-              <span className="text-white text-sm">Правда</span>
-            </div>
-          </motion.button>
+            isCorrect={Boolean((answered || phase === 'break') && result?.correctAnswer === true)}
+            isWrongSelected={Boolean((answered || phase === 'break') && selectedChoice === true && result?.correctAnswer !== true)}
+            isPositive
+          />
           
-          <motion.button
-            whileTap={{ scale: 0.95 }}
+          <TrueFalseAnswerButton
+            imageSrc="/api/images/ui/truefalse_btn_false.png"
+            fallbackIcon="❌"
+            label="Ложь"
             onClick={() => handleAnswer(false)}
             disabled={answered || phase === 'break'}
-            className={`group relative h-20 rounded-3xl font-bold text-xl overflow-hidden transition-all ${
-              answered || phase === 'break'
-                ? result?.correctAnswer === false
-                  ? 'bg-game-danger ring-4 ring-game-danger/30'
-                  : selectedChoice === false
-                    ? 'bg-red-500/70 ring-2 ring-red-400/40'
-                    : 'bg-white/5 opacity-30 grayscale'
-                : 'bg-gradient-to-br from-red-500 to-rose-600 shadow-glow-danger'
-            }`}
-          >
-            <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 rounded-3xl" />
-            <div className="relative flex flex-col items-center justify-center h-full">
-              <span className="text-2xl mb-1">❌</span>
-              <span className="text-white text-sm">Ложь</span>
-            </div>
-          </motion.button>
+            isCorrect={Boolean((answered || phase === 'break') && result?.correctAnswer === false)}
+            isWrongSelected={Boolean((answered || phase === 'break') && selectedChoice === false && result?.correctAnswer !== false)}
+            isPositive={false}
+          />
         </div>
       </div>
     </div>
