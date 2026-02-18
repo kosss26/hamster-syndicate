@@ -658,6 +658,179 @@ body, html {
 }
 
 /* ============================================
+   CLASSIC HOME THEME (wood + brass)
+   ============================================ */
+.home-classic-vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(255, 182, 74, 0.18) 0%, rgba(0, 0, 0, 0) 55%),
+    radial-gradient(100% 85% at 50% 100%, rgba(13, 24, 48, 0.36) 0%, rgba(0, 0, 0, 0.18) 62%, rgba(0, 0, 0, 0.5) 100%);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.home-classic-topbar {
+  border-radius: 20px;
+  border: 1px solid rgba(234, 179, 107, 0.45);
+  background:
+    linear-gradient(170deg, rgba(128, 80, 47, 0.88), rgba(73, 43, 29, 0.92)),
+    linear-gradient(0deg, rgba(255, 217, 161, 0.09), rgba(255, 255, 255, 0));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 219, 166, 0.34),
+    inset 0 -10px 24px rgba(41, 19, 11, 0.55),
+    0 12px 32px rgba(0, 0, 0, 0.48);
+}
+
+.home-classic-icon-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 9999px;
+  border: 1px solid rgba(245, 205, 143, 0.45);
+  background: linear-gradient(180deg, rgba(67, 41, 27, 0.9), rgba(44, 25, 17, 0.95));
+  color: #fce7c0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.home-classic-panel {
+  border-radius: 26px;
+  border: 1px solid rgba(220, 162, 92, 0.48);
+  background:
+    linear-gradient(180deg, rgba(99, 60, 37, 0.88) 0%, rgba(53, 31, 22, 0.92) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(246, 203, 141, 0.32),
+    inset 0 -10px 26px rgba(29, 16, 9, 0.62),
+    0 16px 34px rgba(0, 0, 0, 0.45);
+}
+
+.home-classic-profile-strip {
+  border-radius: 18px;
+  border: 1px solid rgba(219, 157, 87, 0.4);
+  background: linear-gradient(180deg, rgba(40, 23, 17, 0.5), rgba(31, 17, 12, 0.45));
+}
+
+.home-classic-currency {
+  border-radius: 9999px;
+  border: 1px solid rgba(245, 207, 146, 0.45);
+  background: linear-gradient(180deg, rgba(53, 30, 20, 0.95), rgba(29, 17, 12, 0.95));
+  box-shadow: inset 0 1px 0 rgba(255, 224, 179, 0.18);
+}
+
+.home-classic-duel-frame {
+  border-radius: 24px;
+  border: 2px solid rgba(245, 186, 97, 0.72);
+  background:
+    linear-gradient(180deg, rgba(32, 19, 14, 0.75), rgba(26, 13, 9, 0.85)),
+    radial-gradient(circle at 20% 0%, rgba(255, 176, 91, 0.14), transparent 45%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 230, 182, 0.35),
+    inset 0 0 22px rgba(252, 180, 79, 0.2),
+    0 10px 25px rgba(0, 0, 0, 0.5);
+}
+
+.home-classic-duel-title {
+  border-radius: 9999px;
+  border: 1px solid rgba(236, 184, 108, 0.78);
+  background: linear-gradient(180deg, rgba(250, 236, 213, 0.96), rgba(220, 191, 150, 0.93));
+  color: #3f2318;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 8px 16px rgba(0, 0, 0, 0.28);
+}
+
+.home-classic-pill {
+  border-radius: 9999px;
+  border: 1px solid rgba(220, 170, 101, 0.55);
+  background: linear-gradient(180deg, rgba(54, 35, 25, 0.95), rgba(29, 18, 14, 0.98));
+  color: #f9e7c4;
+}
+
+.home-classic-action {
+  border-radius: 16px;
+  border: 1px solid rgba(251, 224, 177, 0.45);
+  color: #eef4ff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.26),
+    0 7px 18px rgba(0, 0, 0, 0.38);
+}
+
+.home-classic-action-random {
+  background:
+    radial-gradient(circle at 75% 15%, rgba(168, 194, 255, 0.32), transparent 45%),
+    linear-gradient(160deg, rgba(43, 77, 180, 0.95), rgba(24, 45, 112, 0.98));
+}
+
+.home-classic-action-friend {
+  background:
+    radial-gradient(circle at 25% 12%, rgba(105, 249, 229, 0.28), transparent 42%),
+    linear-gradient(160deg, rgba(29, 114, 134, 0.96), rgba(17, 69, 84, 0.99));
+}
+
+.home-classic-row {
+  border-radius: 20px;
+  border: 1px solid rgba(224, 169, 96, 0.5);
+  background: linear-gradient(170deg, rgba(99, 60, 37, 0.86), rgba(51, 30, 21, 0.9));
+  box-shadow:
+    inset 0 1px 0 rgba(246, 202, 146, 0.25),
+    inset 0 -10px 20px rgba(33, 18, 11, 0.54),
+    0 10px 22px rgba(0, 0, 0, 0.35);
+}
+
+.home-classic-row-cool {
+  background: linear-gradient(170deg, rgba(36, 43, 66, 0.88), rgba(24, 28, 44, 0.93));
+  border-color: rgba(133, 167, 242, 0.38);
+}
+
+.home-classic-chip-btn {
+  border-radius: 9999px;
+  border: 1px solid rgba(244, 197, 121, 0.58);
+  background: linear-gradient(180deg, rgba(63, 42, 24, 0.92), rgba(35, 23, 14, 0.95));
+  color: #f8dfb7;
+  box-shadow: inset 0 1px 0 rgba(255, 224, 177, 0.26);
+}
+
+.home-classic-progress {
+  height: 12px;
+  border-radius: 9999px;
+  border: 1px solid rgba(246, 197, 128, 0.46);
+  background: rgba(16, 10, 7, 0.45);
+  overflow: hidden;
+}
+
+.home-classic-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #f6c15c 0%, #f59e0b 55%, #ef7f1a 100%);
+  box-shadow: 0 0 12px rgba(245, 161, 33, 0.5);
+}
+
+.home-classic-progress-blue > span {
+  background: linear-gradient(90deg, #5fd2ff 0%, #3588ff 60%, #2f66ff 100%);
+  box-shadow: 0 0 12px rgba(63, 141, 255, 0.5);
+}
+
+.home-classic-dock {
+  border-radius: 26px;
+  border: 1px solid rgba(228, 172, 94, 0.45);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(61, 99, 194, 0.22), transparent 58%),
+    linear-gradient(180deg, rgba(39, 31, 35, 0.96), rgba(19, 17, 21, 0.98));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 221, 168, 0.26),
+    0 18px 40px rgba(0, 0, 0, 0.55);
+}
+
+.home-classic-dock-active {
+  border-radius: 16px;
+  border: 1px solid rgba(98, 199, 255, 0.45);
+  background: linear-gradient(180deg, rgba(57, 111, 255, 0.2), rgba(15, 50, 160, 0.18));
+  box-shadow: inset 0 0 18px rgba(77, 170, 255, 0.26), 0 0 22px rgba(49, 139, 255, 0.28);
+}
+
+/* ============================================
    RESPONSIVE UTILITIES
    ============================================ */
 @media (max-width: 380px) {
