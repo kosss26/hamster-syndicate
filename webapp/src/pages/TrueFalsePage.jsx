@@ -44,7 +44,7 @@ function TrueFalseAnswerButton({
       : isWrongSelected
         ? 'ring-2 ring-red-400/50 bg-red-500/10'
         : 'opacity-35 grayscale'
-    : 'hover:brightness-110 active:brightness-95 ring-1 ring-white/15'
+    : 'hover:brightness-110 active:brightness-95'
 
   const fallbackStateClass = disabled
     ? isCorrect
@@ -62,14 +62,14 @@ function TrueFalseAnswerButton({
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
-      className={`group relative h-28 rounded-[28px] font-bold text-xl overflow-hidden transition-all ${failed ? fallbackStateClass : imageStateClass}`}
+      className={`group relative h-32 rounded-[28px] font-bold text-xl overflow-hidden transition-all ${failed ? fallbackStateClass : imageStateClass}`}
     >
       {!failed ? (
         <>
           <img
             src={imageSrc}
             alt={label}
-            className="absolute inset-0 w-full h-full object-contain scale-[2.05]"
+            className="absolute inset-0 w-full h-full object-contain scale-[2.4]"
             onError={() => setFailed(true)}
           />
           <span className="sr-only">{label}</span>
@@ -103,6 +103,8 @@ function TrueFalsePage() {
   const [selectedChoice, setSelectedChoice] = useState(null)
   const [rewardNotifications, setRewardNotifications] = useState([])
   const breakTimerRef = useRef(null)
+  const factRef = useRef(null)
+  const questionDeadlineRef = useRef(null)
 
   useEffect(() => {
     showBackButton(true)
@@ -117,29 +119,50 @@ function TrueFalsePage() {
   }, [])
 
   useEffect(() => {
-    if (loading || answered || phase === 'break' || timeLeft <= 0) return
+    factRef.current = fact
+  }, [fact])
 
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          handleTimeout()
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
+  const resolveTiming = (payload = {}) => {
+    const timeLimitRaw = Number(payload?.time_limit || QUESTION_TIME_LIMIT)
+    const timeLimit = Number.isFinite(timeLimitRaw) && timeLimitRaw > 0 ? Math.floor(timeLimitRaw) : QUESTION_TIME_LIMIT
 
-    return () => clearInterval(timer)
-  }, [loading, answered, timeLeft, phase])
+    const expiresAtMs = payload?.question_expires_at ? Date.parse(payload.question_expires_at) : NaN
+    const fromExpires = Number.isFinite(expiresAtMs)
+      ? Math.max(0, Math.ceil((expiresAtMs - Date.now()) / 1000))
+      : null
+
+    const fromPayload = Number(payload?.time_left)
+    const safePayload = Number.isFinite(fromPayload) ? Math.max(0, Math.floor(fromPayload)) : null
+
+    const timeLeftResolved = safePayload ?? fromExpires ?? timeLimit
+    const deadlineMs = Number.isFinite(expiresAtMs) ? expiresAtMs : Date.now() + (timeLeftResolved * 1000)
+
+    return { timeLeftResolved, deadlineMs }
+  }
+
+  const applyQuestionPayload = (nextFact, { triggerTimeoutIfExpired = true } = {}) => {
+    if (!nextFact) return
+
+    const { timeLeftResolved, deadlineMs } = resolveTiming(nextFact)
+
+    setFact(nextFact)
+    setAnswered(false)
+    setResult(null)
+    setSelectedChoice(null)
+    setTimeLeft(timeLeftResolved)
+    setPhase('playing')
+    questionDeadlineRef.current = deadlineMs
+
+    if (triggerTimeoutIfExpired && timeLeftResolved <= 0) {
+      setTimeout(() => {
+        handleTimeout(nextFact)
+      }, 0)
+    }
+  }
 
   const applyNextQuestion = (nextFact) => {
     if (nextFact) {
-      setFact(nextFact)
-      setAnswered(false)
-      setResult(null)
-      setSelectedChoice(null)
-      setTimeLeft(QUESTION_TIME_LIMIT)
-      setPhase('playing')
+      applyQuestionPayload(nextFact, { triggerTimeoutIfExpired: true })
       return
     }
 
@@ -158,14 +181,15 @@ function TrueFalsePage() {
     }, BREAK_STATE_MS)
   }
 
-  const handleTimeout = async () => {
-    if (answered || !fact) return
+  const handleTimeout = async (factOverride = null) => {
+    const currentFact = factOverride || factRef.current
+    if (answered || !currentFact) return
     setAnswered(true)
     setSelectedChoice(null)
     hapticFeedback('warning')
 
     try {
-      const response = await api.submitTrueFalseAnswer(fact.id, null)
+      const response = await api.submitTrueFalseAnswer(currentFact.id, null)
 
       if (response.success) {
         const data = response.data
@@ -197,6 +221,35 @@ function TrueFalsePage() {
     }
   }
 
+  useEffect(() => {
+    if (loading || answered || phase === 'break' || !factRef.current) return
+
+    const syncTimeLeft = () => {
+      const deadlineMs = Number(questionDeadlineRef.current || 0)
+      if (!Number.isFinite(deadlineMs) || deadlineMs <= 0) return
+
+      const next = Math.max(0, Math.ceil((deadlineMs - Date.now()) / 1000))
+      setTimeLeft(next)
+
+      if (next <= 0) {
+        handleTimeout()
+      }
+    }
+
+    syncTimeLeft()
+    const timer = setInterval(syncTimeLeft, 700)
+    const onVisibilityChange = () => syncTimeLeft()
+
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    window.addEventListener('focus', onVisibilityChange)
+
+    return () => {
+      clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      window.removeEventListener('focus', onVisibilityChange)
+    }
+  }, [loading, answered, phase, fact?.id])
+
   const loadQuestion = async ({ soft = false } = {}) => {
     try {
       if (!soft) {
@@ -212,7 +265,7 @@ function TrueFalsePage() {
       const response = await api.getTrueFalseQuestion()
 
       if (response.success) {
-        setFact(response.data)
+        applyQuestionPayload(response.data, { triggerTimeoutIfExpired: true })
       } else {
         setError(response.error || 'Не удалось загрузить вопрос')
       }
@@ -241,7 +294,7 @@ function TrueFalsePage() {
           isCorrect: data.is_correct,
           explanation: data.explanation,
           correctAnswer: data.correct_answer,
-          timedOut: false,
+          timedOut: Boolean(data.timed_out),
           brokenStreak: data.is_correct ? 0 : previousStreak
         })
         setStreak(data.streak)
@@ -386,7 +439,7 @@ function TrueFalsePage() {
         )}
       </AnimatePresence>
 
-      <div className="relative z-10 p-6 flex-1 flex flex-col safe-top safe-bottom">
+      <div className="relative z-10 p-6 flex-1 flex flex-col safe-top safe-bottom overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <button 
@@ -450,7 +503,7 @@ function TrueFalsePage() {
         </div>
 
         {/* Fact Card - Centered */}
-        <div className="flex-1 flex flex-col justify-start pt-1 mb-4">
+        <div className="mb-2">
           <motion.div
             key={fact?.id}
             initial={{ opacity: 0, scale: 0.9, rotateX: -15 }}
@@ -522,7 +575,7 @@ function TrueFalsePage() {
         </div>
 
         {/* Controls */}
-        <div className="grid grid-cols-1 gap-2 mt-2 mb-1">
+        <div className="grid grid-cols-1 gap-1.5 mt-1 mb-1">
           <TrueFalseAnswerButton
             imageSrc="/api/images/ui/truefalse_btn_true.png"
             fallbackIcon="✅"

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace QuizBot\Application\Services;
 
+use Illuminate\Support\Carbon;
 use Monolog\Logger;
 use QuizBot\Domain\Model\TrueFalseFact;
 use QuizBot\Domain\Model\User;
@@ -14,6 +15,7 @@ use Symfony\Contracts\Cache\ItemInterface;
 class TrueFalseService
 {
     private const RECENT_FACTS_WINDOW = 20;
+    private const QUESTION_TIME_LIMIT_SECONDS = 15;
 
     private CacheInterface $cache;
 
@@ -52,6 +54,7 @@ class TrueFalseService
             'asked' => [$fact->getKey()],
             'recent_ids' => [$fact->getKey()],
             'current_fact_id' => $fact->getKey(),
+            'current_fact_started_at' => Carbon::now()->toIso8601String(),
             'asked_true' => $fact->is_true ? 1 : 0,
             'asked_false' => $fact->is_true ? 0 : 1,
         ];
@@ -73,7 +76,7 @@ class TrueFalseService
      *     next_fact: ?TrueFalseFact
      * }
      */
-    public function handleAnswer(User $user, int $factId, bool $answerIsTrue): array
+    public function handleAnswer(User $user, int $factId, bool $answerIsTrue, bool $forceTimeout = false): array
     {
         $user = $this->userService->ensureProfile($user);
         $session = $this->getSession($user) ?? [
@@ -81,6 +84,7 @@ class TrueFalseService
             'asked' => [],
             'recent_ids' => [],
             'current_fact_id' => null,
+            'current_fact_started_at' => null,
         ];
 
         /** @var TrueFalseFact|null $fact */
@@ -100,6 +104,7 @@ class TrueFalseService
                 'is_correct' => false,
                 'explanation' => null,
                 'correct_answer' => false,
+                'timed_out' => false,
                 'streak' => (int) ($session['streak'] ?? 0),
                 'record' => $recordValue,
                 'record_updated' => false,
@@ -107,13 +112,17 @@ class TrueFalseService
             ];
         }
 
-        $isCorrect = $fact->is_true === $answerIsTrue;
+        $timedOutByClock = $this->isAnswerTimedOut($session, $factId, self::QUESTION_TIME_LIMIT_SECONDS);
+        $timedOut = $forceTimeout || $timedOutByClock;
+        $effectiveAnswerIsTrue = $timedOut ? !(bool) $fact->is_true : $answerIsTrue;
+        $isCorrect = $fact->is_true === $effectiveAnswerIsTrue;
         $streak = $isCorrect
             ? (int) ($session['streak'] ?? 0) + 1
             : 0;
 
         $session['streak'] = $streak;
         $session['current_fact_id'] = null;
+        $session['current_fact_started_at'] = null;
         $this->pushRecentFactId($session, (int) $fact->getKey());
 
         $asked = $session['asked'] ?? [];
@@ -154,6 +163,7 @@ class TrueFalseService
 
         if ($nextFact instanceof TrueFalseFact) {
             $session['current_fact_id'] = $nextFact->getKey();
+            $session['current_fact_started_at'] = Carbon::now()->toIso8601String();
             $session['asked'][] = $nextFact->getKey();
             $this->pushRecentFactId($session, (int) $nextFact->getKey());
             if ($nextFact->is_true) {
@@ -178,8 +188,9 @@ class TrueFalseService
         return [
             'fact' => $fact,
             'is_correct' => $isCorrect,
-            'explanation' => $fact->explanation,
+            'explanation' => $timedOut ? 'Время вышло!' : $fact->explanation,
             'correct_answer' => (bool) $fact->is_true,
+            'timed_out' => $timedOut,
             'streak' => $streak,
             'record' => $record,
             'record_updated' => $recordUpdated,
@@ -195,6 +206,7 @@ class TrueFalseService
             'asked' => [],
             'recent_ids' => [],
             'current_fact_id' => null,
+            'current_fact_started_at' => null,
             'asked_true' => 0,
             'asked_false' => 0,
         ];
@@ -225,6 +237,7 @@ class TrueFalseService
             }
             $this->pushRecentFactId($session, (int) $fact->getKey());
             $session['current_fact_id'] = $fact->getKey();
+            $session['current_fact_started_at'] = Carbon::now()->toIso8601String();
             if ($factWasAddedToAsked) {
                 if ($fact->is_true) {
                     $session['asked_true'] = (int) ($session['asked_true'] ?? 0) + 1;
@@ -250,6 +263,50 @@ class TrueFalseService
         return TrueFalseFact::query()
             ->where('is_active', true)
             ->find($currentId);
+    }
+
+    /**
+     * @return array{time_limit:int,started_at:?string,expires_at:?string,time_left:int,is_expired:bool}
+     */
+    public function getCurrentTiming(User $user): array
+    {
+        $session = $this->getSession($user) ?? [];
+        $timeLimit = self::QUESTION_TIME_LIMIT_SECONDS;
+        $startedAtRaw = $session['current_fact_started_at'] ?? null;
+        $startedAt = null;
+        if (is_string($startedAtRaw) && trim($startedAtRaw) !== '') {
+            try {
+                $startedAt = Carbon::parse($startedAtRaw);
+            } catch (\Throwable) {
+                $startedAt = null;
+            }
+        }
+
+        if (!$startedAt instanceof Carbon) {
+            return [
+                'time_limit' => $timeLimit,
+                'started_at' => null,
+                'expires_at' => null,
+                'time_left' => $timeLimit,
+                'is_expired' => false,
+            ];
+        }
+
+        $expiresAt = $startedAt->copy()->addSeconds($timeLimit);
+        $timeLeft = max(0, $expiresAt->getTimestamp() - Carbon::now()->getTimestamp());
+
+        return [
+            'time_limit' => $timeLimit,
+            'started_at' => $startedAt->toIso8601String(),
+            'expires_at' => $expiresAt->toIso8601String(),
+            'time_left' => $timeLeft,
+            'is_expired' => $timeLeft <= 0,
+        ];
+    }
+
+    public function getQuestionTimeLimit(): int
+    {
+        return self::QUESTION_TIME_LIMIT_SECONDS;
     }
 
     /**
@@ -337,6 +394,35 @@ class TrueFalseService
 
         $profile->true_false_record = $streak;
         $profile->save();
+    }
+
+    /**
+     * @param array<string, mixed> $session
+     */
+    private function isAnswerTimedOut(array $session, int $factId, int $timeLimit): bool
+    {
+        if ($factId <= 0) {
+            return true;
+        }
+
+        $currentFactId = (int) ($session['current_fact_id'] ?? 0);
+        if ($currentFactId > 0 && $currentFactId !== $factId) {
+            return true;
+        }
+
+        $startedAtRaw = $session['current_fact_started_at'] ?? null;
+        if (!is_string($startedAtRaw) || trim($startedAtRaw) === '') {
+            return false;
+        }
+
+        try {
+            $startedAt = Carbon::parse($startedAtRaw);
+        } catch (\Throwable) {
+            return false;
+        }
+
+        $expiresAt = $startedAt->copy()->addSeconds(max(1, $timeLimit));
+        return $expiresAt->lte(Carbon::now());
     }
 
     private function getSessionKey(User $user): string

@@ -6,6 +6,26 @@ use QuizBot\Application\Services\AchievementTrackerService;
 use QuizBot\Application\Services\CollectionService;
 use QuizBot\Application\Services\TrueFalseService;
 use QuizBot\Application\Services\UserService;
+use QuizBot\Domain\Model\TrueFalseFact;
+
+/**
+ * @param array{time_limit:int,started_at:?string,expires_at:?string,time_left:int,is_expired:bool}|null $timing
+ * @return array{id:int,statement:string,time_limit:int,question_started_at:?string,question_expires_at:?string,time_left:int}
+ */
+function buildTrueFalseFactPayload(TrueFalseFact $fact, ?array $timing = null): array
+{
+    $timeLimit = (int) ($timing['time_limit'] ?? 15);
+    $timeLeft = (int) ($timing['time_left'] ?? $timeLimit);
+
+    return [
+        'id' => (int) $fact->getKey(),
+        'statement' => (string) $fact->statement,
+        'time_limit' => $timeLimit,
+        'question_started_at' => isset($timing['started_at']) ? (string) $timing['started_at'] : null,
+        'question_expires_at' => isset($timing['expires_at']) ? (string) $timing['expires_at'] : null,
+        'time_left' => max(0, $timeLeft),
+    ];
+}
 
 /**
  * Получение вопроса "Правда или ложь"
@@ -50,10 +70,9 @@ function handleGetTrueFalseQuestion($container, ?array $telegramUser): void
         jsonError('Не удалось загрузить факт', 500);
     }
 
-    jsonResponse([
-        'id' => $fact->getKey(),
-        'statement' => $fact->statement,
-    ]);
+    $timing = $trueFalseService->getCurrentTiming($user);
+
+    jsonResponse(buildTrueFalseFactPayload($fact, $timing));
     } catch (Throwable $e) {
         jsonError('Ошибка: ' . $e->getMessage() . ' в ' . $e->getFile() . ':' . $e->getLine(), 500);
     }
@@ -100,7 +119,8 @@ function handleTrueFalseAnswer($container, ?array $telegramUser, array $body): v
     /** @var TrueFalseService $trueFalseService */
     $trueFalseService = $container->get(TrueFalseService::class);
     
-    $result = $trueFalseService->handleAnswer($user, (int) $factId, $answerBool);
+    $result = $trueFalseService->handleAnswer($user, (int) $factId, $answerBool, $isTimeout);
+    $timedOut = (bool) ($result['timed_out'] ?? false) || $isTimeout;
     $xpGain = $result['is_correct'] ? (6 + min(10, (int) $result['streak'])) : 2;
     $xpResult = $userService->grantExperience($user, $xpGain);
 
@@ -112,7 +132,7 @@ function handleTrueFalseAnswer($container, ?array $telegramUser, array $body): v
     $achievementUnlocks = $achievementTracker->checkAndUnlock($user->getKey(), [
         'context' => 'truefalse_answer',
         'is_correct' => (bool) $result['is_correct'],
-        'is_timeout' => $isTimeout,
+        'is_timeout' => $timedOut,
         'streak' => (int) ($result['streak'] ?? 0),
     ]);
 
@@ -120,12 +140,19 @@ function handleTrueFalseAnswer($container, ?array $telegramUser, array $body): v
     $collectionService = $container->get(CollectionService::class);
     $collectionDrop = $collectionService->awardDropForEvent($user->getKey(), 'truefalse', [
         'is_success' => (bool) $result['is_correct'],
-        'is_timeout' => $isTimeout,
+        'is_timeout' => $timedOut,
         'streak' => (int) ($result['streak'] ?? 0),
     ]);
 
+    $nextFactPayload = null;
+    if ($result['next_fact'] instanceof TrueFalseFact) {
+        $timing = $trueFalseService->getCurrentTiming($user);
+        $nextFactPayload = buildTrueFalseFactPayload($result['next_fact'], $timing);
+    }
+
     jsonResponse([
         'is_correct' => $result['is_correct'],
+        'timed_out' => $timedOut,
         'correct_answer' => $result['correct_answer'],
         'explanation' => $result['explanation'],
         'streak' => $result['streak'],
@@ -133,9 +160,6 @@ function handleTrueFalseAnswer($container, ?array $telegramUser, array $body): v
         'experience' => $xpResult,
         'achievement_unlocks' => $achievementUnlocks,
         'collection_drops' => $collectionDrop ? [$collectionDrop] : [],
-        'next_fact' => $result['next_fact'] ? [
-            'id' => $result['next_fact']->getKey(),
-            'statement' => $result['next_fact']->statement,
-        ] : null,
+        'next_fact' => $nextFactPayload,
     ]);
 }
