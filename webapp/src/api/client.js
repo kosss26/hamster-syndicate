@@ -3,6 +3,10 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
 const WS_BASE_URL = import.meta.env.VITE_WS_URL || ''
 const INIT_DATA_CACHE_KEY = 'quizbot_tg_init_data'
+const RESPONSE_CACHE_PREFIX = 'quizbot_api_response_v1:'
+
+const responseMemoryCache = new Map()
+const inflightCacheRequests = new Map()
 
 // Получаем initData из Telegram для авторизации
 function getInitData() {
@@ -63,11 +67,164 @@ async function request(endpoint, options = {}) {
   }
 }
 
+function getResponseCacheStorageKey(cacheKey) {
+  return `${RESPONSE_CACHE_PREFIX}${cacheKey}`
+}
+
+function readResponseCacheEntry(cacheKey) {
+  if (!cacheKey) return null
+
+  const memoryEntry = responseMemoryCache.get(cacheKey)
+  if (memoryEntry && Number.isFinite(memoryEntry.ts)) {
+    return memoryEntry
+  }
+
+  if (typeof window === 'undefined') return null
+
+  try {
+    const raw = window.sessionStorage?.getItem(getResponseCacheStorageKey(cacheKey))
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (!parsed || !Number.isFinite(parsed.ts)) return null
+    responseMemoryCache.set(cacheKey, parsed)
+    return parsed
+  } catch (_) {
+    return null
+  }
+}
+
+function writeResponseCacheEntry(cacheKey, payload) {
+  if (!cacheKey) return payload
+
+  const entry = { ts: Date.now(), payload }
+  responseMemoryCache.set(cacheKey, entry)
+
+  if (typeof window !== 'undefined') {
+    try {
+      window.sessionStorage?.setItem(getResponseCacheStorageKey(cacheKey), JSON.stringify(entry))
+    } catch (_) {
+      // ignore quota / serialization errors
+    }
+  }
+
+  return payload
+}
+
+function readCachedResponse(cacheKey, maxAgeMs = Number.POSITIVE_INFINITY) {
+  const entry = readResponseCacheEntry(cacheKey)
+  if (!entry) return null
+
+  if (Number.isFinite(maxAgeMs) && maxAgeMs >= 0) {
+    const ageMs = Date.now() - entry.ts
+    if (ageMs > maxAgeMs) return null
+  }
+
+  return entry.payload
+}
+
+function peekCachedResponse(cacheKey) {
+  return readCachedResponse(cacheKey, Number.POSITIVE_INFINITY)
+}
+
+function invalidateResponseCache(cacheKeyOrPrefix, { prefix = false } = {}) {
+  if (!cacheKeyOrPrefix) return
+
+  for (const key of responseMemoryCache.keys()) {
+    if ((prefix && key.startsWith(cacheKeyOrPrefix)) || (!prefix && key === cacheKeyOrPrefix)) {
+      responseMemoryCache.delete(key)
+      inflightCacheRequests.delete(key)
+    }
+  }
+
+  if (typeof window !== 'undefined') {
+    try {
+      const keysToDelete = []
+      const storage = window.sessionStorage
+      for (let i = 0; i < (storage?.length || 0); i += 1) {
+        const storageKey = storage.key(i)
+        if (!storageKey || !storageKey.startsWith(RESPONSE_CACHE_PREFIX)) continue
+        const rawKey = storageKey.slice(RESPONSE_CACHE_PREFIX.length)
+        if ((prefix && rawKey.startsWith(cacheKeyOrPrefix)) || (!prefix && rawKey === cacheKeyOrPrefix)) {
+          keysToDelete.push(storageKey)
+        }
+      }
+      keysToDelete.forEach((storageKey) => storage?.removeItem(storageKey))
+    } catch (_) {
+      // ignore
+    }
+  }
+}
+
+async function requestWithCache(endpoint, {
+  requestOptions = {},
+  cacheKey = '',
+  maxAgeMs = 30000,
+  forceRefresh = false,
+  dedupe = true,
+  fallbackToStaleOnError = true,
+} = {}) {
+  if (!cacheKey) {
+    return request(endpoint, requestOptions)
+  }
+
+  if (!forceRefresh) {
+    const freshCached = readCachedResponse(cacheKey, maxAgeMs)
+    if (freshCached) return freshCached
+  }
+
+  if (dedupe && inflightCacheRequests.has(cacheKey)) {
+    return inflightCacheRequests.get(cacheKey)
+  }
+
+  const pending = request(endpoint, requestOptions)
+    .then((payload) => writeResponseCacheEntry(cacheKey, payload))
+    .catch((error) => {
+      if (fallbackToStaleOnError) {
+        const staleCached = peekCachedResponse(cacheKey)
+        if (staleCached) return staleCached
+      }
+      throw error
+    })
+    .finally(() => {
+      inflightCacheRequests.delete(cacheKey)
+    })
+
+  if (dedupe) {
+    inflightCacheRequests.set(cacheKey, pending)
+  }
+
+  return pending
+}
+
+function profileCacheKey() {
+  return 'profile'
+}
+
+function leaderboardCacheKey(type = 'duel') {
+  return `leaderboard:${type}`
+}
+
+function shopItemsCacheKey(category = null) {
+  return `shop_items:${category || 'all'}`
+}
+
+function shopHistoryCacheKey() {
+  return 'shop_history'
+}
+
 // API методы
 export const api = {
   // Пользователь
   getUser: () => request('/user'),
   getProfile: () => request('/profile'),
+  getProfileCached: ({ maxAgeMs = 30000, forceRefresh = false } = {}) => (
+    requestWithCache('/profile', {
+      cacheKey: profileCacheKey(),
+      maxAgeMs,
+      forceRefresh,
+    })
+  ),
+  peekProfileCache: () => peekCachedResponse(profileCacheKey()),
   
   // Дуэли
   getActiveDuel: () => request('/duel/current'),
@@ -121,6 +278,14 @@ export const api = {
 
   // Рейтинг
   getLeaderboard: (type = 'duel') => request(`/leaderboard?type=${type}`),
+  getLeaderboardCached: (type = 'duel', { maxAgeMs = 30000, forceRefresh = false } = {}) => (
+    requestWithCache(`/leaderboard?type=${type}`, {
+      cacheKey: leaderboardCacheKey(type),
+      maxAgeMs,
+      forceRefresh,
+    })
+  ),
+  peekLeaderboardCache: (type = 'duel') => peekCachedResponse(leaderboardCacheKey(type)),
 
   // Статистика
   getStatistics: () => request('/statistics'),
@@ -135,11 +300,34 @@ export const api = {
 
   // Магазин
   getShopItems: (category = null) => request(`/shop/items${category ? `?category=${category}` : ''}`),
+  getShopItemsCached: (category = null, { maxAgeMs = 30000, forceRefresh = false } = {}) => (
+    requestWithCache(`/shop/items${category ? `?category=${category}` : ''}`, {
+      cacheKey: shopItemsCacheKey(category),
+      maxAgeMs,
+      forceRefresh,
+    })
+  ),
+  peekShopItemsCache: (category = null) => peekCachedResponse(shopItemsCacheKey(category)),
   purchaseItem: (itemId, quantity = 1) => request('/shop/purchase', {
     method: 'POST',
     body: JSON.stringify({ item_id: itemId, quantity })
+  }).then((response) => {
+    if (response?.success) {
+      invalidateResponseCache('shop_items:', { prefix: true })
+      invalidateResponseCache(shopHistoryCacheKey())
+      invalidateResponseCache(profileCacheKey())
+    }
+    return response
   }),
   getShopHistory: () => request('/shop/history'),
+  getShopHistoryCached: ({ maxAgeMs = 30000, forceRefresh = false } = {}) => (
+    requestWithCache('/shop/history', {
+      cacheKey: shopHistoryCacheKey(),
+      maxAgeMs,
+      forceRefresh,
+    })
+  ),
+  peekShopHistoryCache: () => peekCachedResponse(shopHistoryCacheKey()),
 
   // Инвентарь
   getInventory: () => request('/inventory'),
@@ -257,6 +445,14 @@ export const api = {
     method: 'POST',
     body: JSON.stringify(isActive === null ? {} : { is_active: isActive })
   }),
+
+  prefetchCorePages: ({ forceRefresh = false } = {}) => Promise.allSettled([
+    api.getProfileCached({ forceRefresh, maxAgeMs: 45000 }),
+    api.getShopItemsCached(null, { forceRefresh, maxAgeMs: 45000 }),
+    api.getShopHistoryCached({ forceRefresh, maxAgeMs: 45000 }),
+    api.getLeaderboardCached('duel', { forceRefresh, maxAgeMs: 45000 }),
+    api.getLeaderboardCached('truefalse', { forceRefresh, maxAgeMs: 45000 }),
+  ]),
 }
 
 

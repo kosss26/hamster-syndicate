@@ -60,6 +60,32 @@ function HomePage() {
     return () => clearInterval(interval)
   }, [loadIncomingRematch])
 
+  useEffect(() => {
+    const prefetch = () => {
+      api.prefetchCorePages().catch(() => {
+        // ignore prefetch errors
+      })
+    }
+
+    let idleId = null
+    let timeoutId = null
+
+    if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+      idleId = window.requestIdleCallback(prefetch, { timeout: 1200 })
+    } else {
+      timeoutId = setTimeout(prefetch, 700)
+    }
+
+    return () => {
+      if (idleId !== null && typeof window.cancelIdleCallback === 'function') {
+        window.cancelIdleCallback(idleId)
+      }
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId)
+      }
+    }
+  }, [])
+
   const checkActiveDuel = async () => {
     try {
       const response = await api.getActiveDuel()
@@ -86,7 +112,7 @@ function HomePage() {
 
   const loadProfile = async () => {
     try {
-      const response = await api.getProfile()
+      const response = await api.getProfileCached({ forceRefresh: true })
       if (response.success) {
         setProfile(response.data)
         setTicketSecondsLeft(Number(response.data.ticket_seconds_to_next || 0))
@@ -301,7 +327,10 @@ function HomePage() {
               onClick={handleQuickRandom}
               className="rounded-xl border border-indigo-300/45 bg-indigo-500/25 text-white py-4 text-sm font-semibold"
             >
-              🎲 Случайный
+              <span className="inline-flex items-center gap-1.5">
+                <ModeDuelIcon className="w-4 h-4" />
+                Случайный
+              </span>
             </button>
             <button
               onClick={handleQuickFriend}

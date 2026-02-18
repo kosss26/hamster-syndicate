@@ -8,8 +8,11 @@ import AvatarWithFrame from '../components/AvatarWithFrame'
 function ProfilePage() {
   const { user } = useTelegram()
   const navigate = useNavigate()
-  const [profile, setProfile] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [profile, setProfile] = useState(() => {
+    const cached = api.peekProfileCache()
+    return cached?.success ? cached.data : null
+  })
+  const [loading, setLoading] = useState(() => !api.peekProfileCache()?.success)
   const [error, setError] = useState(null)
   const [showcasedAchievements, setShowcasedAchievements] = useState([])
   const [achievementStats, setAchievementStats] = useState(null)
@@ -17,20 +20,25 @@ function ProfilePage() {
 
   useEffect(() => {
     showBackButton(true)
-    loadData()
+    const hasCachedProfile = Boolean(api.peekProfileCache()?.success)
+    loadData({ forceRefresh: hasCachedProfile, silent: hasCachedProfile })
   }, [])
 
-  const loadData = async () => {
-    setLoading(true)
+  const loadData = async ({ forceRefresh = false, silent = false } = {}) => {
+    const shouldShowLoader = !silent && !profile
+    if (shouldShowLoader) setLoading(true)
     setError(null)
     try {
       // Загружаем профиль - это обязательные данные
-      const profileRes = await api.getProfile()
+      const profileRes = await api.getProfileCached({
+        forceRefresh,
+        maxAgeMs: 30000,
+      })
       if (profileRes.success) {
         setProfile(profileRes.data)
       } else {
         setError(profileRes.error || 'Ошибка загрузки профиля')
-        setLoading(false)
+        if (shouldShowLoader) setLoading(false)
         return
       }
 
@@ -60,7 +68,7 @@ function ProfilePage() {
       console.error('Ошибка загрузки профиля:', err)
       setError(err.message || 'Ошибка загрузки данных')
     } finally {
-      setLoading(false)
+      if (shouldShowLoader) setLoading(false)
     }
   }
 
@@ -86,7 +94,7 @@ function ProfilePage() {
           <div className="text-6xl mb-4">⚠️</div>
           <p className="text-white/60 mb-6">{error || 'Profile not found'}</p>
           <button 
-            onClick={loadData}
+            onClick={() => loadData({ forceRefresh: true })}
             className="px-6 py-3 bg-white/10 border border-white/10 rounded-xl text-white font-medium backdrop-blur-md active:scale-95 transition-transform"
           >
             RETRY

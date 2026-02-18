@@ -57,13 +57,29 @@ function formatCosmeticName(value) {
 
 const ShopPage = () => {
   const { webApp } = useTelegram()
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => !api.peekShopItemsCache(null)?.success)
   const [busyItemId, setBusyItemId] = useState(null)
   const [selectedCategory, setSelectedCategory] = useState(null)
-  const [items, setItems] = useState([])
-  const [history, setHistory] = useState([])
+  const [items, setItems] = useState(() => {
+    const cached = api.peekShopItemsCache(null)
+    return cached?.success ? (cached.data?.items || []) : []
+  })
+  const [history, setHistory] = useState(() => {
+    const cached = api.peekShopHistoryCache()
+    return cached?.success ? (cached.data?.history || []) : []
+  })
   const [error, setError] = useState(null)
-  const [balance, setBalance] = useState({ coins: 0, gems: 0, hints: 0, tickets: 0 })
+  const [balance, setBalance] = useState(() => {
+    const cached = api.peekShopItemsCache(null)
+    const serverBalance = cached?.success ? cached.data?.balance : null
+    if (!serverBalance) return { coins: 0, gems: 0, hints: 0, tickets: 0 }
+    return {
+      coins: Number(serverBalance.coins || 0),
+      gems: Number(serverBalance.gems || 0),
+      hints: Number(serverBalance.hints || 0),
+      tickets: Number(serverBalance.tickets || serverBalance.lives || 0),
+    }
+  })
   const [quantities, setQuantities] = useState({})
   const [purchaseModalItem, setPurchaseModalItem] = useState(null)
 
@@ -86,46 +102,73 @@ const ShopPage = () => {
   }, [webApp, selectedCategory])
 
   useEffect(() => {
-    loadShop()
+    const hasCategorySnapshot = Boolean(api.peekShopItemsCache(selectedCategory)?.success)
+    loadShop({ forceRefresh: hasCategorySnapshot, silent: hasCategorySnapshot })
   }, [selectedCategory])
 
-  const loadShop = async () => {
-    setLoading(true)
+  const applyItemsResponse = (itemsResponse) => {
+    const serverItems = itemsResponse?.data?.items || []
+    const serverBalance = itemsResponse?.data?.balance
+    setItems(serverItems)
+
+    if (serverBalance) {
+      setBalance({
+        coins: Number(serverBalance.coins || 0),
+        gems: Number(serverBalance.gems || 0),
+        hints: Number(serverBalance.hints || 0),
+        tickets: Number(serverBalance.tickets || serverBalance.lives || 0),
+      })
+    }
+
+    setQuantities((prev) => {
+      const next = { ...prev }
+      for (const item of serverItems) {
+        const max = Number(item.max_per_purchase || 1)
+        if (!next[item.id]) next[item.id] = 1
+        if (next[item.id] > max) next[item.id] = Math.max(1, max)
+      }
+      return next
+    })
+  }
+
+  const loadShop = async ({ forceRefresh = false, silent = false } = {}) => {
+    const cachedItemsResponse = api.peekShopItemsCache(selectedCategory)
+    const cachedHistoryResponse = api.peekShopHistoryCache()
+    const hasCachedItems = Boolean(cachedItemsResponse?.success)
+
+    if (!forceRefresh && hasCachedItems) {
+      applyItemsResponse(cachedItemsResponse)
+    } else if (!hasCachedItems) {
+      setItems([])
+    }
+
+    if (!forceRefresh && cachedHistoryResponse?.success) {
+      setHistory(cachedHistoryResponse.data?.history || [])
+    }
+
+    const shouldShowLoader = !silent && !hasCachedItems
+    if (shouldShowLoader) setLoading(true)
     setError(null)
+
     try {
       const [itemsResponse, historyResponse] = await Promise.all([
-        api.getShopItems(selectedCategory),
-        api.getShopHistory(),
+        api.getShopItemsCached(selectedCategory, {
+          maxAgeMs: 30000,
+          forceRefresh: forceRefresh || hasCachedItems,
+        }),
+        api.getShopHistoryCached({
+          maxAgeMs: 30000,
+          forceRefresh: forceRefresh || Boolean(cachedHistoryResponse?.success),
+        }),
       ])
 
-      const serverItems = itemsResponse?.data?.items || []
-      const serverBalance = itemsResponse?.data?.balance
-      setItems(serverItems)
+      applyItemsResponse(itemsResponse)
       setHistory(historyResponse?.data?.history || [])
-
-      if (serverBalance) {
-        setBalance({
-          coins: Number(serverBalance.coins || 0),
-          gems: Number(serverBalance.gems || 0),
-          hints: Number(serverBalance.hints || 0),
-          tickets: Number(serverBalance.tickets || serverBalance.lives || 0),
-        })
-      }
-
-      setQuantities((prev) => {
-        const next = { ...prev }
-        for (const item of serverItems) {
-          const max = Number(item.max_per_purchase || 1)
-          if (!next[item.id]) next[item.id] = 1
-          if (next[item.id] > max) next[item.id] = Math.max(1, max)
-        }
-        return next
-      })
     } catch (err) {
       console.error('Ошибка загрузки магазина:', err)
       setError(err.message || 'Ошибка загрузки магазина')
     } finally {
-      setLoading(false)
+      if (shouldShowLoader) setLoading(false)
     }
   }
 
@@ -157,7 +200,7 @@ const ShopPage = () => {
         hapticFeedback('success')
         webApp?.showAlert?.(`Покупка успешна: ${item.name}`)
         setPurchaseModalItem(null)
-        await loadShop()
+        await loadShop({ forceRefresh: true, silent: true })
       }
     } catch (err) {
       hapticFeedback('error')

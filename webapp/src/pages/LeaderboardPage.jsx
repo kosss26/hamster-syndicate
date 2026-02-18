@@ -94,8 +94,15 @@ export default function LeaderboardPage() {
   const { user } = useTelegram()
 
   const [activeTab, setActiveTab] = useState('duel')
-  const [leaderboard, setLeaderboard] = useState({ duel: [], truefalse: [] })
-  const [loading, setLoading] = useState(true)
+  const [leaderboard, setLeaderboard] = useState(() => {
+    const cachedDuel = api.peekLeaderboardCache('duel')
+    const cachedTrueFalse = api.peekLeaderboardCache('truefalse')
+    return {
+      duel: cachedDuel?.success ? (cachedDuel.data?.players || []) : [],
+      truefalse: cachedTrueFalse?.success ? (cachedTrueFalse.data?.players || []) : [],
+    }
+  })
+  const [loading, setLoading] = useState(() => !api.peekLeaderboardCache('duel')?.success)
   const [error, setError] = useState(null)
 
   const isAdmin = Boolean(user && ADMIN_IDS.includes(user.id))
@@ -112,14 +119,37 @@ export default function LeaderboardPage() {
   const listTail = useMemo(() => data.slice(3), [data])
 
   useEffect(() => {
-    loadData()
+    const hasCachedDuel = Boolean(api.peekLeaderboardCache('duel')?.success)
+    loadData({ forceRefresh: hasCachedDuel, silent: hasCachedDuel })
   }, [])
 
-  const loadData = async () => {
-    setLoading(true)
+  const loadData = async ({ forceRefresh = false, silent = false } = {}) => {
+    const cachedDuel = api.peekLeaderboardCache('duel')
+    const cachedTrueFalse = api.peekLeaderboardCache('truefalse')
+    const hasCachedDuel = Boolean(cachedDuel?.success)
+
+    if (!forceRefresh && (cachedDuel?.success || cachedTrueFalse?.success)) {
+      setLeaderboard({
+        duel: cachedDuel?.success ? (cachedDuel.data?.players || []) : [],
+        truefalse: cachedTrueFalse?.success ? (cachedTrueFalse.data?.players || []) : [],
+      })
+    }
+
+    const shouldShowLoader = !silent && !hasCachedDuel
+    if (shouldShowLoader) setLoading(true)
     setError(null)
+
     try {
-      const [duelRes, tfRes] = await Promise.all([api.getLeaderboard('duel'), api.getLeaderboard('truefalse')])
+      const [duelRes, tfRes] = await Promise.all([
+        api.getLeaderboardCached('duel', {
+          maxAgeMs: 30000,
+          forceRefresh: forceRefresh || hasCachedDuel,
+        }),
+        api.getLeaderboardCached('truefalse', {
+          maxAgeMs: 30000,
+          forceRefresh: forceRefresh || Boolean(cachedTrueFalse?.success),
+        }),
+      ])
       setLeaderboard({
         duel: duelRes.success ? (duelRes.data.players || []) : [],
         truefalse: tfRes.success ? (tfRes.data.players || []) : [],
@@ -127,7 +157,7 @@ export default function LeaderboardPage() {
     } catch (err) {
       setError(err.message || 'Ошибка загрузки рейтинга')
     } finally {
-      setLoading(false)
+      if (shouldShowLoader) setLoading(false)
     }
   }
 
@@ -160,7 +190,7 @@ export default function LeaderboardPage() {
             </button>
             <h1 className="text-white font-bold">Рейтинг</h1>
             <button
-              onClick={loadData}
+              onClick={() => loadData({ forceRefresh: true, silent: true })}
               className="h-9 px-3 rounded-xl border border-white/10 bg-white/5 text-xs text-white/80"
             >
               Обновить
@@ -186,7 +216,7 @@ export default function LeaderboardPage() {
         {error ? (
           <div className="rounded-xl border border-red-400/30 bg-red-500/10 p-3 text-sm text-red-200">
             {error}
-            <button onClick={loadData} className="block mt-2 underline">Повторить</button>
+            <button onClick={() => loadData({ forceRefresh: true })} className="block mt-2 underline">Повторить</button>
           </div>
         ) : null}
 
