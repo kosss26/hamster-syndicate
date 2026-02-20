@@ -291,6 +291,11 @@ function HomePage() {
   const avatarInitial = (user?.first_name || 'Игрок').slice(0, 1).toUpperCase()
   const assetBase = import.meta.env.BASE_URL || '/'
   const asset = (path) => `${assetBase}${String(path || '').replace(/^\/+/, '')}`
+  const uiCover = (fileName) => ({
+    backgroundImage: `url(${asset(`assets/ui/${fileName}`)})`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+  })
 
   return (
     <div className="min-h-dvh bg-aurora bg-page-home relative flex flex-col overflow-hidden">
@@ -300,22 +305,8 @@ function HomePage() {
 
       <div className="relative z-10 px-5 pt-5 safe-top">
         <div className="relative rounded-3xl p-4 mb-4 overflow-hidden">
-          <div
-              className="absolute inset-0"
-              style={{
-              backgroundImage: `url(${asset('assets/ui/header_card_bg@2x.png')})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-            }}
-          />
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              backgroundImage: `url(${asset('assets/ui/header_card_border@2x.png')})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-            }}
-          />
+          <div className="absolute inset-0" style={uiCover('header_card_bg@2x.png')} />
+          <div className="absolute inset-0 pointer-events-none" style={uiCover('header_card_border@2x.png')} />
           <div
             className="absolute inset-0 pointer-events-none opacity-10 mix-blend-overlay"
             style={{
@@ -383,56 +374,67 @@ function HomePage() {
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-[34px] border border-cyan-300/20 bg-[radial-gradient(circle_at_15%_20%,rgba(56,189,248,0.22),transparent_45%),radial-gradient(circle_at_85%_10%,rgba(16,185,129,0.22),transparent_40%),linear-gradient(165deg,rgba(15,23,42,0.78),rgba(3,7,18,0.9))] backdrop-blur-xl p-5 mb-4 overflow-hidden"
+          className="relative rounded-[34px] border border-white/10 p-5 mb-4 overflow-hidden"
         >
-          <div className="absolute -top-20 -right-20 w-52 h-52 rounded-full bg-cyan-400/25 blur-3xl" />
-          <div className="absolute -bottom-24 -left-16 w-56 h-56 rounded-full bg-emerald-400/20 blur-3xl" />
-          <div className="relative text-center">
-            <div className="inline-flex items-center gap-2 rounded-2xl bg-white text-slate-900 px-4 py-2 mb-4">
-              <ModeDuelIcon className="w-5 h-5" />
-              <h1 className="text-xl font-black leading-tight">Дуэль</h1>
-            </div>
-            <div className="flex justify-center mb-4">
-              <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/30 bg-emerald-500/10 px-3 py-1.5 mr-2">
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
-                </span>
-                <span className="text-white font-semibold text-sm">{onlineCount !== null ? onlineCount : '...'}</span>
-                <span className="text-white/60 text-xs">в сети</span>
-              </div>
-              <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/30 bg-amber-500/10 px-3 py-1.5">
-                <TicketIcon className="w-4 h-4" />
-                <span className="text-white font-semibold text-sm">{profile?.tickets ?? '...'}</span>
-                <span className="text-white/60 text-xs">билеты</span>
-              </div>
-            </div>
-            {(profile?.tickets ?? 0) < 10 && (
-              <p className="text-white/65 text-xs mb-4">
-                До восстановления билета: <span className="text-amber-200 font-semibold">{formatTicketTimer(ticketSecondsLeft)}</span>
-              </p>
-            )}
-          </div>
+          <div className="absolute inset-0" style={uiCover('hero_duel_card_bg@2x.png')} />
+          <div className="absolute inset-0 pointer-events-none" style={uiCover('hero_duel_card_border@2x.png')} />
 
-          <div className="grid grid-cols-2 gap-2.5 relative">
-            <button
-              onClick={handleQuickRandom}
-              className="rounded-xl border border-indigo-300/45 bg-indigo-500/25 text-white py-4 text-sm font-semibold"
-            >
-              <span className="inline-flex items-center gap-1.5">
-                <ModeDuelIcon className="w-4 h-4" />
-                Случайный
-              </span>
-            </button>
-            <button
-              onClick={handleQuickFriend}
-              className="rounded-xl border border-cyan-300/45 bg-cyan-500/25 text-white py-4 text-sm font-semibold"
-            >
-              <span className="inline-flex items-center gap-1.5">
-                <ReferralIcon className="w-4 h-4" />
-                С другом
-              </span>
-            </button>
+          <div className="relative z-10">
+            <div className="text-center">
+              <div className="inline-flex items-center gap-2 rounded-2xl bg-white text-slate-900 px-4 py-2 mb-4">
+                <ModeDuelIcon className="w-5 h-5" />
+                <h1 className="text-xl font-black leading-tight">Дуэль</h1>
+              </div>
+              <div className="flex justify-center mb-4">
+                <div
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 mr-2 overflow-hidden"
+                  style={uiCover('pill_online_bg@2x.png')}
+                >
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
+                  </span>
+                  <span className="text-white font-semibold text-sm">{onlineCount !== null ? onlineCount : '...'}</span>
+                  <span className="text-white/70 text-xs">в сети</span>
+                </div>
+                <div
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 overflow-hidden"
+                  style={uiCover('pill_tickets_bg@2x.png')}
+                >
+                  <TicketIcon className="w-4 h-4" />
+                  <span className="text-white font-semibold text-sm">{profile?.tickets ?? '...'}</span>
+                  <span className="text-white/70 text-xs">билеты</span>
+                </div>
+              </div>
+              {(profile?.tickets ?? 0) < 10 && (
+                <p className="text-white/65 text-xs mb-4">
+                  До восстановления билета: <span className="text-amber-200 font-semibold">{formatTicketTimer(ticketSecondsLeft)}</span>
+                </p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                onClick={handleQuickRandom}
+                className="relative rounded-xl overflow-hidden py-4 text-white text-sm font-semibold"
+              >
+                <div className="absolute inset-0" style={uiCover('btn_quick_indigo@2x.png')} />
+                <span className="relative z-10 inline-flex items-center gap-1.5">
+                  <ModeDuelIcon className="w-4 h-4" />
+                  Случайный
+                </span>
+              </button>
+              <button
+                onClick={handleQuickFriend}
+                className="relative rounded-xl overflow-hidden py-4 text-white text-sm font-semibold"
+              >
+                <div className="absolute inset-0" style={uiCover('btn_quick_cyan@2x.png')} />
+                <span className="relative z-10 inline-flex items-center gap-1.5">
+                  <ReferralIcon className="w-4 h-4" />
+                  С другом
+                </span>
+              </button>
+            </div>
           </div>
         </motion.div>
 
@@ -440,9 +442,11 @@ function HomePage() {
           <motion.button
             whileTap={{ scale: 0.98 }}
             onClick={() => navigate('/tasks')}
-            className="col-span-2 rounded-2xl border border-violet-300/25 bg-violet-500/10 p-4 text-left"
+            className="relative col-span-2 rounded-2xl p-4 overflow-hidden border border-white/10 text-left"
           >
-            <div className="flex items-center justify-between gap-4">
+            <div className="absolute inset-0" style={uiCover('card_violet_bg@2x.png')} />
+            <div className="absolute inset-0 pointer-events-none" style={uiCover('card_violet_border@2x.png')} />
+            <div className="relative z-10 flex items-center justify-between gap-4">
               <div className="min-w-0">
                 <div className="text-white font-semibold text-sm mb-1">Задания и сезон</div>
                 <div className="text-white/65 text-xs">
@@ -463,34 +467,41 @@ function HomePage() {
           {incomingRematch && (
             <motion.div
               whileTap={{ scale: 0.98 }}
-              className="col-span-2 rounded-2xl border border-cyan-300/30 bg-cyan-500/10 p-4"
+              className="relative col-span-2 rounded-2xl p-4 overflow-hidden border border-white/10"
             >
-              <div className="flex items-center justify-between gap-3 mb-2">
-                <div className="min-w-0">
-                  <div className="text-white font-semibold text-sm mb-1">Входящий реванш</div>
-                  <div className="text-white/70 text-xs truncate">
-                    {incomingRematch?.initiator?.name || 'Соперник'} зовёт сыграть ещё раз
+              <div className="absolute inset-0" style={uiCover('card_neutral_bg@2x.png')} />
+              <div className="absolute inset-0 pointer-events-none" style={uiCover('card_neutral_border@2x.png')} />
+              <div className="relative z-10">
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <div className="min-w-0">
+                    <div className="text-white font-semibold text-sm mb-1">Входящий реванш</div>
+                    <div className="text-white/70 text-xs truncate">
+                      {incomingRematch?.initiator?.name || 'Соперник'} зовёт сыграть ещё раз
+                    </div>
+                  </div>
+                  <div className="text-cyan-200 text-xs font-semibold whitespace-nowrap">
+                    {Number.isFinite(incomingRematch?.expires_in) ? `${Math.max(0, Number(incomingRematch.expires_in))}с` : ''}
                   </div>
                 </div>
-                <div className="text-cyan-200 text-xs font-semibold whitespace-nowrap">
-                  {Number.isFinite(incomingRematch?.expires_in) ? `${Math.max(0, Number(incomingRematch.expires_in))}с` : ''}
+                <div className="grid grid-cols-2 gap-2 mt-3">
+                  <button
+                    onClick={handleAcceptRematch}
+                    disabled={rematchLoading}
+                    className="relative py-2.5 rounded-xl overflow-hidden text-slate-900 font-bold disabled:opacity-60"
+                  >
+                    <div className="absolute inset-0" style={uiCover('btn_accept_emerald@2x.png')} />
+                    <span className="relative z-10">Принять</span>
+                  </button>
+                  <button
+                    onClick={handleDeclineRematch}
+                    disabled={rematchLoading}
+                    className="relative py-2.5 rounded-xl overflow-hidden text-white font-semibold disabled:opacity-60"
+                  >
+                    <div className="absolute inset-0 bg-red-500/10" />
+                    <div className="absolute inset-0 pointer-events-none" style={uiCover('btn_outline_red@2x.png')} />
+                    <span className="relative z-10">Отказаться</span>
+                  </button>
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2 mt-3">
-                <button
-                  onClick={handleAcceptRematch}
-                  disabled={rematchLoading}
-                  className="py-2.5 rounded-xl bg-emerald-400 text-slate-900 font-bold disabled:opacity-60"
-                >
-                  Принять
-                </button>
-                <button
-                  onClick={handleDeclineRematch}
-                  disabled={rematchLoading}
-                  className="py-2.5 rounded-xl border border-white/20 text-white font-semibold disabled:opacity-60"
-                >
-                  Отказаться
-                </button>
               </div>
             </motion.div>
           )}
@@ -499,9 +510,11 @@ function HomePage() {
             <motion.button
               whileTap={{ scale: 0.98 }}
               onClick={() => navigate('/notifications')}
-              className="col-span-2 rounded-2xl border border-amber-300/25 bg-amber-500/10 p-4 text-left"
+              className="relative col-span-2 rounded-2xl p-4 overflow-hidden border border-white/10 text-left"
             >
-              <div className="flex items-center justify-between gap-3">
+              <div className="absolute inset-0" style={uiCover('card_amber_bg@2x.png')} />
+              <div className="absolute inset-0 pointer-events-none" style={uiCover('card_amber_border@2x.png')} />
+              <div className="relative z-10 flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-white font-semibold text-sm mb-1">🔔 Новые уведомления ({notifications.length})</div>
                   <div className="text-white/65 text-xs truncate">
@@ -516,9 +529,11 @@ function HomePage() {
           <motion.button
             whileTap={{ scale: 0.98 }}
             onClick={() => navigate('/truefalse')}
-            className="col-span-2 rounded-2xl border border-cyan-300/25 bg-cyan-500/10 p-4 text-left"
+            className="relative col-span-2 rounded-2xl p-4 overflow-hidden border border-white/10 text-left"
           >
-            <div className="flex items-start justify-between gap-4">
+            <div className="absolute inset-0" style={uiCover('card_cyan_bg@2x.png')} />
+            <div className="absolute inset-0 pointer-events-none" style={uiCover('card_cyan_border@2x.png')} />
+            <div className="relative z-10 flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 mb-2">
                   <ModeTrueFalseIcon className="w-7 h-7" />
@@ -536,9 +551,11 @@ function HomePage() {
           <motion.button
             whileTap={{ scale: 0.98 }}
             onClick={() => navigate('/referral')}
-            className="col-span-2 rounded-2xl border border-emerald-300/25 bg-emerald-500/10 p-4 text-left"
+            className="relative col-span-2 rounded-2xl p-4 overflow-hidden border border-white/10 text-left"
           >
-            <div className="flex items-center justify-between">
+            <div className="absolute inset-0" style={uiCover('card_emerald_bg@2x.png')} />
+            <div className="absolute inset-0 pointer-events-none" style={uiCover('card_emerald_border@2x.png')} />
+            <div className="relative z-10 flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <ReferralIcon className="w-5 h-5" />
@@ -553,9 +570,11 @@ function HomePage() {
           <motion.button
             whileTap={{ scale: 0.98 }}
             onClick={() => navigate('/support')}
-            className="col-span-2 rounded-2xl border border-sky-300/25 bg-sky-500/10 p-4 text-left"
+            className="relative col-span-2 rounded-2xl p-4 overflow-hidden border border-white/10 text-left"
           >
-            <div className="flex items-center justify-between">
+            <div className="absolute inset-0" style={uiCover('card_sky_bg@2x.png')} />
+            <div className="absolute inset-0 pointer-events-none" style={uiCover('card_sky_border@2x.png')} />
+            <div className="relative z-10 flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <div className="text-base">🛟</div>
@@ -571,9 +590,11 @@ function HomePage() {
             <motion.button
               whileTap={{ scale: 0.98 }}
               onClick={() => navigate('/admin')}
-              className="col-span-2 mt-1 rounded-2xl border border-red-400/30 bg-red-500/10 p-3 text-red-300 text-sm font-semibold"
+              className="relative col-span-2 mt-1 rounded-2xl p-3 overflow-hidden border border-white/10 text-red-200 text-sm font-semibold"
             >
-              🛠 Админ панель
+              <div className="absolute inset-0" style={uiCover('card_red_bg@2x.png')} />
+              <div className="absolute inset-0 pointer-events-none" style={uiCover('card_red_border@2x.png')} />
+              <div className="relative z-10">🛠 Админ панель</div>
             </motion.button>
           )}
         </div>
@@ -585,44 +606,58 @@ function HomePage() {
 
       {showFriendModePicker && (
         <div className="fixed inset-0 z-50 bg-black/65 backdrop-blur-sm flex items-center justify-center p-5">
-          <div className="w-full max-w-sm rounded-3xl border border-white/15 bg-slate-950/95 p-5">
-            <h3 className="text-white font-bold text-lg mb-1">С другом</h3>
-            <p className="text-white/60 text-sm mb-4">Выбери, как начать приватную дуэль</p>
+          <div className="relative w-full max-w-sm rounded-3xl border border-white/15 p-5 overflow-hidden">
+            <div className="absolute inset-0" style={uiCover('modal_sheet_bg@2x.png')} />
+            <div className="absolute inset-0 pointer-events-none" style={uiCover('modal_sheet_border@2x.png')} />
 
-            <div className="space-y-2">
-              <button
-                onClick={handleCreateFriendRoom}
-                className="w-full py-3 rounded-xl bg-white text-slate-900 font-bold"
-              >
-                Создать комнату
-              </button>
+            <div className="relative z-10">
+              <h3 className="text-white font-bold text-lg mb-1">С другом</h3>
+              <p className="text-white/60 text-sm mb-4">Выбери, как начать приватную дуэль</p>
 
-              <div className="rounded-xl border border-white/15 p-3">
-                <p className="text-white/60 text-xs mb-2">Ввести код (5 цифр)</p>
-                <input
-                  value={friendJoinCode}
-                  onChange={(e) => setFriendJoinCode(e.target.value.replace(/\D+/g, '').slice(0, 5))}
-                  placeholder="12345"
-                  inputMode="numeric"
-                  maxLength={5}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg py-2.5 text-center tracking-[0.25em] text-white font-mono font-bold outline-none"
-                />
+              <div className="space-y-2">
                 <button
-                  onClick={handleJoinFriendByCode}
-                  disabled={!/^\d{5}$/.test(friendJoinCode)}
-                  className="w-full mt-2 py-2.5 rounded-lg border border-cyan-300/35 bg-cyan-500/15 text-white font-semibold disabled:opacity-50"
+                  onClick={handleCreateFriendRoom}
+                  className="relative w-full py-3 rounded-xl overflow-hidden text-slate-900 font-bold"
                 >
-                  Войти по коду
+                  <div className="absolute inset-0" style={uiCover('btn_primary_white@2x.png')} />
+                  <span className="relative z-10">Создать комнату</span>
                 </button>
-              </div>
-            </div>
 
-            <button
-              onClick={() => setShowFriendModePicker(false)}
-              className="w-full mt-3 py-2.5 rounded-xl text-white/70 border border-white/10"
-            >
-              Закрыть
-            </button>
+                <div className="rounded-xl border border-white/15 p-3">
+                  <p className="text-white/60 text-xs mb-2">Ввести код (5 цифр)</p>
+                  <div className="relative rounded-lg overflow-hidden">
+                    <div className="absolute inset-0" style={uiCover('input_code_bg@2x.png')} />
+                    <div className="absolute inset-0 pointer-events-none" style={uiCover('input_code_border@2x.png')} />
+                    <input
+                      value={friendJoinCode}
+                      onChange={(e) => setFriendJoinCode(e.target.value.replace(/\D+/g, '').slice(0, 5))}
+                      placeholder="12345"
+                      inputMode="numeric"
+                      maxLength={5}
+                      className="relative z-10 w-full bg-transparent py-2.5 text-center tracking-[0.25em] text-white font-mono font-bold outline-none"
+                    />
+                  </div>
+                  <button
+                    onClick={handleJoinFriendByCode}
+                    disabled={!/^\d{5}$/.test(friendJoinCode)}
+                    className="relative w-full mt-2 py-2.5 rounded-lg overflow-hidden text-white font-semibold disabled:opacity-50"
+                  >
+                    <div className="absolute inset-0 bg-cyan-500/15" />
+                    <div className="absolute inset-0 pointer-events-none" style={uiCover('btn_outline_cyan@2x.png')} />
+                    <span className="relative z-10">Войти по коду</span>
+                  </button>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowFriendModePicker(false)}
+                className="relative w-full mt-3 py-2.5 rounded-xl overflow-hidden text-white/80 font-semibold"
+              >
+                <div className="absolute inset-0 bg-white/5" />
+                <div className="absolute inset-0 pointer-events-none" style={uiCover('btn_outline_white@2x.png')} />
+                <span className="relative z-10">Закрыть</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
