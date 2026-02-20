@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useTelegram, hapticFeedback } from '../hooks/useTelegram'
 import api from '../api/client'
+import CoinIcon from '../components/CoinIcon'
 import TicketIcon from '../components/TicketIcon'
 import ModeDuelIcon from '../components/ModeDuelIcon'
 import ModeTrueFalseIcon from '../components/ModeTrueFalseIcon'
@@ -359,7 +360,7 @@ function HomePage() {
                   backgroundPosition: 'center',
                 }}
               >
-                <img src={asset('assets/icons/coin@2x.png')} className="w-4 h-4" alt="" />
+                <CoinIcon className="w-4 h-4" />
                 <span className="text-white font-semibold text-sm">{profile?.coins ?? '...'}</span>
               </div>
               <div
@@ -370,7 +371,7 @@ function HomePage() {
                   backgroundPosition: 'center',
                 }}
               >
-                <img src={asset('assets/icons/gem@2x.png')} className="w-4 h-4" alt="" />
+                <span className="text-sm">💎</span>
                 <span className="text-white font-semibold text-sm">{profile?.gems ?? '...'}</span>
               </div>
             </div>
