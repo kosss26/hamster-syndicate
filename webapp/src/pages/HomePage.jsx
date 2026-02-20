@@ -3,13 +3,34 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useTelegram, hapticFeedback } from '../hooks/useTelegram'
 import api from '../api/client'
-import AvatarWithFrame from '../components/AvatarWithFrame'
-import CoinIcon from '../components/CoinIcon'
 import TicketIcon from '../components/TicketIcon'
 import ModeDuelIcon from '../components/ModeDuelIcon'
 import ModeTrueFalseIcon from '../components/ModeTrueFalseIcon'
 import ReferralIcon from '../components/ReferralIcon'
 import { getNotificationItems, subscribeNotifications } from '../utils/notificationInbox'
+
+function resolveAvatarRingTier(frameKey) {
+  const normalized = String(frameKey || '').toLowerCase()
+  if (!normalized) return 'default'
+  if (normalized.includes('legend')) return 'legend'
+  if (
+    normalized.includes('epic')
+    || normalized.includes('diamond')
+    || normalized.includes('rainbow')
+    || normalized.includes('royal')
+    || normalized.includes('lightning')
+  ) {
+    return 'epic'
+  }
+  if (
+    normalized.includes('rare')
+    || normalized.includes('winner')
+    || normalized.includes('streak')
+  ) {
+    return 'rare'
+  }
+  return 'default'
+}
 
 function HomePage() {
   const { user, webApp } = useTelegram()
@@ -264,6 +285,10 @@ function HomePage() {
     }
   }
 
+  const avatarUrl = profile?.avatar_url || user?.photo_url || null
+  const avatarRingTier = resolveAvatarRingTier(profile?.equipped_frame)
+  const avatarInitial = (user?.first_name || 'Игрок').slice(0, 1).toUpperCase()
+
   return (
     <div className="min-h-dvh bg-aurora bg-page-home relative flex flex-col overflow-hidden">
       <div className="aurora-blob aurora-blob-1" />
@@ -271,15 +296,52 @@ function HomePage() {
       <div className="noise-overlay" />
 
       <div className="relative z-10 px-5 pt-5 safe-top">
-        <div className="rounded-3xl border border-white/10 bg-black/20 backdrop-blur-xl p-4 mb-4">
-          <div className="flex items-center justify-between">
+        <div className="relative rounded-3xl p-4 mb-4 overflow-hidden">
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundImage: 'url(/assets/ui/header_card_bg@2x.png)',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+            }}
+          />
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              backgroundImage: 'url(/assets/ui/header_card_border@2x.png)',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+            }}
+          />
+          <div
+            className="absolute inset-0 pointer-events-none opacity-10 mix-blend-overlay"
+            style={{
+              backgroundImage: 'url(/assets/ui/noise_tile.png)',
+              backgroundRepeat: 'repeat',
+              backgroundSize: '256px 256px',
+            }}
+          />
+
+          <div className="relative z-10 flex items-center justify-between">
             <div className="flex items-center gap-3 min-w-0">
-              <AvatarWithFrame
-                photoUrl={user?.photo_url}
-                name={user?.first_name}
-                size={46}
-                frameKey={profile?.equipped_frame}
-              />
+              <div className="relative w-[52px] h-[52px] shrink-0">
+                <img
+                  src={`/assets/ui/avatar_ring_${avatarRingTier}@2x.png`}
+                  className="absolute inset-0 w-full h-full"
+                  alt=""
+                />
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    className="absolute inset-[6px] rounded-full w-[calc(100%-12px)] h-[calc(100%-12px)] object-cover"
+                    alt={user?.first_name || 'Avatar'}
+                  />
+                ) : (
+                  <div className="absolute inset-[6px] rounded-full w-[calc(100%-12px)] h-[calc(100%-12px)] bg-white/12 text-white font-bold text-sm flex items-center justify-center">
+                    {avatarInitial}
+                  </div>
+                )}
+              </div>
               <div className="min-w-0">
                 <p className="text-white/50 text-[11px] uppercase tracking-wider">Привет</p>
                 <h2 className="text-white font-bold text-base truncate">{user?.first_name || 'Игрок'}</h2>
@@ -287,12 +349,26 @@ function HomePage() {
             </div>
 
             <div className="flex items-center gap-2 flex-wrap justify-end max-w-[58%]">
-              <div className="flex items-center gap-1.5 rounded-full border border-amber-300/30 bg-amber-500/10 px-3 py-1.5 min-w-fit">
-                <CoinIcon className="w-4 h-4" />
+              <div
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full overflow-hidden min-w-fit"
+                style={{
+                  backgroundImage: 'url(/assets/ui/pill_currency_bg@2x.png)',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                }}
+              >
+                <img src="/assets/icons/coin@2x.png" className="w-4 h-4" alt="" />
                 <span className="text-white font-semibold text-sm">{profile?.coins ?? '...'}</span>
               </div>
-              <div className="flex items-center gap-1.5 rounded-full border border-cyan-300/30 bg-cyan-500/10 px-3 py-1.5 min-w-fit">
-                <span className="text-sm">💎</span>
+              <div
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full overflow-hidden min-w-fit"
+                style={{
+                  backgroundImage: 'url(/assets/ui/pill_currency_bg@2x.png)',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                }}
+              >
+                <img src="/assets/icons/gem@2x.png" className="w-4 h-4" alt="" />
                 <span className="text-white font-semibold text-sm">{profile?.gems ?? '...'}</span>
               </div>
             </div>
