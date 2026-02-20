@@ -361,7 +361,7 @@ function HomePage() {
                 }}
               >
                 <CoinIcon className="w-4 h-4" />
-                <span className="text-white font-semibold text-sm">{profile?.coins ?? '...'}</span>
+                <span className="text-slate-900 font-semibold text-sm">{profile?.coins ?? '...'}</span>
               </div>
               <div
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full overflow-hidden min-w-fit"
@@ -372,7 +372,7 @@ function HomePage() {
                 }}
               >
                 <span className="text-sm">💎</span>
-                <span className="text-white font-semibold text-sm">{profile?.gems ?? '...'}</span>
+                <span className="text-slate-900 font-semibold text-sm">{profile?.gems ?? '...'}</span>
               </div>
             </div>
           </div>
