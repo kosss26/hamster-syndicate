@@ -288,6 +288,8 @@ function HomePage() {
   const avatarUrl = profile?.avatar_url || user?.photo_url || null
   const avatarRingTier = resolveAvatarRingTier(profile?.equipped_frame)
   const avatarInitial = (user?.first_name || 'Игрок').slice(0, 1).toUpperCase()
+  const assetBase = import.meta.env.BASE_URL || '/'
+  const asset = (path) => `${assetBase}${String(path || '').replace(/^\/+/, '')}`
 
   return (
     <div className="min-h-dvh bg-aurora bg-page-home relative flex flex-col overflow-hidden">
@@ -298,9 +300,9 @@ function HomePage() {
       <div className="relative z-10 px-5 pt-5 safe-top">
         <div className="relative rounded-3xl p-4 mb-4 overflow-hidden">
           <div
-            className="absolute inset-0"
-            style={{
-              backgroundImage: 'url(/assets/ui/header_card_bg@2x.png)',
+              className="absolute inset-0"
+              style={{
+              backgroundImage: `url(${asset('assets/ui/header_card_bg@2x.png')})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
             }}
@@ -308,7 +310,7 @@ function HomePage() {
           <div
             className="absolute inset-0 pointer-events-none"
             style={{
-              backgroundImage: 'url(/assets/ui/header_card_border@2x.png)',
+              backgroundImage: `url(${asset('assets/ui/header_card_border@2x.png')})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
             }}
@@ -316,7 +318,7 @@ function HomePage() {
           <div
             className="absolute inset-0 pointer-events-none opacity-10 mix-blend-overlay"
             style={{
-              backgroundImage: 'url(/assets/ui/noise_tile.png)',
+              backgroundImage: `url(${asset('assets/ui/noise_tile.png')})`,
               backgroundRepeat: 'repeat',
               backgroundSize: '256px 256px',
             }}
@@ -326,7 +328,7 @@ function HomePage() {
             <div className="flex items-center gap-3 min-w-0">
               <div className="relative w-[52px] h-[52px] shrink-0">
                 <img
-                  src={`/assets/ui/avatar_ring_${avatarRingTier}@2x.png`}
+                  src={asset(`assets/ui/avatar_ring_${avatarRingTier}@2x.png`)}
                   className="absolute inset-0 w-full h-full"
                   alt=""
                 />
@@ -352,23 +354,23 @@ function HomePage() {
               <div
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full overflow-hidden min-w-fit"
                 style={{
-                  backgroundImage: 'url(/assets/ui/pill_currency_bg@2x.png)',
+                  backgroundImage: `url(${asset('assets/ui/pill_currency_bg@2x.png')})`,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
                 }}
               >
-                <img src="/assets/icons/coin@2x.png" className="w-4 h-4" alt="" />
+                <img src={asset('assets/icons/coin@2x.png')} className="w-4 h-4" alt="" />
                 <span className="text-white font-semibold text-sm">{profile?.coins ?? '...'}</span>
               </div>
               <div
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full overflow-hidden min-w-fit"
                 style={{
-                  backgroundImage: 'url(/assets/ui/pill_currency_bg@2x.png)',
+                  backgroundImage: `url(${asset('assets/ui/pill_currency_bg@2x.png')})`,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
                 }}
               >
-                <img src="/assets/icons/gem@2x.png" className="w-4 h-4" alt="" />
+                <img src={asset('assets/icons/gem@2x.png')} className="w-4 h-4" alt="" />
                 <span className="text-white font-semibold text-sm">{profile?.gems ?? '...'}</span>
               </div>
             </div>
