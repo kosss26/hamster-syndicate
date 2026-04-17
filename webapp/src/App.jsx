@@ -129,13 +129,13 @@ function App() {
     )
   }
 
-  return (
-    <TelegramContext.Provider value={{ tg, user }}>
-      <BrowserRouter basename="/webapp">
-        <div className="min-h-screen">
-          <TelegramBackButton />
-          <AdminButton />
-          <Routes>
+    return (
+      <TelegramContext.Provider value={{ tg, user }}>
+        <BrowserRouter>
+          <div className="min-h-screen">
+            <TelegramBackButton />
+            <AdminButton />
+            <Routes>
             {/* Routes with Bottom Menu */}
             <Route element={<Layout />}>
               <Route path="/" element={<HomePage />} />
@@ -160,11 +160,11 @@ function App() {
             <Route path="/duel" element={<DuelPage />} />
             <Route path="/duel/:id" element={<DuelPage />} />
             <Route path="/truefalse" element={<TrueFalsePage />} />
-          </Routes>
-        </div>
-      </BrowserRouter>
-    </TelegramContext.Provider>
-  )
-}
+            </Routes>
+          </div>
+        </BrowserRouter>
+      </TelegramContext.Provider>
+    )
+  }
 
 export default App

@@ -83,6 +83,20 @@ WEBAPP_URL=https://webapp.yourdomain.com
 
 После этого в боте появится кнопка "🎮 Играть", которая открывает Mini App.
 
+## 🚀 Развёртывание на Vercel
+
+Если нужен самый простой вариант, деплойте только `webapp/`:
+
+1. В Vercel создайте новый Project из этого репозитория.
+2. Укажите `Root Directory = webapp`.
+3. Оставьте `Build Command = npm run build`, `Output Directory = dist`.
+4. Добавьте переменные окружения:
+   - `VITE_API_URL=https://your-api-domain.com/api`
+   - `VITE_WS_URL=wss://your-api-domain.com/ws` если нужен WebSocket
+5. После деплоя укажите URL Vercel-страницы в боте как `WEBAPP_URL`.
+
+Для SPA-роутинга уже добавлен `webapp/vercel.json`, поэтому прямые переходы на `/profile`, `/duel/123` и т.п. будут работать.
+
 ## 📁 Структура проекта
 
 ```
@@ -149,4 +163,3 @@ Mini App общается с PHP бэкендом через `/api`:
 - **BackButton** — системная кнопка "Назад"
 - **Theme** — автоподстройка под тему пользователя
 - **Expand** — приложение раскрывается на весь экран
-

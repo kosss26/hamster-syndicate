@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/webapp/',
+  base: '/',
   server: {
     port: 3000,
     host: true
@@ -13,4 +13,3 @@ export default defineConfig({
     assetsDir: 'assets'
   }
 })
-
