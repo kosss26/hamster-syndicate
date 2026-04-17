@@ -27,9 +27,9 @@ trait SendsDuelMessages
      */
     protected function getMainKeyboard(): array
     {
-        $webappUrl = getenv('WEBAPP_URL');
-        if (empty($webappUrl)) {
-            return ['remove_keyboard' => true];
+        $webappUrl = trim((string) getenv('WEBAPP_URL'));
+        if ($webappUrl === '' || strpos($webappUrl, 'app.tvixx.ru/webapp') !== false) {
+            $webappUrl = 'https://quiz-two-drab.vercel.app';
         }
 
         $inlineKeyboard = [];

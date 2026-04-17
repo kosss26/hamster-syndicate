@@ -118,7 +118,7 @@ final class CommandHandler
         
         $this->logger->debug('Обработка команды', [
             'normalized' => $normalized,
-            'user_id' => $user?->getKey(),
+            'user_id' => $user !== null ? $user->getKey() : null,
         ]);
 
         if ($this->startsWith($normalized, '/start')) {
@@ -208,9 +208,9 @@ final class CommandHandler
      */
     private function getMainKeyboard(): array
     {
-        $webappUrl = getenv('WEBAPP_URL');
-        if (empty($webappUrl)) {
-            return ['remove_keyboard' => true];
+        $webappUrl = trim((string) getenv('WEBAPP_URL'));
+        if ($webappUrl === '' || strpos($webappUrl, 'app.tvixx.ru/webapp') !== false) {
+            $webappUrl = 'https://quiz-two-drab.vercel.app';
         }
 
         return [
@@ -392,7 +392,7 @@ final class CommandHandler
             return;
         }
 
-        $record = $user->profile?->true_false_record ?? 0;
+        $record = $user->profile !== null ? ($user->profile->true_false_record ?? 0) : 0;
 
         $this->telegramClient->request('POST', 'sendMessage', [
             'json' => [
@@ -711,7 +711,7 @@ final class CommandHandler
     {
         $this->logger->debug('sendLeaderboard вызван', [
             'chat_id' => $chatId,
-            'user_id' => $user?->getKey(),
+            'user_id' => $user !== null ? $user->getKey() : null,
         ]);
         
         try {
@@ -1306,7 +1306,7 @@ final class CommandHandler
     private function sendReferralInfo($chatId, ?User $user): void
     {
         try {
-            $this->logger->debug('sendReferralInfo: начало', ['chat_id' => $chatId, 'user_id' => $user?->getKey()]);
+            $this->logger->debug('sendReferralInfo: начало', ['chat_id' => $chatId, 'user_id' => $user !== null ? $user->getKey() : null]);
             
             if (!$user instanceof User) {
                 $this->telegramClient->request('POST', 'sendMessage', [

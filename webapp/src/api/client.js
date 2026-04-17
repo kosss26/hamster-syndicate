@@ -1,7 +1,7 @@
 // Базовый URL API
-// В продакшене используем относительный путь /api, который nginx проксирует на PHP
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
-const WS_BASE_URL = import.meta.env.VITE_WS_URL || ''
+// Для Vercel используем публичный backend по умолчанию, если env не задан
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app.tvixx.ru/api'
+const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'wss://app.tvixx.ru/ws'
 const INIT_DATA_CACHE_KEY = 'quizbot_tg_init_data'
 const RESPONSE_CACHE_PREFIX = 'quizbot_api_response_v1:'
 

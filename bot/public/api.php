@@ -27,33 +27,42 @@ require dirname(__DIR__) . '/vendor/autoload.php';
 
 // CORS заголовки для Mini App
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-$allowedOrigin = '';
+$allowedOrigins = ['https://quiz-two-drab.vercel.app'];
 $allowedOriginMatched = false;
 
 try {
     $tmpConfig = Config::fromEnv(dirname(__DIR__) . '/config');
     $configuredWebappUrl = (string) $tmpConfig->get('WEBAPP_URL', '');
-    $allowedOrigin = $configuredWebappUrl !== '' ? rtrim($configuredWebappUrl, '/') : '';
+    if ($configuredWebappUrl !== '') {
+        $allowedOrigins[] = rtrim($configuredWebappUrl, '/');
+    }
 } catch (Throwable $e) {
-    $allowedOrigin = '';
-    $allowedOriginMatched = false;
+    // Ignore config errors here, we still allow the known Vercel origin.
 }
 
-if ($allowedOrigin !== '' && $origin !== '') {
-    $allowedParts = parse_url($allowedOrigin);
+if ($origin !== '') {
     $originParts = parse_url($origin);
 
-    $sameHost = isset($allowedParts['host'], $originParts['host'])
-        && strtolower((string) $allowedParts['host']) === strtolower((string) $originParts['host']);
-    $sameScheme = (($allowedParts['scheme'] ?? 'https') === ($originParts['scheme'] ?? 'https'));
-    $allowedPort = $allowedParts['port'] ?? (($allowedParts['scheme'] ?? 'https') === 'http' ? 80 : 443);
-    $originPort = $originParts['port'] ?? (($originParts['scheme'] ?? 'https') === 'http' ? 80 : 443);
-    $samePort = ($allowedPort === $originPort);
+    foreach (array_unique($allowedOrigins) as $allowedOrigin) {
+        if ($allowedOrigin === '') {
+            continue;
+        }
 
-    if ($sameHost && $sameScheme && $samePort) {
-        $allowedOriginMatched = true;
-        header('Access-Control-Allow-Origin: ' . $origin);
-        header('Vary: Origin');
+        $allowedParts = parse_url($allowedOrigin);
+
+        $sameHost = isset($allowedParts['host'], $originParts['host'])
+            && strtolower((string) $allowedParts['host']) === strtolower((string) $originParts['host']);
+        $sameScheme = (($allowedParts['scheme'] ?? 'https') === ($originParts['scheme'] ?? 'https'));
+        $allowedPort = $allowedParts['port'] ?? (($allowedParts['scheme'] ?? 'https') === 'http' ? 80 : 443);
+        $originPort = $originParts['port'] ?? (($originParts['scheme'] ?? 'https') === 'http' ? 80 : 443);
+        $samePort = ($allowedPort === $originPort);
+
+        if ($sameHost && $sameScheme && $samePort) {
+            $allowedOriginMatched = true;
+            header('Access-Control-Allow-Origin: ' . $origin);
+            header('Vary: Origin');
+            break;
+        }
     }
 }
 

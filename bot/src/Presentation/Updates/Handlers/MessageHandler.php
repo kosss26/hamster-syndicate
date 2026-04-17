@@ -271,7 +271,7 @@ final class MessageHandler
             // Проверяем, ожидает ли система сообщения от пользователя для тех.поддержки (ПЕРВЫМ, ДО создания CommandHandler!)
             $this->logger->debug('Перед проверкой флага тех.поддержки', [
                 'user_is_instance' => ($user instanceof User),
-                'user_id' => $user?->getKey(),
+                'user_id' => $user !== null ? $user->getKey() : null,
                 'is_admin' => ($user instanceof User ? $this->adminService->isAdmin($user) : false),
             ]);
             
@@ -479,9 +479,9 @@ final class MessageHandler
      */
     private function getMainKeyboard(): array
     {
-        $webappUrl = getenv('WEBAPP_URL');
-        if (empty($webappUrl)) {
-            return ['remove_keyboard' => true];
+        $webappUrl = trim((string) getenv('WEBAPP_URL'));
+        if ($webappUrl === '' || strpos($webappUrl, 'app.tvixx.ru/webapp') !== false) {
+            $webappUrl = 'https://quiz-two-drab.vercel.app';
         }
 
         return [
